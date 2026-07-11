@@ -6,14 +6,23 @@ import type {
   RegisterRepository,
 } from "../domain/contracts";
 import type { ChemicalInput, ChemicalRecord } from "$lib/persistence/chemical.types";
+import type {
+  ComplianceItemInput,
+  ComplianceItemRecord,
+} from "$lib/persistence/compliance-item.types";
 import type { ControlInput, ControlRecord } from "$lib/persistence/control.types";
 import type {
   CorrectiveActionInput,
   CorrectiveActionRecord,
 } from "$lib/persistence/corrective-action.types";
 import type { EquipmentInput, EquipmentRecord } from "$lib/persistence/equipment.types";
+import type {
+  ExposureMonitoringInput,
+  ExposureMonitoringRecord,
+} from "$lib/persistence/exposure-monitoring.types";
 import type { FindingInput, FindingRecord } from "$lib/persistence/finding.types";
 import type { HazardInput, HazardRecord } from "$lib/persistence/hazard.types";
+import type { IncidentInput, IncidentRecord } from "$lib/persistence/incident.types";
 import type { LocationInput, LocationRecord } from "$lib/persistence/location.types";
 import type { ProcessInput, ProcessRecord } from "$lib/persistence/process.types";
 import type { RegisterCollectionName, PersistenceRepositoryAdapter } from "$lib/persistence/local-persistence";
@@ -74,12 +83,27 @@ export function createPersistenceRepositorySet(
         update: (id, input) => persistenceRepository.updateEquipment(id, input),
       },
     ),
+    exposureMonitoring: createRegisterRepository<
+      ExposureMonitoringRecord,
+      ExposureMonitoringInput
+    >(persistenceRepository, "exposureMonitoring", {
+      create: (input) => persistenceRepository.createExposureMonitoring(input),
+      update: (id, input) => persistenceRepository.updateExposureMonitoring(id, input),
+    }),
     chemicals: createRegisterRepository<ChemicalRecord, ChemicalInput>(
       persistenceRepository,
       "chemicals",
       {
         create: (input) => persistenceRepository.createChemical(input),
         update: (id, input) => persistenceRepository.updateChemical(id, input),
+      },
+    ),
+    complianceItems: createRegisterRepository<ComplianceItemRecord, ComplianceItemInput>(
+      persistenceRepository,
+      "complianceItems",
+      {
+        create: (input) => persistenceRepository.createComplianceItem(input),
+        update: (id, input) => persistenceRepository.updateComplianceItem(id, input),
       },
     ),
     hazards: createRegisterRepository<HazardRecord, HazardInput>(
@@ -116,6 +140,14 @@ export function createPersistenceRepositorySet(
       {
         create: (input) => persistenceRepository.createFinding(input),
         update: (id, input) => persistenceRepository.updateFinding(id, input),
+      },
+    ),
+    incidents: createRegisterRepository<IncidentRecord, IncidentInput>(
+      persistenceRepository,
+      "incidents",
+      {
+        create: (input) => persistenceRepository.createIncident(input),
+        update: (id, input) => persistenceRepository.updateIncident(id, input),
       },
     ),
     correctiveActions: createRegisterRepository<CorrectiveActionRecord, CorrectiveActionInput>(

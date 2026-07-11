@@ -13,11 +13,14 @@ import type { RiskAssessmentInput } from "./risk-assessment.types";
 import type { SegInput } from "./seg.types";
 import {
   createLocalPersistenceRepository,
+  complianceItemRecords,
   controlRecords,
   equipmentRecords,
+  exposureMonitoringRecords,
   findingRecords,
   getPersistenceStatusLabel,
   hazardRecords,
+  incidentRecords,
   locationRecords,
   persistenceDiagnostics,
   resetPersistenceStoresForTest,
@@ -88,6 +91,157 @@ describe("local persistence", () => {
     expect(get(controlRecords)[0]?.id).toBe("control-demo-slip-matting");
     expect(get(riskAssessmentRecords)[0]?.id).toBe("risk-demo-slip-storage-entry");
     expect(get(findingRecords)[0]?.id).toBe("finding-demo-egress");
+  });
+
+  it("seeds exposure monitoring, incident, and compliance registers", async () => {
+    const repository = createLocalPersistenceRepository({
+      storage: createMemoryStorage(),
+      now: () => new Date("2026-07-09T12:00:00.000Z"),
+    });
+
+    await repository.initialize();
+
+    expect(get(exposureMonitoringRecords)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: "exposure-demo-acetone-twa" }),
+      ]),
+    );
+    expect(get(incidentRecords)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: "incident-demo-grinding-near-miss" }),
+      ]),
+    );
+    expect(get(complianceItemRecords)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: "compliance-demo-air-permit-review" }),
+        expect.objectContaining({ id: "compliance-demo-chemical-training" }),
+      ]),
+    );
+  });
+
+  it("creates, reads, updates, archives, and restores a compliance item", async () => {
+    const repository = createLocalPersistenceRepository({
+      storage: createMemoryStorage(),
+      now: () => new Date("2026-07-09T12:00:00.000Z"),
+      createId: () => "compliance-test-1",
+    });
+
+    await repository.initialize();
+    const created = repository.createComplianceItem({
+      itemType: "Obligation",
+      title: "Quarterly emissions record review",
+      requirementSource: "Facility air permit AP-2025-14",
+      owner: "Environmental Coordinator",
+      audienceOrScope: "Main Facility",
+      segId: "",
+      locationId: "loc-demo-main-facility",
+      processId: "",
+      equipmentId: "",
+      issueDate: "",
+      dueDate: "2026-09-30",
+      expirationDate: "",
+      reviewDate: "2026-09-15",
+      recurrence: "Quarterly",
+      status: "Upcoming",
+      reviewStatus: "Not Reviewed",
+      evidenceRequired: true,
+      evidenceReference: "",
+      notes: "Readiness tracking only.",
+    });
+
+    expect(repository.getRecord("complianceItems", created.id)).toEqual(created);
+    expect(repository.listComplianceItems()).toContainEqual(created);
+
+    const updated = repository.updateComplianceItem(created.id, {
+      ...created,
+      title: "Quarterly emissions records reviewed",
+      status: "Complete",
+      reviewStatus: "Reviewed",
+      evidenceReference: "Review worksheet ENV-2026-Q3",
+    });
+
+    expect(updated).toMatchObject({
+      title: "Quarterly emissions records reviewed",
+      status: "Complete",
+      reviewStatus: "Reviewed",
+    });
+
+    repository.archiveRecord("complianceItems", created.id, "Superseded obligation.");
+    expect(repository.listComplianceItems()).not.toContainEqual(
+      expect.objectContaining({ id: created.id }),
+    );
+
+    repository.restoreRecord("complianceItems", created.id);
+    expect(repository.listComplianceItems()).toContainEqual(
+      expect.objectContaining({ id: created.id, lifecycleStatus: "active" }),
+    );
+  });
+
+  it("exports snapshots and imports only records missing from the current database", async () => {
+    const repository = createLocalPersistenceRepository({
+      storage: createMemoryStorage(),
+      now: () => new Date("2026-07-09T12:00:00.000Z"),
+    });
+    await repository.initialize();
+
+    const snapshot = repository.exportDatabase();
+    snapshot.locations[0] = {
+      ...snapshot.locations[0],
+      name: "Imported name must not overwrite current data",
+    };
+    snapshot.complianceItems.push({
+      ...snapshot.complianceItems[0],
+      id: "compliance-imported-review",
+      title: "Imported permit evidence review",
+    });
+
+    const result = repository.importDatabase(snapshot);
+
+    expect(result.importedCount).toBe(1);
+    expect(repository.getRecord("locations", "loc-demo-main-facility")).toMatchObject({
+      name: "Main Facility",
+    });
+    expect(repository.getRecord("complianceItems", "compliance-imported-review")).toMatchObject({
+      title: "Imported permit evidence review",
+    });
+  });
+
+  it("restores snapshots by replacement and rejects malformed snapshots without changing data", async () => {
+    let nextId = 0;
+    const repository = createLocalPersistenceRepository({
+      storage: createMemoryStorage(),
+      now: () => new Date("2026-07-09T12:00:00.000Z"),
+      createId: () => `post-backup-${++nextId}`,
+    });
+    await repository.initialize();
+
+    const snapshot = repository.exportDatabase();
+    snapshot.complianceItems[0] = {
+      ...snapshot.complianceItems[0],
+      title: "Title from restored backup",
+    };
+    const postBackupLocation = repository.createLocation({
+      name: "Created after backup",
+      type: "Office",
+      description: "Must disappear after replacement restore.",
+      status: "active",
+    });
+
+    repository.restoreDatabase(snapshot);
+
+    expect(repository.getRecord("locations", postBackupLocation.id)).toBeNull();
+    expect(repository.getRecord("complianceItems", "compliance-demo-air-permit-review")).toMatchObject({
+      title: "Title from restored backup",
+    });
+
+    const beforeMalformedRestore = repository.exportDatabase();
+    expect(() =>
+      repository.restoreDatabase({
+        schemaVersion: beforeMalformedRestore.schemaVersion,
+        locations: "not-an-array",
+      }),
+    ).toThrow("Persisted locations data is invalid.");
+    expect(repository.exportDatabase()).toEqual(beforeMalformedRestore);
   });
 
   it("creates, reads, and updates a Location", async () => {

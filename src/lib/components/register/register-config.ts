@@ -8,11 +8,14 @@ import type {
 import { olusoApplication } from "../../../application/oluso-application";
 import {
   chemicalRecords,
+  complianceItemRecords,
   controlRecords,
   correctiveActionRecords,
   equipmentRecords,
+  exposureMonitoringRecords,
   findingRecords,
   hazardRecords,
+  incidentRecords,
   locationRecords,
   processRecords,
   riskAssessmentRecords,
@@ -83,6 +86,40 @@ import {
   type EquipmentType,
 } from "$lib/persistence/equipment.types";
 import {
+  EXPOSURE_CONTEXT_TYPES,
+  EXPOSURE_MONITORING_STATUSES,
+  EXPOSURE_SAMPLE_TYPES,
+  deriveExposureMonitoringStatus,
+  getExposureMonitoringStatusTone,
+  type ExposureContextType,
+  type ExposureMonitoringInput,
+  type ExposureMonitoringRecord,
+  type ExposureMonitoringStatus,
+  type ExposureSampleType,
+} from "$lib/persistence/exposure-monitoring.types";
+import {
+  COMPLIANCE_ITEM_STATUSES,
+  COMPLIANCE_ITEM_TYPES,
+  COMPLIANCE_REVIEW_STATUSES,
+  getComplianceItemStatusTone,
+  type ComplianceItemInput,
+  type ComplianceItemRecord,
+  type ComplianceItemStatus,
+  type ComplianceItemType,
+  type ComplianceReviewStatus,
+} from "$lib/persistence/compliance-item.types";
+import {
+  INCIDENT_REPORTING_STATUSES,
+  INCIDENT_STATUSES,
+  INCIDENT_TYPES,
+  getIncidentStatusTone,
+  type IncidentInput,
+  type IncidentRecord,
+  type IncidentReportingStatus,
+  type IncidentStatus,
+  type IncidentType,
+} from "$lib/persistence/incident.types";
+import {
   HAZARD_CATEGORIES,
   HAZARD_LIKELIHOODS,
   HAZARD_SEVERITIES,
@@ -142,11 +179,14 @@ export type MvpRegisterKind =
   | "findings"
   | "processes"
   | "equipment"
+  | "exposure-monitoring"
   | "chemicals"
   | "hazards"
   | "controls"
   | "risk-assessments"
   | "segs"
+  | "incidents"
+  | "compliance-items"
   | "corrective-actions";
 
 export interface RecordFormFieldOption {
@@ -169,6 +209,7 @@ export interface RegisterContext {
   locations: LocationRecord[];
   processes: ProcessRecord[];
   equipment: EquipmentRecord[];
+  exposureMonitoring: ExposureMonitoringRecord[];
   chemicals: ChemicalRecord[];
   hazards: HazardRecord[];
   controls: ControlRecord[];
@@ -176,6 +217,8 @@ export interface RegisterContext {
   segs: SegRecord[];
   findings: FindingRecord[];
   correctiveActions: CorrectiveActionRecord[];
+  incidents: IncidentRecord[];
+  complianceItems: ComplianceItemRecord[];
 }
 
 export interface RegisterConfig<TRecord extends PersistedRegisterRecord = PersistedRegisterRecord> {
@@ -198,6 +241,10 @@ export interface RegisterConfig<TRecord extends PersistedRegisterRecord = Persis
   detailSections: (record: TRecord, context: RegisterContext) => DetailSection[];
   relatedSections?: (record: TRecord, context: RegisterContext) => DetailSection[];
   relationshipSections?: (record: TRecord, context: RegisterContext) => RelationshipSection[];
+  detailActions?: (
+    record: TRecord,
+    context: RegisterContext,
+  ) => Array<{ label: string; href: string }>;
   getRecordTitle: (record: TRecord) => string;
   getStatusLabel: (record: TRecord) => string;
   getStatusTone: (record: TRecord) => string;
@@ -240,6 +287,18 @@ function segsById(context: RegisterContext) {
   return new Map(context.segs.map((seg) => [seg.id, seg]));
 }
 
+function equipmentById(context: RegisterContext) {
+  return new Map(context.equipment.map((equipment) => [equipment.id, equipment]));
+}
+
+function incidentsById(context: RegisterContext) {
+  return new Map(context.incidents.map((incident) => [incident.id, incident]));
+}
+
+function complianceItemsById(context: RegisterContext) {
+  return new Map(context.complianceItems.map((item) => [item.id, item]));
+}
+
 function recordPath(kind: MvpRegisterKind, id: string) {
   return `${REGISTER_CONFIGS[kind].basePath}/${encodeURIComponent(id)}`;
 }
@@ -250,12 +309,15 @@ function relatedItem(
     | LocationRecord
     | ProcessRecord
     | EquipmentRecord
+    | ExposureMonitoringRecord
     | ChemicalRecord
+    | ComplianceItemRecord
     | HazardRecord
     | ControlRecord
     | RiskAssessmentRecord
     | SegRecord
     | FindingRecord
+    | IncidentRecord
     | CorrectiveActionRecord,
   title: string,
   meta?: string,
@@ -421,6 +483,11 @@ export const REGISTER_CONFIGS: Record<MvpRegisterKind, RegisterConfig> = {
     store: findingRecords,
     load: () => {
       olusoApplication.listLocations();
+      olusoApplication.listProcesses();
+      olusoApplication.listEquipment();
+      olusoApplication.listChemicals();
+      olusoApplication.listHazards();
+      olusoApplication.listControls();
       olusoApplication.listFindings();
     },
     create: (values) => olusoApplication.createFinding(valuesToFindingInput(values)) as PersistedRegisterRecord,
@@ -432,6 +499,15 @@ export const REGISTER_CONFIGS: Record<MvpRegisterKind, RegisterConfig> = {
       locationId: (record as FindingRecord | null)?.locationId ?? context.locations[0]?.id ?? "",
       processId: (record as FindingRecord | null)?.processId ?? "",
       hazardId: (record as FindingRecord | null)?.hazardId ?? "",
+      activityDate: (record as FindingRecord | null)?.activityDate ?? "",
+      equipmentId: (record as FindingRecord | null)?.equipmentId ?? "",
+      chemicalId: (record as FindingRecord | null)?.chemicalId ?? "",
+      controlId: (record as FindingRecord | null)?.controlId ?? "",
+      scope: (record as FindingRecord | null)?.scope ?? "",
+      criteriaReference: (record as FindingRecord | null)?.criteriaReference ?? "",
+      evidenceReference: (record as FindingRecord | null)?.evidenceReference ?? "",
+      followUpRequired: (record as FindingRecord | null)?.followUpRequired ? "true" : "false",
+      notes: (record as FindingRecord | null)?.notes ?? "",
       severity: (record as FindingRecord | null)?.severity ?? "",
       status: (record as FindingRecord | null)?.status ?? "Open",
       reportedBy: (record as FindingRecord | null)?.reportedBy ?? "",
@@ -444,7 +520,10 @@ export const REGISTER_CONFIGS: Record<MvpRegisterKind, RegisterConfig> = {
         label: "Finding Type",
         type: "select",
         required: true,
-        options: [option("", "Select finding type"), ...FINDING_TYPES.map((type) => option(type))],
+        options: [
+          option("", "Select finding type"),
+          ...FINDING_TYPES.filter((type) => type !== "Near Miss").map((type) => option(type)),
+        ],
       },
       {
         name: "locationId",
@@ -466,6 +545,27 @@ export const REGISTER_CONFIGS: Record<MvpRegisterKind, RegisterConfig> = {
         options: [option("", "No related hazard"), ...context.hazards.map((hazard) => option(hazard.id, hazard.title))],
       },
       {
+        name: "equipmentId",
+        label: "Related Equipment",
+        type: "select",
+        options: [option("", "No related equipment"), ...context.equipment.map((equipment) => option(equipment.id, equipment.name))],
+      },
+      {
+        name: "chemicalId",
+        label: "Related Chemical",
+        type: "select",
+        options: [option("", "No related chemical"), ...context.chemicals.map((chemical) => option(chemical.id, chemical.name))],
+      },
+      {
+        name: "controlId",
+        label: "Related Control",
+        type: "select",
+        options: [option("", "No related control"), ...context.controls.map((control) => option(control.id, control.name))],
+      },
+      { name: "activityDate", label: "Activity Date", type: "text", placeholder: "YYYY-MM-DD" },
+      { name: "scope", label: "Inspection / Audit Scope", type: "textarea", rows: 3 },
+      { name: "criteriaReference", label: "Audit Criteria / Source", type: "text" },
+      {
         name: "severity",
         label: "Severity",
         type: "select",
@@ -481,6 +581,9 @@ export const REGISTER_CONFIGS: Record<MvpRegisterKind, RegisterConfig> = {
       },
       { name: "reportedBy", label: "Reported by", type: "text" },
       { name: "description", label: "Description", type: "textarea", rows: 4 },
+      { name: "followUpRequired", label: "Follow-up Required", type: "checkbox" },
+      { name: "evidenceReference", label: "Evidence / Reference", type: "text" },
+      { name: "notes", label: "Notes", type: "textarea", rows: 3 },
     ],
     columns: (context) => [
       {
@@ -525,7 +628,13 @@ export const REGISTER_CONFIGS: Record<MvpRegisterKind, RegisterConfig> = {
           { label: "Severity", value: (record as FindingRecord).severity },
           { label: "Domain status", value: (record as FindingRecord).status },
           { label: "Reported by", value: (record as FindingRecord).reportedBy },
+          { label: "Activity date", value: (record as FindingRecord).activityDate },
+          { label: "Scope", value: (record as FindingRecord).scope },
+          { label: "Criteria / source", value: (record as FindingRecord).criteriaReference },
+          { label: "Follow-up required", value: (record as FindingRecord).followUpRequired ? "Yes" : "No" },
+          { label: "Evidence / reference", value: (record as FindingRecord).evidenceReference },
           { label: "Description", value: (record as FindingRecord).description },
+          { label: "Notes", value: (record as FindingRecord).notes },
         ],
       },
       {
@@ -539,6 +648,12 @@ export const REGISTER_CONFIGS: Record<MvpRegisterKind, RegisterConfig> = {
       },
     ],
     relationshipSections: (record, context) => findingRelationshipSections(record as FindingRecord, context),
+    detailActions: (record) => record.lifecycleStatus === "archived" ? [] : [
+      {
+        label: "Create Corrective Action",
+        href: `/actions/corrective-actions/new?sourceType=Finding&sourceId=${encodeURIComponent(record.id)}&sourceTitle=${encodeURIComponent((record as FindingRecord).title)}`,
+      },
+    ],
     getRecordTitle: (record) => (record as FindingRecord).title,
     getStatusLabel: (record) => (record as FindingRecord).status,
     getStatusTone: (record) => getFindingStatusTone((record as FindingRecord).status),
@@ -550,11 +665,14 @@ export const REGISTER_CONFIGS: Record<MvpRegisterKind, RegisterConfig> = {
   },
   processes: makeProcessConfig(),
   equipment: makeEquipmentConfig(),
+  "exposure-monitoring": makeExposureMonitoringConfig(),
   chemicals: makeChemicalConfig(),
+  "compliance-items": makeComplianceItemConfig(),
   hazards: makeHazardConfig(),
   controls: makeControlConfig(),
   "risk-assessments": makeRiskAssessmentConfig(),
   segs: makeSegConfig(),
+  incidents: makeIncidentConfig(),
   "corrective-actions": makeCorrectiveActionConfig(),
 };
 
@@ -1115,6 +1233,9 @@ function makeCorrectiveActionConfig(): RegisterConfig {
     store: correctiveActionRecords,
     load: () => {
       olusoApplication.listFindings();
+      olusoApplication.listHazards();
+      olusoApplication.listIncidents();
+      olusoApplication.listComplianceItems();
       olusoApplication.listCorrectiveActions();
     },
     create: (values) => olusoApplication.createCorrectiveAction(valuesToCorrectiveActionInput(values)) as PersistedRegisterRecord,
@@ -1127,7 +1248,6 @@ function makeCorrectiveActionConfig(): RegisterConfig {
       sourceId:
         (record as CorrectiveActionRecord | null)?.sourceId ??
         (record as CorrectiveActionRecord | null)?.findingId ??
-        context.findings[0]?.id ??
         "",
       sourceJustification: (record as CorrectiveActionRecord | null)?.sourceJustification ?? "",
       assignedTo: (record as CorrectiveActionRecord | null)?.assignedTo ?? "",
@@ -1150,7 +1270,7 @@ function makeCorrectiveActionConfig(): RegisterConfig {
         name: "sourceId",
         label: "Source Record ID",
         type: "text",
-        helperText: `Known findings: ${context.findings.map((finding) => finding.id).join(", ") || "none"}. Known hazards: ${context.hazards.map((hazard) => hazard.id).join(", ") || "none"}.`,
+        helperText: `Use the ID of an active Finding, Hazard, Incident, or Compliance Item. Findings: ${context.findings.map((finding) => finding.id).join(", ") || "none"}. Incidents: ${context.incidents.map((incident) => incident.id).join(", ") || "none"}.`,
       },
       { name: "sourceJustification", label: "Source Note", type: "textarea", rows: 3 },
       { name: "assignedTo", label: "Assigned To", type: "text", required: true },
@@ -1210,6 +1330,524 @@ function makeCorrectiveActionConfig(): RegisterConfig {
     newActionLabel: "New Corrective Action",
     saveLabel: "Save corrective action",
   };
+}
+
+function makeExposureMonitoringConfig(): RegisterConfig {
+  return {
+    kind: "exposure-monitoring",
+    collection: "exposureMonitoring",
+    basePath: "/hse/exposure-monitoring",
+    breadcrumbs: "HSE Registers",
+    title: "Exposure Monitoring",
+    recordLabel: "exposure record",
+    pluralRecordLabel: "exposure records",
+    summary: "Record basic exposure samples linked to SEGs, contaminants, and operational context.",
+    store: exposureMonitoringRecords,
+    load: () => {
+      olusoApplication.listLocations();
+      olusoApplication.listProcesses();
+      olusoApplication.listChemicals();
+      olusoApplication.listHazards();
+      olusoApplication.listSegs();
+      olusoApplication.listExposureMonitoring();
+    },
+    create: (values) =>
+      olusoApplication.createExposureMonitoring(
+        valuesToExposureMonitoringInput(values),
+      ) as PersistedRegisterRecord,
+    update: (id, values) =>
+      olusoApplication.updateExposureMonitoring(
+        id,
+        valuesToExposureMonitoringInput(values),
+      ) as PersistedRegisterRecord,
+    validate: (values) =>
+      olusoApplication.validateExposureMonitoring(valuesToExposureMonitoringInput(values)).errors,
+    getInitialValues: (record) => ({
+      sampleReference: (record as ExposureMonitoringRecord | null)?.sampleReference ?? "",
+      contextType: (record as ExposureMonitoringRecord | null)?.contextType ?? "SEG",
+      segId: (record as ExposureMonitoringRecord | null)?.segId ?? "",
+      contextDetail: (record as ExposureMonitoringRecord | null)?.contextDetail ?? "",
+      contaminant: (record as ExposureMonitoringRecord | null)?.contaminant ?? "",
+      chemicalId: (record as ExposureMonitoringRecord | null)?.chemicalId ?? "",
+      hazardId: (record as ExposureMonitoringRecord | null)?.hazardId ?? "",
+      locationId: (record as ExposureMonitoringRecord | null)?.locationId ?? "",
+      processId: (record as ExposureMonitoringRecord | null)?.processId ?? "",
+      samplingDate:
+        (record as ExposureMonitoringRecord | null)?.samplingDate ??
+        new Date().toISOString().slice(0, 10),
+      sampleType: (record as ExposureMonitoringRecord | null)?.sampleType ?? "Personal",
+      result: (record as ExposureMonitoringRecord | null)?.result ?? "",
+      unit: (record as ExposureMonitoringRecord | null)?.unit ?? "",
+      exposureLimit: (record as ExposureMonitoringRecord | null)?.exposureLimit ?? "",
+      exposureLimitReference:
+        (record as ExposureMonitoringRecord | null)?.exposureLimitReference ?? "",
+      status: (record as ExposureMonitoringRecord | null)?.status ?? "Pending",
+      evidenceReference:
+        (record as ExposureMonitoringRecord | null)?.evidenceReference ?? "",
+      notes: (record as ExposureMonitoringRecord | null)?.notes ?? "",
+    }),
+    fields: (context) => [
+      { name: "sampleReference", label: "Sample Reference", type: "text", required: true },
+      {
+        name: "contextType",
+        label: "Context Type",
+        type: "select",
+        required: true,
+        options: EXPOSURE_CONTEXT_TYPES.map((value) => option(value)),
+      },
+      {
+        name: "segId",
+        label: "SEG",
+        type: "select",
+        options: [
+          option("", "No related SEG"),
+          ...context.segs.map((seg) => option(seg.id, seg.name)),
+        ],
+      },
+      {
+        name: "contextDetail",
+        label: "Person / Task Context",
+        type: "text",
+        helperText: "Required when the context is a person or task.",
+      },
+      { name: "contaminant", label: "Contaminant", type: "text", required: true },
+      {
+        name: "chemicalId",
+        label: "Related Chemical",
+        type: "select",
+        options: [
+          option("", "No related chemical"),
+          ...context.chemicals.map((chemical) => option(chemical.id, chemical.name)),
+        ],
+      },
+      {
+        name: "hazardId",
+        label: "Related Hazard",
+        type: "select",
+        options: [
+          option("", "No related hazard"),
+          ...context.hazards.map((hazard) => option(hazard.id, hazard.title)),
+        ],
+      },
+      {
+        name: "locationId",
+        label: "Location",
+        type: "select",
+        required: true,
+        options: [
+          option("", "Select location"),
+          ...context.locations.map((location) => option(location.id, location.name)),
+        ],
+      },
+      {
+        name: "processId",
+        label: "Related Process",
+        type: "select",
+        options: [
+          option("", "No related process"),
+          ...context.processes.map((process) => option(process.id, process.name)),
+        ],
+      },
+      { name: "samplingDate", label: "Sampling Date", type: "text", required: true, placeholder: "YYYY-MM-DD" },
+      {
+        name: "sampleType",
+        label: "Sampling Type",
+        type: "select",
+        required: true,
+        options: EXPOSURE_SAMPLE_TYPES.map((value) => option(value)),
+      },
+      { name: "result", label: "Result", type: "text", helperText: "Enter a non-negative numeric result, or leave blank while pending." },
+      { name: "unit", label: "Unit", type: "text", placeholder: "ppm, mg/m3, dB" },
+      { name: "exposureLimit", label: "Exposure Limit", type: "text" },
+      { name: "exposureLimitReference", label: "Limit Source / Reference", type: "text" },
+      {
+        name: "status",
+        label: "Status",
+        type: "select",
+        required: true,
+        options: EXPOSURE_MONITORING_STATUSES.map((value) => option(value)),
+      },
+      { name: "evidenceReference", label: "Evidence / Reference", type: "text" },
+      { name: "notes", label: "Notes", type: "textarea", rows: 4 },
+    ],
+    columns: (context) => [
+      {
+        key: "sampleReference",
+        label: "Sample",
+        accessor: (record) => (record as ExposureMonitoringRecord).sampleReference,
+        descriptionAccessor: (record) => (record as ExposureMonitoringRecord).contaminant,
+        primary: true,
+        sortable: true,
+      },
+      {
+        key: "seg",
+        label: "Context",
+        accessor: (record) => {
+          const exposure = record as ExposureMonitoringRecord;
+          return exposure.contextType === "SEG"
+            ? segsById(context).get(exposure.segId)?.name ?? exposure.contextDetail ?? "Unknown SEG"
+            : exposure.contextDetail;
+        },
+        sortable: true,
+      },
+      {
+        key: "result",
+        label: "Result",
+        accessor: (record) => {
+          const exposure = record as ExposureMonitoringRecord;
+          return exposure.result ? `${exposure.result} ${exposure.unit}`.trim() : "Pending";
+        },
+        sortable: true,
+      },
+      {
+        key: "samplingDate",
+        label: "Sampled",
+        accessor: (record) => (record as ExposureMonitoringRecord).samplingDate,
+        sortable: true,
+      },
+      {
+        key: "status",
+        label: "Status",
+        accessor: (record) => (record as ExposureMonitoringRecord).status,
+        toneAccessor: (record) =>
+          getExposureMonitoringStatusTone((record as ExposureMonitoringRecord).status),
+        cellKind: "status",
+        sortable: true,
+      },
+      commonUpdatedColumn(),
+    ],
+    detailSections: (record) => {
+      const exposure = record as ExposureMonitoringRecord;
+      return [
+        {
+          title: "Exposure sample",
+          fields: [
+            { label: "Sample reference", value: exposure.sampleReference },
+            { label: "Context type", value: exposure.contextType },
+            { label: "Context detail", value: exposure.contextDetail },
+            { label: "Contaminant", value: exposure.contaminant },
+            { label: "Sampling date", value: exposure.samplingDate },
+            { label: "Sampling type", value: exposure.sampleType },
+            { label: "Result", value: exposure.result ? `${exposure.result} ${exposure.unit}`.trim() : "Pending" },
+            { label: "Exposure limit", value: exposure.exposureLimit ? `${exposure.exposureLimit} ${exposure.unit}`.trim() : "" },
+            { label: "Limit source / reference", value: exposure.exposureLimitReference },
+            { label: "Status", value: exposure.status },
+            { label: "Evidence / reference", value: exposure.evidenceReference },
+            { label: "Notes", value: exposure.notes },
+          ],
+        },
+      ];
+    },
+    relationshipSections: (record, context) =>
+      exposureMonitoringRelationshipSections(record as ExposureMonitoringRecord, context),
+    getRecordTitle: (record) => (record as ExposureMonitoringRecord).sampleReference,
+    getStatusLabel: (record) => (record as ExposureMonitoringRecord).status,
+    getStatusTone: (record) =>
+      getExposureMonitoringStatusTone((record as ExposureMonitoringRecord).status),
+    statusOptions: EXPOSURE_MONITORING_STATUSES.map((status) => option(status)),
+    getStatusFilterValue: (record) => (record as ExposureMonitoringRecord).status,
+    emptyMessage: "Add the first basic exposure sample to begin monitoring review.",
+    newActionLabel: "Add Exposure Sample",
+    saveLabel: "Save exposure sample",
+  };
+}
+
+function makeIncidentConfig(): RegisterConfig {
+  return {
+    kind: "incidents",
+    collection: "incidents",
+    basePath: "/incidents/log",
+    breadcrumbs: "Incidents",
+    title: "Incidents & Near Misses",
+    recordLabel: "incident",
+    pluralRecordLabel: "incidents and near misses",
+    summary: "Track scoped incident and near-miss records without making legal determinations.",
+    store: incidentRecords,
+    load: () => {
+      olusoApplication.listLocations();
+      olusoApplication.listProcesses();
+      olusoApplication.listEquipment();
+      olusoApplication.listChemicals();
+      olusoApplication.listHazards();
+      olusoApplication.listControls();
+      olusoApplication.listIncidents();
+    },
+    create: (values) =>
+      olusoApplication.createIncident(valuesToIncidentInput(values)) as PersistedRegisterRecord,
+    update: (id, values) =>
+      olusoApplication.updateIncident(id, valuesToIncidentInput(values)) as PersistedRegisterRecord,
+    validate: (values) => olusoApplication.validateIncident(valuesToIncidentInput(values)).errors,
+    getInitialValues: (record) => {
+      const incident = record as IncidentRecord | null;
+      return {
+        title: incident?.title ?? "",
+        type: incident?.type ?? "Near Miss",
+        occurredAt: incident?.occurredAt ?? "",
+        locationId: incident?.locationId ?? "",
+        processId: incident?.processId ?? "",
+        equipmentId: incident?.equipmentId ?? "",
+        chemicalId: incident?.chemicalId ?? "",
+        hazardIds: incident?.hazardIds.join("|") ?? "",
+        controlIds: incident?.controlIds.join("|") ?? "",
+        description: incident?.description ?? "",
+        actualOutcome: incident?.actualOutcome ?? "",
+        potentialOutcome: incident?.potentialOutcome ?? "",
+        immediateActions: incident?.immediateActions ?? "",
+        investigationSummary: incident?.investigationSummary ?? "",
+        immediateCauses: incident?.immediateCauses ?? "",
+        contributingCauses: incident?.contributingCauses ?? "",
+        evidenceReference: incident?.evidenceReference ?? "",
+        reportingStatus: incident?.reportingStatus ?? "Not Evaluated",
+        status: incident?.status ?? "Open",
+      };
+    },
+    fields: (context) => [
+      { name: "title", label: "Title", type: "text", required: true },
+      { name: "type", label: "Event Type", type: "select", required: true, options: INCIDENT_TYPES.map((value) => option(value)) },
+      { name: "occurredAt", label: "Occurred At", type: "text", required: true, placeholder: "YYYY-MM-DDTHH:mm" },
+      { name: "locationId", label: "Location", type: "select", required: true, options: [option("", "Select location"), ...context.locations.map((location) => option(location.id, location.name))] },
+      { name: "processId", label: "Related Process", type: "select", options: [option("", "No related process"), ...context.processes.map((process) => option(process.id, process.name))] },
+      { name: "equipmentId", label: "Related Equipment", type: "select", options: [option("", "No related equipment"), ...context.equipment.map((equipment) => option(equipment.id, equipment.name))] },
+      { name: "chemicalId", label: "Related Chemical", type: "select", options: [option("", "No related chemical"), ...context.chemicals.map((chemical) => option(chemical.id, chemical.name))] },
+      { name: "hazardIds", label: "Related Hazards", type: "multiselect", options: context.hazards.map((hazard) => option(hazard.id, hazard.title)) },
+      { name: "controlIds", label: "Related Controls", type: "multiselect", options: context.controls.map((control) => option(control.id, control.name)) },
+      { name: "description", label: "Description", type: "textarea", required: true, rows: 4 },
+      { name: "actualOutcome", label: "Actual Outcome", type: "textarea", rows: 3 },
+      { name: "potentialOutcome", label: "Potential Outcome", type: "textarea", rows: 3 },
+      { name: "immediateActions", label: "Immediate Actions Taken", type: "textarea", rows: 3 },
+      { name: "investigationSummary", label: "Investigation Summary", type: "textarea", rows: 4 },
+      { name: "immediateCauses", label: "Immediate Causes", type: "textarea", rows: 3 },
+      { name: "contributingCauses", label: "Root / Contributing Causes", type: "textarea", rows: 3 },
+      { name: "evidenceReference", label: "Evidence / Reference", type: "text" },
+      { name: "reportingStatus", label: "Reporting Status", type: "select", required: true, helperText: "Tracking only; OLUSO does not determine legal reportability.", options: INCIDENT_REPORTING_STATUSES.map((value) => option(value)) },
+      { name: "status", label: "Status", type: "select", required: true, options: INCIDENT_STATUSES.map((value) => option(value)) },
+    ],
+    columns: (context) => [
+      { key: "type", label: "Type", accessor: (record) => (record as IncidentRecord).type, sortable: true },
+      { key: "title", label: "Title", accessor: (record) => (record as IncidentRecord).title, descriptionAccessor: (record) => (record as IncidentRecord).description, primary: true, sortable: true },
+      { key: "location", label: "Location", accessor: (record) => locationsById(context).get((record as IncidentRecord).locationId)?.name ?? "Unknown location", sortable: true },
+      { key: "occurredAt", label: "Occurred", accessor: (record) => (record as IncidentRecord).occurredAt, sortable: true },
+      { key: "status", label: "Status", accessor: (record) => (record as IncidentRecord).status, toneAccessor: (record) => getIncidentStatusTone((record as IncidentRecord).status), cellKind: "status", sortable: true },
+      commonUpdatedColumn(),
+    ],
+    detailSections: (record) => {
+      const incident = record as IncidentRecord;
+      return [
+        { title: "Event", fields: [
+          { label: "Title", value: incident.title },
+          { label: "Event type", value: incident.type },
+          { label: "Occurred at", value: incident.occurredAt },
+          { label: "Status", value: incident.status },
+          { label: "Reporting status", value: incident.reportingStatus },
+          { label: "Description", value: incident.description },
+          { label: "Actual outcome", value: incident.actualOutcome },
+          { label: "Potential outcome", value: incident.potentialOutcome },
+          { label: "Immediate actions", value: incident.immediateActions },
+          { label: "Evidence / reference", value: incident.evidenceReference },
+        ] },
+        { title: "Investigation notes", fields: [
+          { label: "Summary", value: incident.investigationSummary },
+          { label: "Immediate causes", value: incident.immediateCauses },
+          { label: "Root / contributing causes", value: incident.contributingCauses },
+        ] },
+      ];
+    },
+    relationshipSections: (record, context) => incidentRelationshipSections(record as IncidentRecord, context),
+    detailActions: (record) => record.lifecycleStatus === "archived" ? [] : [
+      {
+        label: "Create Corrective Action",
+        href: `/actions/corrective-actions/new?sourceType=Incident&sourceId=${encodeURIComponent(record.id)}&sourceTitle=${encodeURIComponent((record as IncidentRecord).title)}`,
+      },
+    ],
+    getRecordTitle: (record) => (record as IncidentRecord).title,
+    getStatusLabel: (record) => (record as IncidentRecord).status,
+    getStatusTone: (record) => getIncidentStatusTone((record as IncidentRecord).status),
+    statusOptions: INCIDENT_STATUSES.map((status) => option(status)),
+    getStatusFilterValue: (record) => (record as IncidentRecord).status,
+    emptyMessage: "Add a basic incident or near-miss record to preserve event context and follow-up.",
+    newActionLabel: "Add Incident or Near Miss",
+    saveLabel: "Save incident",
+  };
+}
+
+function makeComplianceItemConfig(): RegisterConfig {
+  return {
+    kind: "compliance-items",
+    collection: "complianceItems",
+    basePath: "/compliance/items",
+    breadcrumbs: "Compliance",
+    title: "Compliance Support",
+    recordLabel: "compliance item",
+    pluralRecordLabel: "compliance items",
+    summary: "Track manually maintained obligations, permits, training status, documents, due dates, owners, and evidence.",
+    store: complianceItemRecords,
+    load: () => {
+      olusoApplication.listLocations();
+      olusoApplication.listProcesses();
+      olusoApplication.listEquipment();
+      olusoApplication.listSegs();
+      olusoApplication.listComplianceItems();
+    },
+    create: (values) => olusoApplication.createComplianceItem(valuesToComplianceItemInput(values)) as PersistedRegisterRecord,
+    update: (id, values) => olusoApplication.updateComplianceItem(id, valuesToComplianceItemInput(values)) as PersistedRegisterRecord,
+    validate: (values) => olusoApplication.validateComplianceItem(valuesToComplianceItemInput(values)).errors,
+    getInitialValues: (record) => {
+      const item = record as ComplianceItemRecord | null;
+      return {
+        itemType: item?.itemType ?? "Obligation",
+        title: item?.title ?? "",
+        requirementSource: item?.requirementSource ?? "",
+        owner: item?.owner ?? "",
+        audienceOrScope: item?.audienceOrScope ?? "",
+        segId: item?.segId ?? "",
+        locationId: item?.locationId ?? "",
+        processId: item?.processId ?? "",
+        equipmentId: item?.equipmentId ?? "",
+        issueDate: item?.issueDate ?? "",
+        dueDate: item?.dueDate ?? "",
+        expirationDate: item?.expirationDate ?? "",
+        reviewDate: item?.reviewDate ?? "",
+        recurrence: item?.recurrence ?? "",
+        status: item?.status ?? "Draft",
+        reviewStatus: item?.reviewStatus ?? "Not Reviewed",
+        evidenceRequired: item?.evidenceRequired ? "true" : "false",
+        evidenceReference: item?.evidenceReference ?? "",
+        notes: item?.notes ?? "",
+      };
+    },
+    fields: (context) => [
+      { name: "itemType", label: "Item Type", type: "select", required: true, options: COMPLIANCE_ITEM_TYPES.map((value) => option(value)) },
+      { name: "title", label: "Title", type: "text", required: true },
+      { name: "requirementSource", label: "Requirement / Source", type: "text", required: true, helperText: "Record the source; OLUSO does not interpret legal applicability." },
+      { name: "owner", label: "Owner", type: "text", required: true },
+      { name: "audienceOrScope", label: "Audience / Scope", type: "textarea", rows: 3 },
+      { name: "segId", label: "Related SEG", type: "select", options: [option("", "No related SEG"), ...context.segs.map((seg) => option(seg.id, seg.name))] },
+      { name: "locationId", label: "Related Location", type: "select", options: [option("", "No related location"), ...context.locations.map((location) => option(location.id, location.name))] },
+      { name: "processId", label: "Related Process", type: "select", options: [option("", "No related process"), ...context.processes.map((process) => option(process.id, process.name))] },
+      { name: "equipmentId", label: "Related Equipment", type: "select", options: [option("", "No related equipment"), ...context.equipment.map((equipment) => option(equipment.id, equipment.name))] },
+      { name: "issueDate", label: "Issue Date", type: "text", placeholder: "YYYY-MM-DD" },
+      { name: "dueDate", label: "Due Date", type: "text", placeholder: "YYYY-MM-DD" },
+      { name: "expirationDate", label: "Expiration Date", type: "text", placeholder: "YYYY-MM-DD" },
+      { name: "reviewDate", label: "Review Date", type: "text", placeholder: "YYYY-MM-DD" },
+      { name: "recurrence", label: "Recurrence", type: "text", placeholder: "Annual, monthly, one-time" },
+      { name: "status", label: "Readiness Status", type: "select", required: true, options: COMPLIANCE_ITEM_STATUSES.map((value) => option(value)) },
+      { name: "reviewStatus", label: "Review Status", type: "select", required: true, options: COMPLIANCE_REVIEW_STATUSES.map((value) => option(value)) },
+      { name: "evidenceRequired", label: "Evidence Required", type: "checkbox" },
+      { name: "evidenceReference", label: "Evidence / Document Reference", type: "text" },
+      { name: "notes", label: "Notes", type: "textarea", rows: 4 },
+    ],
+    columns: () => [
+      { key: "itemType", label: "Type", accessor: (record) => (record as ComplianceItemRecord).itemType, sortable: true },
+      { key: "title", label: "Title", accessor: (record) => (record as ComplianceItemRecord).title, descriptionAccessor: (record) => (record as ComplianceItemRecord).requirementSource, primary: true, sortable: true },
+      { key: "owner", label: "Owner", accessor: (record) => (record as ComplianceItemRecord).owner, sortable: true },
+      { key: "dueDate", label: "Due / Review", accessor: (record) => (record as ComplianceItemRecord).dueDate || (record as ComplianceItemRecord).reviewDate || "Not scheduled", sortable: true },
+      { key: "status", label: "Status", accessor: (record) => (record as ComplianceItemRecord).status, toneAccessor: (record) => getComplianceItemStatusTone((record as ComplianceItemRecord).status), cellKind: "status", sortable: true },
+      commonUpdatedColumn(),
+    ],
+    detailSections: (record) => {
+      const item = record as ComplianceItemRecord;
+      return [
+        { title: "Compliance-supporting record", fields: [
+          { label: "Type", value: item.itemType },
+          { label: "Title", value: item.title },
+          { label: "Requirement / source", value: item.requirementSource },
+          { label: "Owner", value: item.owner },
+          { label: "Audience / scope", value: item.audienceOrScope },
+          { label: "Issue date", value: item.issueDate },
+          { label: "Due date", value: item.dueDate },
+          { label: "Expiration date", value: item.expirationDate },
+          { label: "Review date", value: item.reviewDate },
+          { label: "Recurrence", value: item.recurrence },
+          { label: "Readiness status", value: item.status },
+          { label: "Review status", value: item.reviewStatus },
+          { label: "Evidence required", value: item.evidenceRequired ? "Yes" : "No" },
+          { label: "Evidence / document reference", value: item.evidenceReference },
+          { label: "Notes", value: item.notes },
+        ] },
+      ];
+    },
+    relationshipSections: (record, context) => complianceItemRelationshipSections(record as ComplianceItemRecord, context),
+    detailActions: (record) => record.lifecycleStatus === "archived" ? [] : [
+      {
+        label: "Create Corrective Action",
+        href: `/actions/corrective-actions/new?sourceType=Compliance%20Item&sourceId=${encodeURIComponent(record.id)}&sourceTitle=${encodeURIComponent((record as ComplianceItemRecord).title)}`,
+      },
+    ],
+    getRecordTitle: (record) => (record as ComplianceItemRecord).title,
+    getStatusLabel: (record) => (record as ComplianceItemRecord).status,
+    getStatusTone: (record) => getComplianceItemStatusTone((record as ComplianceItemRecord).status),
+    statusOptions: COMPLIANCE_ITEM_STATUSES.map((status) => option(status)),
+    getStatusFilterValue: (record) => (record as ComplianceItemRecord).status,
+    emptyMessage: "Add the first manually maintained compliance-supporting record.",
+    newActionLabel: "Add Compliance Item",
+    saveLabel: "Save compliance item",
+  };
+}
+
+function exposureMonitoringRelationshipSections(
+  record: ExposureMonitoringRecord,
+  context: RegisterContext,
+): RelationshipSection[] {
+  return [
+    {
+      title: "Related SEG",
+      items: relationshipById(record.segId, segsById(context), "segs", (seg) => seg.name, (seg) => seg.type),
+    },
+    {
+      title: "Related Chemical",
+      items: relationshipById(record.chemicalId, chemicalsById(context), "chemicals", (chemical) => chemical.name, (chemical) => chemical.hazardClass),
+    },
+    {
+      title: "Related Hazard",
+      items: relationshipById(record.hazardId, hazardsById(context), "hazards", (hazard) => hazard.title, (hazard) => hazard.category),
+    },
+    {
+      title: "Related Location",
+      items: relationshipById(record.locationId, locationsById(context), "locations", (location) => location.name, (location) => location.type),
+    },
+    {
+      title: "Related Process",
+      items: relationshipById(record.processId, processesById(context), "processes", (process) => process.name, (process) => process.category),
+    },
+  ];
+}
+
+function incidentRelationshipSections(
+  record: IncidentRecord,
+  context: RegisterContext,
+): RelationshipSection[] {
+  return [
+    { title: "Related Location", items: relationshipById(record.locationId, locationsById(context), "locations", (location) => location.name, (location) => location.type) },
+    { title: "Related Process", items: relationshipById(record.processId, processesById(context), "processes", (process) => process.name, (process) => process.category) },
+    { title: "Related Equipment", items: relationshipById(record.equipmentId, equipmentById(context), "equipment", (equipment) => equipment.name, (equipment) => equipment.type) },
+    { title: "Related Chemical", items: relationshipById(record.chemicalId, chemicalsById(context), "chemicals", (chemical) => chemical.name, (chemical) => chemical.hazardClass) },
+    { title: "Related Hazards", items: relationshipsByIds(record.hazardIds, hazardsById(context), "hazards", (hazard) => hazard.title, (hazard) => hazard.category) },
+    { title: "Related Controls", items: relationshipsByIds(record.controlIds, controlsById(context), "controls", (control) => control.name, (control) => control.type) },
+    {
+      title: "Related Corrective Actions",
+      items: context.correctiveActions
+        .filter((action) => action.sourceType === "Incident" && action.sourceId === record.id)
+        .map((action) => relatedItem("corrective-actions", action, action.title, action.status)),
+    },
+  ];
+}
+
+function complianceItemRelationshipSections(
+  record: ComplianceItemRecord,
+  context: RegisterContext,
+): RelationshipSection[] {
+  return [
+    { title: "Related SEG", items: relationshipById(record.segId, segsById(context), "segs", (seg) => seg.name, (seg) => seg.type) },
+    { title: "Related Location", items: relationshipById(record.locationId, locationsById(context), "locations", (location) => location.name, (location) => location.type) },
+    { title: "Related Process", items: relationshipById(record.processId, processesById(context), "processes", (process) => process.name, (process) => process.category) },
+    { title: "Related Equipment", items: relationshipById(record.equipmentId, equipmentById(context), "equipment", (equipment) => equipment.name, (equipment) => equipment.type) },
+    {
+      title: "Related Corrective Actions",
+      items: context.correctiveActions
+        .filter((action) => action.sourceType === "Compliance Item" && action.sourceId === record.id)
+        .map((action) => relatedItem("corrective-actions", action, action.title, action.status)),
+    },
+  ];
 }
 
 function locationRelationshipSections(record: LocationRecord, context: RegisterContext): RelationshipSection[] {
@@ -1488,6 +2126,14 @@ function getActionSourceLabel(record: CorrectiveActionRecord, context: RegisterC
     return hazardsById(context).get(record.sourceId)?.title ?? "Unknown hazard";
   }
 
+  if (record.sourceType === "Incident") {
+    return incidentsById(context).get(record.sourceId)?.title ?? "Unknown incident";
+  }
+
+  if (record.sourceType === "Compliance Item") {
+    return complianceItemsById(context).get(record.sourceId)?.title ?? "Unknown compliance item";
+  }
+
   if (record.sourceType === "Manual") {
     return record.sourceJustification || "Manual source";
   }
@@ -1528,6 +2174,18 @@ function findingRelationshipSections(record: FindingRecord, context: RegisterCon
       ),
     },
     {
+      title: "Related Equipment",
+      items: relationshipById(record.equipmentId ?? "", equipmentById(context), "equipment", (equipment) => equipment.name, (equipment) => equipment.type),
+    },
+    {
+      title: "Related Chemical",
+      items: relationshipById(record.chemicalId ?? "", chemicalsById(context), "chemicals", (chemical) => chemical.name, (chemical) => chemical.hazardClass),
+    },
+    {
+      title: "Related Control",
+      items: relationshipById(record.controlId ?? "", controlsById(context), "controls", (control) => control.name, (control) => control.type),
+    },
+    {
       title: "Related Corrective Actions",
       items: context.correctiveActions
         .filter((action) => action.sourceType === "Finding" && (action.sourceId || action.findingId) === record.id)
@@ -1563,7 +2221,23 @@ function correctiveActionRelationshipSections(
                 (hazard) => hazard.title,
                 (hazard) => hazard.category,
               )
-            : [],
+            : record.sourceType === "Incident"
+              ? relationshipById(
+                  record.sourceId,
+                  incidentsById(context),
+                  "incidents",
+                  (incident) => incident.title,
+                  (incident) => incident.type,
+                )
+              : record.sourceType === "Compliance Item"
+                ? relationshipById(
+                    record.sourceId,
+                    complianceItemsById(context),
+                    "compliance-items",
+                    (item) => item.title,
+                    (item) => item.itemType,
+                  )
+                : [],
     },
     {
       title: "Related Location",
@@ -1612,6 +2286,39 @@ function valuesToFindingInput(values: FormValues): FindingInput {
     severity: (values.severity ?? "") as FindingSeverity,
     status: (values.status ?? "Open") as FindingStatus,
     reportedBy: values.reportedBy ?? "",
+    activityDate: values.activityDate ?? "",
+    equipmentId: values.equipmentId ?? "",
+    chemicalId: values.chemicalId ?? "",
+    controlId: values.controlId ?? "",
+    scope: values.scope ?? "",
+    criteriaReference: values.criteriaReference ?? "",
+    evidenceReference: values.evidenceReference ?? "",
+    followUpRequired: values.followUpRequired === "true",
+    notes: values.notes ?? "",
+  };
+}
+
+function valuesToIncidentInput(values: FormValues): IncidentInput {
+  return {
+    title: values.title ?? "",
+    type: (values.type ?? "Near Miss") as IncidentType,
+    occurredAt: values.occurredAt ?? "",
+    locationId: values.locationId ?? "",
+    processId: values.processId ?? "",
+    equipmentId: values.equipmentId ?? "",
+    chemicalId: values.chemicalId ?? "",
+    hazardIds: parseMultiValue(values.hazardIds),
+    controlIds: parseMultiValue(values.controlIds),
+    description: values.description ?? "",
+    actualOutcome: values.actualOutcome ?? "",
+    potentialOutcome: values.potentialOutcome ?? "",
+    immediateActions: values.immediateActions ?? "",
+    investigationSummary: values.investigationSummary ?? "",
+    immediateCauses: values.immediateCauses ?? "",
+    contributingCauses: values.contributingCauses ?? "",
+    evidenceReference: values.evidenceReference ?? "",
+    reportingStatus: (values.reportingStatus ?? "Not Evaluated") as IncidentReportingStatus,
+    status: (values.status ?? "Open") as IncidentStatus,
   };
 }
 
@@ -1637,6 +2344,33 @@ function valuesToEquipmentInput(values: FormValues): EquipmentInput {
   };
 }
 
+function valuesToExposureMonitoringInput(values: FormValues): ExposureMonitoringInput {
+  const requestedStatus = (values.status ?? "Pending") as ExposureMonitoringStatus;
+  const result = values.result ?? "";
+  const exposureLimit = values.exposureLimit ?? "";
+
+  return {
+    sampleReference: values.sampleReference ?? "",
+    contextType: (values.contextType ?? "SEG") as ExposureContextType,
+    segId: values.segId ?? "",
+    contextDetail: values.contextDetail ?? "",
+    contaminant: values.contaminant ?? "",
+    chemicalId: values.chemicalId ?? "",
+    hazardId: values.hazardId ?? "",
+    locationId: values.locationId ?? "",
+    processId: values.processId ?? "",
+    samplingDate: values.samplingDate ?? "",
+    sampleType: (values.sampleType ?? "Personal") as ExposureSampleType,
+    result,
+    unit: values.unit ?? "",
+    exposureLimit,
+    exposureLimitReference: values.exposureLimitReference ?? "",
+    status: deriveExposureMonitoringStatus(result, exposureLimit, requestedStatus),
+    evidenceReference: values.evidenceReference ?? "",
+    notes: values.notes ?? "",
+  };
+}
+
 function valuesToChemicalInput(values: FormValues): ChemicalInput {
   return {
     name: values.name ?? "",
@@ -1656,6 +2390,30 @@ function valuesToChemicalInput(values: FormValues): ChemicalInput {
     unit: values.unit ?? "",
     supplier: values.supplier ?? "",
     status: (values.status ?? "active") as ChemicalStatus,
+    notes: values.notes ?? "",
+  };
+}
+
+function valuesToComplianceItemInput(values: FormValues): ComplianceItemInput {
+  return {
+    itemType: (values.itemType ?? "Obligation") as ComplianceItemType,
+    title: values.title ?? "",
+    requirementSource: values.requirementSource ?? "",
+    owner: values.owner ?? "",
+    audienceOrScope: values.audienceOrScope ?? "",
+    segId: values.segId ?? "",
+    locationId: values.locationId ?? "",
+    processId: values.processId ?? "",
+    equipmentId: values.equipmentId ?? "",
+    issueDate: values.issueDate ?? "",
+    dueDate: values.dueDate ?? "",
+    expirationDate: values.expirationDate ?? "",
+    reviewDate: values.reviewDate ?? "",
+    recurrence: values.recurrence ?? "",
+    status: (values.status ?? "Draft") as ComplianceItemStatus,
+    reviewStatus: (values.reviewStatus ?? "Not Reviewed") as ComplianceReviewStatus,
+    evidenceRequired: values.evidenceRequired === "true",
+    evidenceReference: values.evidenceReference ?? "",
     notes: values.notes ?? "",
   };
 }
@@ -1763,6 +2521,7 @@ export function getActiveContext(): RegisterContext {
     locations: get(locationRecords),
     processes: get(processRecords),
     equipment: get(equipmentRecords),
+    exposureMonitoring: get(exposureMonitoringRecords),
     chemicals: get(chemicalRecords),
     hazards: get(hazardRecords),
     controls: get(controlRecords),
@@ -1770,5 +2529,7 @@ export function getActiveContext(): RegisterContext {
     segs: get(segRecords),
     findings: get(findingRecords),
     correctiveActions: get(correctiveActionRecords),
+    incidents: get(incidentRecords),
+    complianceItems: get(complianceItemRecords),
   };
 }

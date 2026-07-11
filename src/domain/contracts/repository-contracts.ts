@@ -1,12 +1,21 @@
 import type { ChemicalInput, ChemicalRecord } from "$lib/persistence/chemical.types";
+import type {
+  ComplianceItemInput,
+  ComplianceItemRecord,
+} from "$lib/persistence/compliance-item.types";
 import type { ControlInput, ControlRecord } from "$lib/persistence/control.types";
 import type {
   CorrectiveActionInput,
   CorrectiveActionRecord,
 } from "$lib/persistence/corrective-action.types";
 import type { EquipmentInput, EquipmentRecord } from "$lib/persistence/equipment.types";
+import type {
+  ExposureMonitoringInput,
+  ExposureMonitoringRecord,
+} from "$lib/persistence/exposure-monitoring.types";
 import type { FindingInput, FindingRecord } from "$lib/persistence/finding.types";
 import type { HazardInput, HazardRecord } from "$lib/persistence/hazard.types";
+import type { IncidentInput, IncidentRecord } from "$lib/persistence/incident.types";
 import type { LifecycleMetadata } from "$lib/persistence/lifecycle.types";
 import type { LocationInput, LocationRecord } from "$lib/persistence/location.types";
 import type { ProcessInput, ProcessRecord } from "$lib/persistence/process.types";
@@ -61,11 +70,14 @@ export interface DomainRepositorySet {
   locations: RegisterRepository<LocationRecord, LocationInput>;
   processes: RegisterRepository<ProcessRecord, ProcessInput>;
   equipment: RegisterRepository<EquipmentRecord, EquipmentInput>;
+  exposureMonitoring: RegisterRepository<ExposureMonitoringRecord, ExposureMonitoringInput>;
   chemicals: RegisterRepository<ChemicalRecord, ChemicalInput>;
+  complianceItems: RegisterRepository<ComplianceItemRecord, ComplianceItemInput>;
   hazards: RegisterRepository<HazardRecord, HazardInput>;
   controls: RegisterRepository<ControlRecord, ControlInput>;
   riskAssessments: RegisterRepository<RiskAssessmentRecord, RiskAssessmentInput>;
   segs: RegisterRepository<SegRecord, SegInput>;
   findings: RegisterRepository<FindingRecord, FindingInput>;
+  incidents: RegisterRepository<IncidentRecord, IncidentInput>;
   correctiveActions: RegisterRepository<CorrectiveActionRecord, CorrectiveActionInput>;
 }

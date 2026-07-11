@@ -1,18 +1,39 @@
 import { writable } from "svelte/store";
 import type { FindingInput, FindingRecord } from "./finding.types";
-import { FINDING_TYPES } from "./finding.types";
+import { FINDING_STATUSES, FINDING_TYPES } from "./finding.types";
 import type { LocationInput, LocationRecord } from "./location.types";
 import { LOCATION_TYPES } from "./location.types";
 import type { ProcessInput, ProcessRecord } from "./process.types";
 import { PROCESS_CATEGORIES } from "./process.types";
 import type { ChemicalInput, ChemicalRecord } from "./chemical.types";
 import { CHEMICAL_HAZARD_CLASSES, CHEMICAL_SDS_STATUSES } from "./chemical.types";
+import type { ComplianceItemInput, ComplianceItemRecord } from "./compliance-item.types";
+import {
+  COMPLIANCE_ITEM_STATUSES,
+  COMPLIANCE_ITEM_TYPES,
+  COMPLIANCE_REVIEW_STATUSES,
+} from "./compliance-item.types";
 import type { ControlInput, ControlRecord } from "./control.types";
 import { CONTROL_STATUSES, CONTROL_TYPES } from "./control.types";
 import type { EquipmentInput, EquipmentRecord } from "./equipment.types";
 import { EQUIPMENT_TYPES } from "./equipment.types";
+import type {
+  ExposureMonitoringInput,
+  ExposureMonitoringRecord,
+} from "./exposure-monitoring.types";
+import {
+  EXPOSURE_CONTEXT_TYPES,
+  EXPOSURE_MONITORING_STATUSES,
+  EXPOSURE_SAMPLE_TYPES,
+} from "./exposure-monitoring.types";
 import type { HazardInput, HazardRecord } from "./hazard.types";
 import { HAZARD_CATEGORIES, HAZARD_LIKELIHOODS, HAZARD_SEVERITIES } from "./hazard.types";
+import type { IncidentInput, IncidentRecord } from "./incident.types";
+import {
+  INCIDENT_REPORTING_STATUSES,
+  INCIDENT_STATUSES,
+  INCIDENT_TYPES,
+} from "./incident.types";
 import type {
   RiskAssessmentInput,
   RiskAssessmentRecord,
@@ -32,9 +53,12 @@ import { ensureLifecycle, isActiveLifecycle, withActiveLifecycle } from "./lifec
 export type RegisterCollectionName =
   | "locations"
   | "findings"
+  | "incidents"
   | "processes"
   | "equipment"
+  | "exposureMonitoring"
   | "chemicals"
+  | "complianceItems"
   | "hazards"
   | "controls"
   | "riskAssessments"
@@ -44,14 +68,33 @@ export type RegisterCollectionName =
 export type PersistedRegisterRecord =
   | LocationRecord
   | FindingRecord
+  | IncidentRecord
   | ProcessRecord
   | EquipmentRecord
+  | ExposureMonitoringRecord
   | ChemicalRecord
+  | ComplianceItemRecord
   | HazardRecord
   | ControlRecord
   | RiskAssessmentRecord
   | SegRecord
   | CorrectiveActionRecord;
+
+export const REGISTER_COLLECTION_NAMES: RegisterCollectionName[] = [
+  "locations",
+  "processes",
+  "equipment",
+  "exposureMonitoring",
+  "chemicals",
+  "hazards",
+  "controls",
+  "riskAssessments",
+  "segs",
+  "findings",
+  "incidents",
+  "complianceItems",
+  "correctiveActions",
+];
 
 export type PersistenceStatus = "not_configured" | "loading" | "ready" | "error";
 
@@ -76,11 +119,14 @@ export interface PersistedDatabase {
   findings: FindingRecord[];
   processes: ProcessRecord[];
   equipment: EquipmentRecord[];
+  exposureMonitoring: ExposureMonitoringRecord[];
   chemicals: ChemicalRecord[];
+  complianceItems: ComplianceItemRecord[];
   hazards: HazardRecord[];
   controls: ControlRecord[];
   riskAssessments: RiskAssessmentRecord[];
   segs: SegRecord[];
+  incidents: IncidentRecord[];
   correctiveActions: CorrectiveActionRecord[];
   initializedAt: string;
   updatedAt: string;
@@ -161,7 +207,7 @@ interface RepositoryOptions {
   createId?: () => string;
 }
 
-const SCHEMA_VERSION = 10;
+const SCHEMA_VERSION = 13;
 const DEFAULT_STORAGE_KEY = "oluso.persistence.v1";
 const DEFAULT_DATA_PATH = `localStorage://${DEFAULT_STORAGE_KEY}`;
 const SEED_TIMESTAMP = "2026-07-09T00:00:00.000Z";
@@ -190,11 +236,14 @@ export const locationRecords = writable<LocationRecord[]>([]);
 export const findingRecords = writable<FindingRecord[]>([]);
 export const processRecords = writable<ProcessRecord[]>([]);
 export const equipmentRecords = writable<EquipmentRecord[]>([]);
+export const exposureMonitoringRecords = writable<ExposureMonitoringRecord[]>([]);
 export const chemicalRecords = writable<ChemicalRecord[]>([]);
+export const complianceItemRecords = writable<ComplianceItemRecord[]>([]);
 export const hazardRecords = writable<HazardRecord[]>([]);
 export const controlRecords = writable<ControlRecord[]>([]);
 export const riskAssessmentRecords = writable<RiskAssessmentRecord[]>([]);
 export const segRecords = writable<SegRecord[]>([]);
+export const incidentRecords = writable<IncidentRecord[]>([]);
 export const correctiveActionRecords = writable<CorrectiveActionRecord[]>([]);
 
 function defaultNow() {
@@ -325,6 +374,35 @@ function normalizeEquipmentRecord(record: object): EquipmentRecord {
   }) as EquipmentRecord;
 }
 
+function normalizeExposureMonitoringRecord(record: object): ExposureMonitoringRecord {
+  const raw = record as Partial<ExposureMonitoringRecord>;
+
+  return ensureLifecycle({
+    ...raw,
+    id: raw.id ?? "",
+    sampleReference: raw.sampleReference ?? "",
+    contextType: normalizePicklistValue(raw.contextType, EXPOSURE_CONTEXT_TYPES, "SEG"),
+    segId: raw.segId ?? "",
+    contextDetail: raw.contextDetail ?? "",
+    contaminant: raw.contaminant ?? "",
+    chemicalId: raw.chemicalId ?? "",
+    hazardId: raw.hazardId ?? "",
+    locationId: raw.locationId ?? "",
+    processId: raw.processId ?? "",
+    samplingDate: raw.samplingDate ?? "",
+    sampleType: normalizePicklistValue(raw.sampleType, EXPOSURE_SAMPLE_TYPES, "Personal"),
+    result: raw.result ?? "",
+    unit: raw.unit ?? "",
+    exposureLimit: raw.exposureLimit ?? "",
+    exposureLimitReference: raw.exposureLimitReference ?? "",
+    status: normalizePicklistValue(raw.status, EXPOSURE_MONITORING_STATUSES, "Pending"),
+    evidenceReference: raw.evidenceReference ?? "",
+    notes: raw.notes ?? "",
+    createdAt: raw.createdAt ?? SEED_TIMESTAMP,
+    updatedAt: raw.updatedAt ?? raw.createdAt ?? SEED_TIMESTAMP,
+  }) as ExposureMonitoringRecord;
+}
+
 function normalizeChemicalRecord(record: object): ChemicalRecord {
   const raw = record as Partial<ChemicalRecord>;
 
@@ -359,6 +437,40 @@ function normalizeChemicalRecord(record: object): ChemicalRecord {
     createdAt: raw.createdAt ?? SEED_TIMESTAMP,
     updatedAt: raw.updatedAt ?? raw.createdAt ?? SEED_TIMESTAMP,
   }) as ChemicalRecord;
+}
+
+function normalizeComplianceItemRecord(record: object): ComplianceItemRecord {
+  const raw = record as Partial<ComplianceItemRecord>;
+
+  return ensureLifecycle({
+    ...raw,
+    id: raw.id ?? "",
+    itemType: normalizePicklistValue(raw.itemType, COMPLIANCE_ITEM_TYPES, "Obligation"),
+    title: raw.title ?? "",
+    requirementSource: raw.requirementSource ?? "",
+    owner: raw.owner ?? "",
+    audienceOrScope: raw.audienceOrScope ?? "",
+    segId: raw.segId ?? "",
+    locationId: raw.locationId ?? "",
+    processId: raw.processId ?? "",
+    equipmentId: raw.equipmentId ?? "",
+    issueDate: raw.issueDate ?? "",
+    dueDate: raw.dueDate ?? "",
+    expirationDate: raw.expirationDate ?? "",
+    reviewDate: raw.reviewDate ?? "",
+    recurrence: raw.recurrence ?? "",
+    status: normalizePicklistValue(raw.status, COMPLIANCE_ITEM_STATUSES, "Draft"),
+    reviewStatus: normalizePicklistValue(
+      raw.reviewStatus,
+      COMPLIANCE_REVIEW_STATUSES,
+      "Not Reviewed",
+    ),
+    evidenceRequired: normalizeBoolean(raw.evidenceRequired, false),
+    evidenceReference: raw.evidenceReference ?? "",
+    notes: raw.notes ?? "",
+    createdAt: raw.createdAt ?? SEED_TIMESTAMP,
+    updatedAt: raw.updatedAt ?? raw.createdAt ?? SEED_TIMESTAMP,
+  }) as ComplianceItemRecord;
 }
 
 function normalizeHazardRecord(record: object): HazardRecord {
@@ -490,16 +602,58 @@ function normalizeFindingRecord(record: object): FindingRecord {
     locationId: raw.locationId ?? "",
     processId: raw.processId ?? "",
     hazardId: raw.hazardId ?? "",
+    activityDate: raw.activityDate ?? (raw.createdAt ?? SEED_TIMESTAMP).slice(0, 10),
+    equipmentId: raw.equipmentId ?? "",
+    chemicalId: raw.chemicalId ?? "",
+    controlId: raw.controlId ?? "",
+    scope: raw.scope ?? "",
+    criteriaReference: raw.criteriaReference ?? "",
+    evidenceReference: raw.evidenceReference ?? "",
+    followUpRequired: normalizeBoolean(raw.followUpRequired, false),
+    notes: raw.notes ?? "",
     severity:
       raw.severity === "Low" || raw.severity === "Medium" || raw.severity === "High" || raw.severity === "Critical"
         ? raw.severity
         : "Low",
-    status:
-      raw.status === "In Progress" || raw.status === "Closed" ? raw.status : "Open",
+    status: normalizePicklistValue(raw.status, FINDING_STATUSES, "Open"),
     reportedBy: raw.reportedBy ?? "",
     createdAt: raw.createdAt ?? SEED_TIMESTAMP,
     updatedAt: raw.updatedAt ?? raw.createdAt ?? SEED_TIMESTAMP,
   }) as FindingRecord;
+}
+
+function normalizeIncidentRecord(record: object): IncidentRecord {
+  const raw = record as Partial<IncidentRecord>;
+
+  return ensureLifecycle({
+    ...raw,
+    id: raw.id ?? "",
+    title: raw.title ?? "",
+    type: normalizePicklistValue(raw.type, INCIDENT_TYPES, "Near Miss"),
+    occurredAt: raw.occurredAt ?? "",
+    locationId: raw.locationId ?? "",
+    processId: raw.processId ?? "",
+    equipmentId: raw.equipmentId ?? "",
+    chemicalId: raw.chemicalId ?? "",
+    hazardIds: normalizeStringArray((raw as { hazardIds?: unknown }).hazardIds),
+    controlIds: normalizeStringArray((raw as { controlIds?: unknown }).controlIds),
+    description: raw.description ?? "",
+    actualOutcome: raw.actualOutcome ?? "",
+    potentialOutcome: raw.potentialOutcome ?? "",
+    immediateActions: raw.immediateActions ?? "",
+    investigationSummary: raw.investigationSummary ?? "",
+    immediateCauses: raw.immediateCauses ?? "",
+    contributingCauses: raw.contributingCauses ?? "",
+    evidenceReference: raw.evidenceReference ?? "",
+    reportingStatus: normalizePicklistValue(
+      raw.reportingStatus,
+      INCIDENT_REPORTING_STATUSES,
+      "Not Evaluated",
+    ),
+    status: normalizePicklistValue(raw.status, INCIDENT_STATUSES, "Open"),
+    createdAt: raw.createdAt ?? SEED_TIMESTAMP,
+    updatedAt: raw.updatedAt ?? raw.createdAt ?? SEED_TIMESTAMP,
+  }) as IncidentRecord;
 }
 
 function normalizeCorrectiveActionStatus(value: unknown): CorrectiveActionRecord["status"] {
@@ -589,12 +743,18 @@ function getRegisterStore(collection: RegisterCollectionName) {
       return locationRecords;
     case "findings":
       return findingRecords;
+    case "incidents":
+      return incidentRecords;
     case "processes":
       return processRecords;
     case "equipment":
       return equipmentRecords;
+    case "exposureMonitoring":
+      return exposureMonitoringRecords;
     case "chemicals":
       return chemicalRecords;
+    case "complianceItems":
+      return complianceItemRecords;
     case "hazards":
       return hazardRecords;
     case "controls":
@@ -666,10 +826,19 @@ export function createSeedFindings(locations: LocationRecord[]): FindingRecord[]
       type: "Inspection Finding",
       description: "Materials were staged in front of a marked egress path during field review.",
       locationId: primaryLocationId,
-      processId: "process-demo-equipment-maint",
+      processId: "process-demo-chemical-receipt",
       hazardId: "hazard-demo-slips",
+      activityDate: "2026-07-08",
+      equipmentId: "",
+      chemicalId: "",
+      controlId: "control-demo-slip-matting",
+      scope: "Emergency egress route walkthrough",
+      criteriaReference: "Internal emergency egress inspection criteria",
+      evidenceReference: "Field photo set FW-2026-11",
+      followUpRequired: true,
+      notes: "",
       severity: "High",
-      status: "Open",
+      status: "Requires Action",
       reportedBy: "Demo HSE Lead",
       createdAt: SEED_TIMESTAMP,
       updatedAt: SEED_TIMESTAMP,
@@ -680,8 +849,17 @@ export function createSeedFindings(locations: LocationRecord[]): FindingRecord[]
       type: "Observation",
       description: "A secondary chemical container label was partially unreadable.",
       locationId: secondaryLocationId,
-      processId: "process-demo-chemical-receipt",
+      processId: "",
       hazardId: "",
+      activityDate: "2026-07-08",
+      equipmentId: "equipment-demo-flammable-cabinet",
+      chemicalId: "chem-demo-acetone",
+      controlId: "",
+      scope: "",
+      criteriaReference: "",
+      evidenceReference: "Walkthrough note FW-2026-12",
+      followUpRequired: true,
+      notes: "",
       severity: "Medium",
       status: "In Progress",
       reportedBy: "Demo Observer",
@@ -729,7 +907,6 @@ export function createSeedEquipment(
 ): EquipmentRecord[] {
   const storageId = locations[1]?.id ?? locations[0]?.id ?? "loc-demo-chemical-storage";
   const workshopId = locations[2]?.id ?? locations[0]?.id ?? "loc-demo-workshop";
-  const receiptProcessId = processes.find((process) => process.id === "process-demo-chemical-receipt")?.id ?? "";
   const maintenanceProcessId = processes.find((process) => process.id === "process-demo-equipment-maint")?.id ?? "";
 
   const records: SeedRecord<EquipmentRecord>[] = [
@@ -750,7 +927,7 @@ export function createSeedEquipment(
       name: "Flammable Storage Cabinet",
       type: "Emergency Equipment",
       locationId: storageId,
-      processId: receiptProcessId,
+      processId: "",
       description: "Approved cabinet used for storing flammable chemicals before transfer to use areas.",
       status: "active",
       notes: "Relevant to chemical storage controls and inspection findings.",
@@ -975,6 +1152,122 @@ export function createSeedSegs(locations: LocationRecord[]): SegRecord[] {
   return records.map((record) => withActiveLifecycle(record));
 }
 
+export function createSeedExposureMonitoring(): ExposureMonitoringRecord[] {
+  const records: SeedRecord<ExposureMonitoringRecord>[] = [
+    {
+      id: "exposure-demo-acetone-twa",
+      sampleReference: "IH-2026-001",
+      contextType: "SEG",
+      segId: "seg-demo-chemical-handlers",
+      contextDetail: "Chemical transfer task",
+      contaminant: "Acetone vapor",
+      chemicalId: "chem-demo-acetone",
+      hazardId: "hazard-demo-slips",
+      locationId: "loc-demo-main-facility",
+      processId: "process-demo-chemical-receipt",
+      samplingDate: "2026-07-08",
+      sampleType: "Personal",
+      result: "120",
+      unit: "ppm",
+      exposureLimit: "250",
+      exposureLimitReference: "ACGIH TLV, 8-hour TWA",
+      status: "Below Limit",
+      evidenceReference: "IH worksheet IH-2026-001",
+      notes: "Basic demonstration sample; advanced industrial hygiene calculations are deferred.",
+      createdAt: SEED_TIMESTAMP,
+      updatedAt: SEED_TIMESTAMP,
+    },
+  ];
+
+  return records.map((record) => withActiveLifecycle(record));
+}
+
+export function createSeedIncidents(): IncidentRecord[] {
+  const records: SeedRecord<IncidentRecord>[] = [
+    {
+      id: "incident-demo-grinding-near-miss",
+      title: "Grinding spark near combustible packaging",
+      type: "Near Miss",
+      occurredAt: "2026-07-08T14:15",
+      locationId: "loc-demo-workshop",
+      processId: "process-demo-equipment-maint",
+      equipmentId: "equipment-demo-dust-collector",
+      chemicalId: "",
+      hazardIds: ["hazard-demo-noise"],
+      controlIds: ["control-demo-hearing-protection"],
+      description: "Sparks from a grinding task reached packaging staged outside the work zone.",
+      actualOutcome: "No injury, damage, or ignition occurred.",
+      potentialOutcome: "Potential fire and employee exposure.",
+      immediateActions: "Stopped work and cleared the staging area.",
+      investigationSummary: "Review work-zone housekeeping and hot-work boundaries.",
+      immediateCauses: "Packaging was staged inside the grinding exclusion zone.",
+      contributingCauses: "Pre-task area check did not include temporary stored materials.",
+      evidenceReference: "Field note NM-2026-004",
+      reportingStatus: "Not Evaluated",
+      status: "Under Investigation",
+      createdAt: SEED_TIMESTAMP,
+      updatedAt: SEED_TIMESTAMP,
+    },
+  ];
+
+  return records.map((record) => withActiveLifecycle(record));
+}
+
+export function createSeedComplianceItems(): ComplianceItemRecord[] {
+  const records: SeedRecord<ComplianceItemRecord>[] = [
+    {
+      id: "compliance-demo-air-permit-review",
+      itemType: "Permit",
+      title: "Air permit annual review",
+      requirementSource: "Facility air permit AP-2025-14",
+      owner: "Environmental Coordinator",
+      audienceOrScope: "Workshop ventilation and chemical handling operations",
+      segId: "",
+      locationId: "loc-demo-main-facility",
+      processId: "process-demo-chemical-receipt",
+      equipmentId: "",
+      issueDate: "2025-09-01",
+      dueDate: "2026-08-15",
+      expirationDate: "2026-09-01",
+      reviewDate: "2026-08-15",
+      recurrence: "Annual",
+      status: "Due Soon",
+      reviewStatus: "Needs Review",
+      evidenceRequired: true,
+      evidenceReference: "Permit file AP-2025-14",
+      notes: "Tracking supports readiness and does not determine legal compliance.",
+      createdAt: SEED_TIMESTAMP,
+      updatedAt: SEED_TIMESTAMP,
+    },
+    {
+      id: "compliance-demo-chemical-training",
+      itemType: "Training",
+      title: "Annual chemical handling refresher",
+      requirementSource: "Internal chemical safety program",
+      owner: "HSE Officer",
+      audienceOrScope: "Chemical Handlers SEG",
+      segId: "seg-demo-chemical-handlers",
+      locationId: "loc-demo-main-facility",
+      processId: "process-demo-chemical-receipt",
+      equipmentId: "",
+      issueDate: "",
+      dueDate: "2026-10-01",
+      expirationDate: "",
+      reviewDate: "2026-09-01",
+      recurrence: "Annual",
+      status: "Upcoming",
+      reviewStatus: "Not Reviewed",
+      evidenceRequired: true,
+      evidenceReference: "",
+      notes: "Status register only; learning management is out of scope.",
+      createdAt: SEED_TIMESTAMP,
+      updatedAt: SEED_TIMESTAMP,
+    },
+  ];
+
+  return records.map((record) => withActiveLifecycle(record));
+}
+
 export function createSeedCorrectiveActions(findings: FindingRecord[]): CorrectiveActionRecord[] {
   const primaryFindingId = findings[0]?.id ?? "finding-demo-egress";
   const secondaryFindingId = findings[1]?.id ?? primaryFindingId;
@@ -1106,6 +1399,9 @@ export function createLocalPersistenceRepository(options: RepositoryOptions = {}
       parsed.schemaVersion !== 7 &&
       parsed.schemaVersion !== 8 &&
       parsed.schemaVersion !== 9 &&
+      parsed.schemaVersion !== 10 &&
+      parsed.schemaVersion !== 11 &&
+      parsed.schemaVersion !== 12 &&
       parsed.schemaVersion !== SCHEMA_VERSION
     ) {
       throw new Error(`Unsupported persistence schema version: ${String(parsed.schemaVersion)}.`);
@@ -1123,11 +1419,14 @@ export function createLocalPersistenceRepository(options: RepositoryOptions = {}
         findings: [],
         processes: [],
         equipment: [],
+        exposureMonitoring: [],
         chemicals: [],
+        complianceItems: [],
         hazards: [],
         controls: [],
         riskAssessments: [],
         segs: [],
+        incidents: [],
         correctiveActions: [],
         initializedAt: parsed.initializedAt ?? now().toISOString(),
         updatedAt: now().toISOString(),
@@ -1143,20 +1442,21 @@ export function createLocalPersistenceRepository(options: RepositoryOptions = {}
         findings: (v2.findings ?? []).map((record) => normalizeFindingRecord(record)),
         processes: [],
         equipment: [],
+        exposureMonitoring: [],
         chemicals: [],
+        complianceItems: [],
         hazards: [],
         controls: [],
         riskAssessments: [],
         segs: [],
+        incidents: [],
         correctiveActions: [],
         initializedAt: v2.initializedAt ?? now().toISOString(),
         updatedAt: now().toISOString(),
       };
     }
 
-    const parsedV3 = parsed as Partial<
-      PersistedDatabase | PersistedDatabaseV5 | PersistedDatabaseV4 | PersistedDatabaseV3
-    >;
+    const parsedV3 = parsed as Partial<PersistedDatabase>;
 
     return {
       schemaVersion: SCHEMA_VERSION,
@@ -1164,13 +1464,20 @@ export function createLocalPersistenceRepository(options: RepositoryOptions = {}
       findings: (parsedV3.findings ?? []).map((record) => normalizeFindingRecord(record)),
       processes: (parsedV3.processes ?? []).map((record) => normalizeProcessRecord(record)),
       equipment: (parsedV3.equipment ?? []).map((record) => normalizeEquipmentRecord(record)),
+      exposureMonitoring: (parsedV3.exposureMonitoring ?? []).map((record) =>
+        normalizeExposureMonitoringRecord(record),
+      ),
       chemicals: (parsedV3.chemicals ?? []).map((record) => normalizeChemicalRecord(record)),
+      complianceItems: (parsedV3.complianceItems ?? []).map((record) =>
+        normalizeComplianceItemRecord(record),
+      ),
       hazards: (parsedV3.hazards ?? []).map((record) => normalizeHazardRecord(record)),
       controls: (parsedV3.controls ?? []).map((record) => normalizeControlRecord(record)),
       riskAssessments: (parsedV3.riskAssessments ?? []).map((record) =>
         normalizeRiskAssessmentRecord(record),
       ),
       segs: (parsedV3.segs ?? []).map((record) => normalizeSegRecord(record)),
+      incidents: (parsedV3.incidents ?? []).map((record) => normalizeIncidentRecord(record)),
       correctiveActions: (parsedV3.correctiveActions ?? []).map((record) =>
         normalizeCorrectiveActionRecord(record),
       ),
@@ -1199,20 +1506,26 @@ export function createLocalPersistenceRepository(options: RepositoryOptions = {}
     const locations = createSeedLocations();
     const findings = createSeedFindings(locations);
     const processes = createSeedProcesses(locations);
+    const equipment = createSeedEquipment(locations, processes);
+    const chemicals = createSeedChemicals(locations);
     const hazards = createSeedHazards(locations);
     const controls = createSeedControls(hazards);
+    const segs = createSeedSegs(locations);
 
     return {
       schemaVersion: SCHEMA_VERSION,
       locations,
       findings,
       processes,
-      equipment: createSeedEquipment(locations, processes),
-      chemicals: createSeedChemicals(locations),
+      equipment,
+      exposureMonitoring: createSeedExposureMonitoring(),
+      chemicals,
+      complianceItems: createSeedComplianceItems(),
       hazards,
       controls,
       riskAssessments: createSeedRiskAssessments(hazards, controls),
-      segs: createSeedSegs(locations),
+      segs,
+      incidents: createSeedIncidents(),
       correctiveActions: createSeedCorrectiveActions(findings),
       initializedAt: timestamp,
       updatedAt: timestamp,
@@ -1224,11 +1537,14 @@ export function createLocalPersistenceRepository(options: RepositoryOptions = {}
     findingRecords.set(activeRecords(database.findings));
     processRecords.set(activeRecords(database.processes));
     equipmentRecords.set(activeRecords(database.equipment));
+    exposureMonitoringRecords.set(activeRecords(database.exposureMonitoring));
     chemicalRecords.set(activeRecords(database.chemicals));
+    complianceItemRecords.set(activeRecords(database.complianceItems));
     hazardRecords.set(activeRecords(database.hazards));
     controlRecords.set(activeRecords(database.controls));
     riskAssessmentRecords.set(activeRecords(database.riskAssessments));
     segRecords.set(activeRecords(database.segs));
+    incidentRecords.set(activeRecords(database.incidents));
     correctiveActionRecords.set(activeRecords(database.correctiveActions));
     setDiagnostics({
       status: "ready",
@@ -1269,10 +1585,18 @@ export function createLocalPersistenceRepository(options: RepositoryOptions = {}
         existingDatabase.equipment.length === 0
           ? createSeedEquipment(nextLocations, nextProcesses)
           : existingDatabase.equipment;
+      const nextExposureMonitoring =
+        existingDatabase.exposureMonitoring.length === 0
+          ? createSeedExposureMonitoring()
+          : existingDatabase.exposureMonitoring;
       const nextChemicals =
         existingDatabase.chemicals.length === 0
           ? createSeedChemicals(nextLocations)
           : existingDatabase.chemicals;
+      const nextComplianceItems =
+        existingDatabase.complianceItems.length === 0
+          ? createSeedComplianceItems()
+          : existingDatabase.complianceItems;
       const nextHazards =
         existingDatabase.hazards.length === 0
           ? createSeedHazards(nextLocations)
@@ -1285,6 +1609,8 @@ export function createLocalPersistenceRepository(options: RepositoryOptions = {}
           : existingDatabase.riskAssessments;
       const nextSegs =
         existingDatabase.segs.length === 0 ? createSeedSegs(nextLocations) : existingDatabase.segs;
+      const nextIncidents =
+        existingDatabase.incidents.length === 0 ? createSeedIncidents() : existingDatabase.incidents;
       const nextCorrectiveActions =
         existingDatabase.correctiveActions.length === 0
           ? createSeedCorrectiveActions(nextFindings)
@@ -1296,11 +1622,14 @@ export function createLocalPersistenceRepository(options: RepositoryOptions = {}
         existingDatabase.findings.length === 0 ||
         existingDatabase.processes.length === 0 ||
         existingDatabase.equipment.length === 0 ||
+        existingDatabase.exposureMonitoring.length === 0 ||
         existingDatabase.chemicals.length === 0 ||
+        existingDatabase.complianceItems.length === 0 ||
         existingDatabase.hazards.length === 0 ||
         existingDatabase.controls.length === 0 ||
         existingDatabase.riskAssessments.length === 0 ||
         existingDatabase.segs.length === 0 ||
+        existingDatabase.incidents.length === 0 ||
         existingDatabase.correctiveActions.length === 0;
 
       if (needsWrite) {
@@ -1310,11 +1639,14 @@ export function createLocalPersistenceRepository(options: RepositoryOptions = {}
           findings: nextFindings,
           processes: nextProcesses,
           equipment: nextEquipment,
+          exposureMonitoring: nextExposureMonitoring,
           chemicals: nextChemicals,
+          complianceItems: nextComplianceItems,
           hazards: nextHazards,
           controls: nextControls,
           riskAssessments: nextRiskAssessments,
           segs: nextSegs,
+          incidents: nextIncidents,
           correctiveActions: nextCorrectiveActions,
           initializedAt: existingDatabase.initializedAt,
           updatedAt: timestamp,
@@ -1332,11 +1664,14 @@ export function createLocalPersistenceRepository(options: RepositoryOptions = {}
       findingRecords.set([]);
       processRecords.set([]);
       equipmentRecords.set([]);
+      exposureMonitoringRecords.set([]);
       chemicalRecords.set([]);
+      complianceItemRecords.set([]);
       hazardRecords.set([]);
       controlRecords.set([]);
       riskAssessmentRecords.set([]);
       segRecords.set([]);
+      incidentRecords.set([]);
       correctiveActionRecords.set([]);
       setErrorStatus(error);
       throw error;
@@ -1441,6 +1776,15 @@ export function createLocalPersistenceRepository(options: RepositoryOptions = {}
         locationId: input.locationId,
         processId: input.processId,
         hazardId: input.hazardId,
+        activityDate: input.activityDate ?? timestamp.slice(0, 10),
+        equipmentId: input.equipmentId ?? "",
+        chemicalId: input.chemicalId ?? "",
+        controlId: input.controlId ?? "",
+        scope: input.scope?.trim() ?? "",
+        criteriaReference: input.criteriaReference?.trim() ?? "",
+        evidenceReference: input.evidenceReference?.trim() ?? "",
+        followUpRequired: input.followUpRequired ?? false,
+        notes: input.notes?.trim() ?? "",
         severity: input.severity,
         status: input.status,
         reportedBy: input.reportedBy.trim(),
@@ -1474,6 +1818,15 @@ export function createLocalPersistenceRepository(options: RepositoryOptions = {}
         locationId: input.locationId,
         processId: input.processId,
         hazardId: input.hazardId,
+        activityDate: input.activityDate ?? existing.activityDate ?? timestamp.slice(0, 10),
+        equipmentId: input.equipmentId ?? "",
+        chemicalId: input.chemicalId ?? "",
+        controlId: input.controlId ?? "",
+        scope: input.scope?.trim() ?? "",
+        criteriaReference: input.criteriaReference?.trim() ?? "",
+        evidenceReference: input.evidenceReference?.trim() ?? "",
+        followUpRequired: input.followUpRequired ?? false,
+        notes: input.notes?.trim() ?? "",
         severity: input.severity,
         status: input.status,
         reportedBy: input.reportedBy.trim(),
@@ -1487,6 +1840,112 @@ export function createLocalPersistenceRepository(options: RepositoryOptions = {}
       writeDatabase(nextDatabase);
       publishReady(nextDatabase, `Schema v${SCHEMA_VERSION} is ready.`);
       return updatedFinding;
+    } catch (error) {
+      setErrorStatus(error);
+      throw error;
+    }
+  }
+
+  // ── Incidents and Near Misses ────────────────────────────────────────────
+
+  function listIncidents(): IncidentRecord[] {
+    try {
+      const database = readDatabase();
+      if (!database) throw new Error("Persistence is not initialized.");
+      const records = activeRecords(database.incidents);
+      incidentRecords.set(records);
+      return records;
+    } catch (error) {
+      setErrorStatus(error);
+      throw error;
+    }
+  }
+
+  function createIncident(input: IncidentInput): IncidentRecord {
+    try {
+      const database = readDatabase();
+      if (!database) throw new Error("Persistence is not initialized.");
+      const timestamp = now().toISOString();
+      const incident: IncidentRecord = withActiveLifecycle({
+        id: createId(),
+        title: input.title.trim(),
+        type: input.type,
+        occurredAt: input.occurredAt,
+        locationId: input.locationId,
+        processId: input.processId,
+        equipmentId: input.equipmentId,
+        chemicalId: input.chemicalId,
+        hazardIds: input.hazardIds,
+        controlIds: input.controlIds,
+        description: input.description.trim(),
+        actualOutcome: input.actualOutcome.trim(),
+        potentialOutcome: input.potentialOutcome.trim(),
+        immediateActions: input.immediateActions.trim(),
+        investigationSummary: input.investigationSummary.trim(),
+        immediateCauses: input.immediateCauses.trim(),
+        contributingCauses: input.contributingCauses.trim(),
+        evidenceReference: input.evidenceReference.trim(),
+        reportingStatus: input.reportingStatus,
+        status: input.status,
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      });
+      const nextDatabase = {
+        ...database,
+        incidents: [...database.incidents, incident],
+        updatedAt: timestamp,
+      };
+      writeDatabase(nextDatabase);
+      publishReady(nextDatabase, `Schema v${SCHEMA_VERSION} is ready.`);
+      return incident;
+    } catch (error) {
+      setErrorStatus(error);
+      throw error;
+    }
+  }
+
+  function updateIncident(id: string, input: IncidentInput): IncidentRecord {
+    if (!id.trim()) throw new Error("Incident ID is required.");
+
+    try {
+      const database = readDatabase();
+      if (!database) throw new Error("Persistence is not initialized.");
+      const existing = database.incidents.find((record) => record.id === id);
+      if (!existing) throw new Error("Incident was not found.");
+      const timestamp = now().toISOString();
+      const updatedIncident: IncidentRecord = {
+        ...existing,
+        title: input.title.trim(),
+        type: input.type,
+        occurredAt: input.occurredAt,
+        locationId: input.locationId,
+        processId: input.processId,
+        equipmentId: input.equipmentId,
+        chemicalId: input.chemicalId,
+        hazardIds: input.hazardIds,
+        controlIds: input.controlIds,
+        description: input.description.trim(),
+        actualOutcome: input.actualOutcome.trim(),
+        potentialOutcome: input.potentialOutcome.trim(),
+        immediateActions: input.immediateActions.trim(),
+        investigationSummary: input.investigationSummary.trim(),
+        immediateCauses: input.immediateCauses.trim(),
+        contributingCauses: input.contributingCauses.trim(),
+        evidenceReference: input.evidenceReference.trim(),
+        reportingStatus: input.reportingStatus,
+        status: input.status,
+        updatedAt: timestamp,
+      };
+      const nextDatabase = {
+        ...database,
+        incidents: database.incidents.map((record) =>
+          record.id === id ? updatedIncident : record,
+        ),
+        updatedAt: timestamp,
+      };
+      writeDatabase(nextDatabase);
+      publishReady(nextDatabase, `Schema v${SCHEMA_VERSION} is ready.`);
+      return updatedIncident;
     } catch (error) {
       setErrorStatus(error);
       throw error;
@@ -1641,6 +2100,115 @@ export function createLocalPersistenceRepository(options: RepositoryOptions = {}
     }
   }
 
+  // ── Exposure Monitoring ──────────────────────────────────────────────────
+
+  function listExposureMonitoring(): ExposureMonitoringRecord[] {
+    try {
+      const database = readDatabase();
+      if (!database) throw new Error("Persistence is not initialized.");
+      const records = activeRecords(database.exposureMonitoring);
+      exposureMonitoringRecords.set(records);
+      return records;
+    } catch (error) {
+      setErrorStatus(error);
+      throw error;
+    }
+  }
+
+  function createExposureMonitoring(
+    input: ExposureMonitoringInput,
+  ): ExposureMonitoringRecord {
+    try {
+      const database = readDatabase();
+      if (!database) throw new Error("Persistence is not initialized.");
+      const timestamp = now().toISOString();
+      const record: ExposureMonitoringRecord = withActiveLifecycle({
+        id: createId(),
+        sampleReference: input.sampleReference.trim(),
+        contextType: input.contextType,
+        segId: input.segId,
+        contextDetail: input.contextDetail.trim(),
+        contaminant: input.contaminant.trim(),
+        chemicalId: input.chemicalId,
+        hazardId: input.hazardId,
+        locationId: input.locationId,
+        processId: input.processId,
+        samplingDate: input.samplingDate,
+        sampleType: input.sampleType,
+        result: input.result.trim(),
+        unit: input.unit.trim(),
+        exposureLimit: input.exposureLimit.trim(),
+        exposureLimitReference: input.exposureLimitReference.trim(),
+        status: input.status,
+        evidenceReference: input.evidenceReference.trim(),
+        notes: input.notes.trim(),
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      });
+      const nextDatabase = {
+        ...database,
+        exposureMonitoring: [...database.exposureMonitoring, record],
+        updatedAt: timestamp,
+      };
+      writeDatabase(nextDatabase);
+      publishReady(nextDatabase, `Schema v${SCHEMA_VERSION} is ready.`);
+      return record;
+    } catch (error) {
+      setErrorStatus(error);
+      throw error;
+    }
+  }
+
+  function updateExposureMonitoring(
+    id: string,
+    input: ExposureMonitoringInput,
+  ): ExposureMonitoringRecord {
+    if (!id.trim()) throw new Error("Exposure monitoring record ID is required.");
+
+    try {
+      const database = readDatabase();
+      if (!database) throw new Error("Persistence is not initialized.");
+      const existing = database.exposureMonitoring.find((record) => record.id === id);
+      if (!existing) throw new Error("Exposure monitoring record was not found.");
+      const timestamp = now().toISOString();
+      const updatedRecord: ExposureMonitoringRecord = {
+        ...existing,
+        sampleReference: input.sampleReference.trim(),
+        contextType: input.contextType,
+        segId: input.segId,
+        contextDetail: input.contextDetail.trim(),
+        contaminant: input.contaminant.trim(),
+        chemicalId: input.chemicalId,
+        hazardId: input.hazardId,
+        locationId: input.locationId,
+        processId: input.processId,
+        samplingDate: input.samplingDate,
+        sampleType: input.sampleType,
+        result: input.result.trim(),
+        unit: input.unit.trim(),
+        exposureLimit: input.exposureLimit.trim(),
+        exposureLimitReference: input.exposureLimitReference.trim(),
+        status: input.status,
+        evidenceReference: input.evidenceReference.trim(),
+        notes: input.notes.trim(),
+        updatedAt: timestamp,
+      };
+      const nextDatabase = {
+        ...database,
+        exposureMonitoring: database.exposureMonitoring.map((record) =>
+          record.id === id ? updatedRecord : record,
+        ),
+        updatedAt: timestamp,
+      };
+      writeDatabase(nextDatabase);
+      publishReady(nextDatabase, `Schema v${SCHEMA_VERSION} is ready.`);
+      return updatedRecord;
+    } catch (error) {
+      setErrorStatus(error);
+      throw error;
+    }
+  }
+
   // ── Chemicals ─────────────────────────────────────────────────────────────
 
   function listChemicals(): ChemicalRecord[] {
@@ -1733,6 +2301,115 @@ export function createLocalPersistenceRepository(options: RepositoryOptions = {}
       writeDatabase(nextDatabase);
       publishReady(nextDatabase, `Schema v${SCHEMA_VERSION} is ready.`);
       return updatedChemical;
+    } catch (error) {
+      setErrorStatus(error);
+      throw error;
+    }
+  }
+
+  // ── Compliance Support ───────────────────────────────────────────────────
+
+  function listComplianceItems(): ComplianceItemRecord[] {
+    try {
+      const database = readDatabase();
+      if (!database) throw new Error("Persistence is not initialized.");
+      const records = activeRecords(database.complianceItems);
+      complianceItemRecords.set(records);
+      return records;
+    } catch (error) {
+      setErrorStatus(error);
+      throw error;
+    }
+  }
+
+  function createComplianceItem(input: ComplianceItemInput): ComplianceItemRecord {
+    try {
+      const database = readDatabase();
+      if (!database) throw new Error("Persistence is not initialized.");
+      const timestamp = now().toISOString();
+      const item: ComplianceItemRecord = withActiveLifecycle({
+        id: createId(),
+        itemType: input.itemType,
+        title: input.title.trim(),
+        requirementSource: input.requirementSource.trim(),
+        owner: input.owner.trim(),
+        audienceOrScope: input.audienceOrScope.trim(),
+        segId: input.segId,
+        locationId: input.locationId,
+        processId: input.processId,
+        equipmentId: input.equipmentId,
+        issueDate: input.issueDate,
+        dueDate: input.dueDate,
+        expirationDate: input.expirationDate,
+        reviewDate: input.reviewDate,
+        recurrence: input.recurrence.trim(),
+        status: input.status,
+        reviewStatus: input.reviewStatus,
+        evidenceRequired: input.evidenceRequired,
+        evidenceReference: input.evidenceReference.trim(),
+        notes: input.notes.trim(),
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      });
+      const nextDatabase = {
+        ...database,
+        complianceItems: [...database.complianceItems, item],
+        updatedAt: timestamp,
+      };
+      writeDatabase(nextDatabase);
+      publishReady(nextDatabase, `Schema v${SCHEMA_VERSION} is ready.`);
+      return item;
+    } catch (error) {
+      setErrorStatus(error);
+      throw error;
+    }
+  }
+
+  function updateComplianceItem(
+    id: string,
+    input: ComplianceItemInput,
+  ): ComplianceItemRecord {
+    if (!id.trim()) throw new Error("Compliance item ID is required.");
+
+    try {
+      const database = readDatabase();
+      if (!database) throw new Error("Persistence is not initialized.");
+      const existing = database.complianceItems.find((record) => record.id === id);
+      if (!existing) throw new Error("Compliance item was not found.");
+      const timestamp = now().toISOString();
+      const updatedItem: ComplianceItemRecord = {
+        ...existing,
+        itemType: input.itemType,
+        title: input.title.trim(),
+        requirementSource: input.requirementSource.trim(),
+        owner: input.owner.trim(),
+        audienceOrScope: input.audienceOrScope.trim(),
+        segId: input.segId,
+        locationId: input.locationId,
+        processId: input.processId,
+        equipmentId: input.equipmentId,
+        issueDate: input.issueDate,
+        dueDate: input.dueDate,
+        expirationDate: input.expirationDate,
+        reviewDate: input.reviewDate,
+        recurrence: input.recurrence.trim(),
+        status: input.status,
+        reviewStatus: input.reviewStatus,
+        evidenceRequired: input.evidenceRequired,
+        evidenceReference: input.evidenceReference.trim(),
+        notes: input.notes.trim(),
+        updatedAt: timestamp,
+      };
+      const nextDatabase = {
+        ...database,
+        complianceItems: database.complianceItems.map((record) =>
+          record.id === id ? updatedItem : record,
+        ),
+        updatedAt: timestamp,
+      };
+      writeDatabase(nextDatabase);
+      publishReady(nextDatabase, `Schema v${SCHEMA_VERSION} is ready.`);
+      return updatedItem;
     } catch (error) {
       setErrorStatus(error);
       throw error;
@@ -2297,6 +2974,91 @@ export function createLocalPersistenceRepository(options: RepositoryOptions = {}
     }
   }
 
+  function exportDatabase(): PersistedDatabase {
+    const database = readDatabase();
+    if (!database) throw new Error("Persistence is not initialized.");
+    return JSON.parse(JSON.stringify(database)) as PersistedDatabase;
+  }
+
+  function mergeCollection<TRecord extends { id: string }>(
+    current: TRecord[],
+    imported: TRecord[],
+  ) {
+    const currentIds = new Set(current.map((record) => record.id));
+    const missing = imported.filter((record) => !currentIds.has(record.id));
+    return { records: [...current, ...missing], importedCount: missing.length };
+  }
+
+  function importDatabase(snapshot: unknown) {
+    const current = readDatabase();
+    if (!current) throw new Error("Persistence is not initialized.");
+    const imported = parseDatabase(JSON.stringify(snapshot));
+    const locations = mergeCollection(current.locations, imported.locations);
+    const findings = mergeCollection(current.findings, imported.findings);
+    const incidents = mergeCollection(current.incidents, imported.incidents);
+    const processes = mergeCollection(current.processes, imported.processes);
+    const equipment = mergeCollection(current.equipment, imported.equipment);
+    const exposureMonitoring = mergeCollection(
+      current.exposureMonitoring,
+      imported.exposureMonitoring,
+    );
+    const chemicals = mergeCollection(current.chemicals, imported.chemicals);
+    const complianceItems = mergeCollection(current.complianceItems, imported.complianceItems);
+    const hazards = mergeCollection(current.hazards, imported.hazards);
+    const controls = mergeCollection(current.controls, imported.controls);
+    const riskAssessments = mergeCollection(current.riskAssessments, imported.riskAssessments);
+    const segs = mergeCollection(current.segs, imported.segs);
+    const correctiveActions = mergeCollection(
+      current.correctiveActions,
+      imported.correctiveActions,
+    );
+    const database: PersistedDatabase = {
+      ...current,
+      schemaVersion: SCHEMA_VERSION,
+      locations: locations.records,
+      findings: findings.records,
+      incidents: incidents.records,
+      processes: processes.records,
+      equipment: equipment.records,
+      exposureMonitoring: exposureMonitoring.records,
+      chemicals: chemicals.records,
+      complianceItems: complianceItems.records,
+      hazards: hazards.records,
+      controls: controls.records,
+      riskAssessments: riskAssessments.records,
+      segs: segs.records,
+      correctiveActions: correctiveActions.records,
+      updatedAt: now().toISOString(),
+    };
+    const importedCount = [
+      locations,
+      findings,
+      incidents,
+      processes,
+      equipment,
+      exposureMonitoring,
+      chemicals,
+      complianceItems,
+      hazards,
+      controls,
+      riskAssessments,
+      segs,
+      correctiveActions,
+    ].reduce((total, collection) => total + collection.importedCount, 0);
+
+    writeDatabase(database);
+    publishReady(database, `Imported ${importedCount} missing records into schema v${SCHEMA_VERSION}.`);
+    return { database, importedCount };
+  }
+
+  function restoreDatabase(snapshot: unknown): PersistedDatabase {
+    const database = parseDatabase(JSON.stringify(snapshot));
+    const restored = { ...database, updatedAt: now().toISOString() };
+    writeDatabase(restored);
+    publishReady(restored, `Restored backup into schema v${SCHEMA_VERSION}.`);
+    return restored;
+  }
+
   function clearAllData() {
     try {
       const activeStorage = requireStorage();
@@ -2304,8 +3066,14 @@ export function createLocalPersistenceRepository(options: RepositoryOptions = {}
       locationRecords.set([]);
       findingRecords.set([]);
       processRecords.set([]);
+      incidentRecords.set([]);
       chemicalRecords.set([]);
+      complianceItemRecords.set([]);
       hazardRecords.set([]);
+      equipmentRecords.set([]);
+      exposureMonitoringRecords.set([]);
+      controlRecords.set([]);
+      riskAssessmentRecords.set([]);
       segRecords.set([]);
       correctiveActionRecords.set([]);
       setDiagnostics({
@@ -2330,15 +3098,24 @@ export function createLocalPersistenceRepository(options: RepositoryOptions = {}
     listFindings,
     createFinding,
     updateFinding,
+    listIncidents,
+    createIncident,
+    updateIncident,
     listProcesses,
     createProcess,
     updateProcess,
     listEquipment,
     createEquipment,
     updateEquipment,
+    listExposureMonitoring,
+    createExposureMonitoring,
+    updateExposureMonitoring,
     listChemicals,
     createChemical,
     updateChemical,
+    listComplianceItems,
+    createComplianceItem,
+    updateComplianceItem,
     listHazards,
     createHazard,
     updateHazard,
@@ -2358,6 +3135,9 @@ export function createLocalPersistenceRepository(options: RepositoryOptions = {}
     listRegisterRecords,
     archiveRecord,
     restoreRecord,
+    exportDatabase,
+    importDatabase,
+    restoreDatabase,
     clearAllData,
     getDataPath,
   };
@@ -2395,11 +3175,14 @@ function publishSqliteSnapshot(snapshot: SqlitePersistenceSnapshot) {
   findingRecords.set(activeRecords(database.findings));
   processRecords.set(activeRecords(database.processes));
   equipmentRecords.set(activeRecords(database.equipment));
+  exposureMonitoringRecords.set(activeRecords(database.exposureMonitoring));
   chemicalRecords.set(activeRecords(database.chemicals));
+  complianceItemRecords.set(activeRecords(database.complianceItems));
   hazardRecords.set(activeRecords(database.hazards));
   controlRecords.set(activeRecords(database.controls));
   riskAssessmentRecords.set(activeRecords(database.riskAssessments));
   segRecords.set(activeRecords(database.segs));
+  incidentRecords.set(activeRecords(database.incidents));
   correctiveActionRecords.set(activeRecords(database.correctiveActions));
   persistenceDiagnostics.set({
     ...snapshot.diagnostics,
@@ -2528,6 +3311,18 @@ function createSqlitePersistenceRepository(): LocalPersistenceRepository {
         getRegisterCollection(snapshot.database, "findings").find((record) => record.id === id),
       ) as unknown as FindingRecord;
     },
+    listIncidents: () => listCollection<IncidentRecord>("incidents"),
+    createIncident(input: IncidentInput) {
+      const before = database;
+      return invokeSnapshot("oluso_create_record", { collection: "incidents", input }).then((snapshot) =>
+        getCreatedRecord<IncidentRecord>(before, snapshot.database, "incidents"),
+      ) as unknown as IncidentRecord;
+    },
+    updateIncident(id: string, input: IncidentInput) {
+      return invokeSnapshot("oluso_update_record", { collection: "incidents", id, input }).then((snapshot) =>
+        getRegisterCollection(snapshot.database, "incidents").find((record) => record.id === id),
+      ) as unknown as IncidentRecord;
+    },
     listProcesses: () => listCollection<ProcessRecord>("processes"),
     createProcess(input: ProcessInput) {
       const before = database;
@@ -2552,6 +3347,32 @@ function createSqlitePersistenceRepository(): LocalPersistenceRepository {
         getRegisterCollection(snapshot.database, "equipment").find((record) => record.id === id),
       ) as unknown as EquipmentRecord;
     },
+    listExposureMonitoring: () =>
+      listCollection<ExposureMonitoringRecord>("exposureMonitoring"),
+    createExposureMonitoring(input: ExposureMonitoringInput) {
+      const before = database;
+      return invokeSnapshot("oluso_create_record", {
+        collection: "exposureMonitoring",
+        input,
+      }).then((snapshot) =>
+        getCreatedRecord<ExposureMonitoringRecord>(
+          before,
+          snapshot.database,
+          "exposureMonitoring",
+        ),
+      ) as unknown as ExposureMonitoringRecord;
+    },
+    updateExposureMonitoring(id: string, input: ExposureMonitoringInput) {
+      return invokeSnapshot("oluso_update_record", {
+        collection: "exposureMonitoring",
+        id,
+        input,
+      }).then((snapshot) =>
+        getRegisterCollection(snapshot.database, "exposureMonitoring").find(
+          (record) => record.id === id,
+        ),
+      ) as unknown as ExposureMonitoringRecord;
+    },
     listChemicals: () => listCollection<ChemicalRecord>("chemicals"),
     createChemical(input: ChemicalInput) {
       const before = database;
@@ -2563,6 +3384,27 @@ function createSqlitePersistenceRepository(): LocalPersistenceRepository {
       return invokeSnapshot("oluso_update_record", { collection: "chemicals", id, input }).then((snapshot) =>
         getRegisterCollection(snapshot.database, "chemicals").find((record) => record.id === id),
       ) as unknown as ChemicalRecord;
+    },
+    listComplianceItems: () => listCollection<ComplianceItemRecord>("complianceItems"),
+    createComplianceItem(input: ComplianceItemInput) {
+      const before = database;
+      return invokeSnapshot("oluso_create_record", {
+        collection: "complianceItems",
+        input,
+      }).then((snapshot) =>
+        getCreatedRecord<ComplianceItemRecord>(before, snapshot.database, "complianceItems"),
+      ) as unknown as ComplianceItemRecord;
+    },
+    updateComplianceItem(id: string, input: ComplianceItemInput) {
+      return invokeSnapshot("oluso_update_record", {
+        collection: "complianceItems",
+        id,
+        input,
+      }).then((snapshot) =>
+        getRegisterCollection(snapshot.database, "complianceItems").find(
+          (record) => record.id === id,
+        ),
+      ) as unknown as ComplianceItemRecord;
     },
     listHazards: () => listCollection<HazardRecord>("hazards"),
     createHazard(input: HazardInput) {
@@ -2655,6 +3497,32 @@ function createSqlitePersistenceRepository(): LocalPersistenceRepository {
         getRegisterCollection(snapshot.database, collection).find((record) => record.id === id),
       ) as unknown as PersistedRegisterRecord;
     },
+    exportDatabase() {
+      return JSON.parse(JSON.stringify(requireDatabase())) as PersistedDatabase;
+    },
+    importDatabase(snapshot: unknown) {
+      const beforeCount = REGISTER_COLLECTION_NAMES.reduce(
+        (total, collection) => total + getRegisterCollection(requireDatabase(), collection).length,
+        0,
+      );
+      return invokeSnapshot("oluso_import_database", {
+        database: snapshot,
+        replace: false,
+      }).then((result) => {
+        const afterCount = REGISTER_COLLECTION_NAMES.reduce(
+          (total, collection) =>
+            total + getRegisterCollection(result.database, collection).length,
+          0,
+        );
+        return { database: result.database, importedCount: Math.max(0, afterCount - beforeCount) };
+      }) as unknown as { database: PersistedDatabase; importedCount: number };
+    },
+    restoreDatabase(snapshot: unknown) {
+      return invokeSnapshot("oluso_import_database", {
+        database: snapshot,
+        replace: true,
+      }).then((result) => result.database) as unknown as PersistedDatabase;
+    },
     clearAllData() {
       return invokeSnapshot("oluso_reset_persistence").then(() => undefined) as unknown as void;
     },
@@ -2694,15 +3562,24 @@ function createHybridPersistenceRepository(): LocalPersistenceRepository {
     listFindings: () => getRepository().listFindings(),
     createFinding: (input) => getRepository().createFinding(input),
     updateFinding: (id, input) => getRepository().updateFinding(id, input),
+    listIncidents: () => getRepository().listIncidents(),
+    createIncident: (input) => getRepository().createIncident(input),
+    updateIncident: (id, input) => getRepository().updateIncident(id, input),
     listProcesses: () => getRepository().listProcesses(),
     createProcess: (input) => getRepository().createProcess(input),
     updateProcess: (id, input) => getRepository().updateProcess(id, input),
     listEquipment: () => getRepository().listEquipment(),
     createEquipment: (input) => getRepository().createEquipment(input),
     updateEquipment: (id, input) => getRepository().updateEquipment(id, input),
+    listExposureMonitoring: () => getRepository().listExposureMonitoring(),
+    createExposureMonitoring: (input) => getRepository().createExposureMonitoring(input),
+    updateExposureMonitoring: (id, input) => getRepository().updateExposureMonitoring(id, input),
     listChemicals: () => getRepository().listChemicals(),
     createChemical: (input) => getRepository().createChemical(input),
     updateChemical: (id, input) => getRepository().updateChemical(id, input),
+    listComplianceItems: () => getRepository().listComplianceItems(),
+    createComplianceItem: (input) => getRepository().createComplianceItem(input),
+    updateComplianceItem: (id, input) => getRepository().updateComplianceItem(id, input),
     listHazards: () => getRepository().listHazards(),
     createHazard: (input) => getRepository().createHazard(input),
     updateHazard: (id, input) => getRepository().updateHazard(id, input),
@@ -2722,6 +3599,9 @@ function createHybridPersistenceRepository(): LocalPersistenceRepository {
     listRegisterRecords: (collection, options) => getRepository().listRegisterRecords(collection, options),
     archiveRecord: (collection, id, reason) => getRepository().archiveRecord(collection, id, reason),
     restoreRecord: (collection, id) => getRepository().restoreRecord(collection, id),
+    exportDatabase: () => getRepository().exportDatabase(),
+    importDatabase: (snapshot) => getRepository().importDatabase(snapshot),
+    restoreDatabase: (snapshot) => getRepository().restoreDatabase(snapshot),
     clearAllData: () => getRepository().clearAllData(),
     getDataPath: () => getRepository().getDataPath(),
   };
@@ -2735,10 +3615,13 @@ export function resetPersistenceStoresForTest() {
   findingRecords.set([]);
   processRecords.set([]);
   equipmentRecords.set([]);
+  exposureMonitoringRecords.set([]);
   chemicalRecords.set([]);
+  complianceItemRecords.set([]);
   hazardRecords.set([]);
   controlRecords.set([]);
   riskAssessmentRecords.set([]);
   segRecords.set([]);
+  incidentRecords.set([]);
   correctiveActionRecords.set([]);
 }

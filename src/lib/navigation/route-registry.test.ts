@@ -16,8 +16,11 @@ describe("route registry", () => {
     { kind: "controls", basePath: "/risk/controls" },
     { kind: "risk-assessments", basePath: "/risk/assessments" },
     { kind: "segs", basePath: "/hse/segs" },
+    { kind: "exposure-monitoring", basePath: "/hse/exposure-monitoring" },
     { kind: "findings", basePath: "/field/findings" },
     { kind: "corrective-actions", basePath: "/actions/corrective-actions" },
+    { kind: "incidents", basePath: "/incidents/log" },
+    { kind: "compliance-items", basePath: "/compliance/items" },
   ] as const;
 
   it("registers the documented MVP shell routes", () => {
@@ -32,8 +35,11 @@ describe("route registry", () => {
         "/risk/controls",
         "/risk/assessments",
         "/hse/segs",
+        "/hse/exposure-monitoring",
         "/field/findings",
         "/actions/corrective-actions",
+        "/incidents/log",
+        "/compliance/items",
         "/reports/exports",
         "/system/settings",
         "/not-found",
@@ -114,5 +120,7 @@ describe("route registry", () => {
     expect(findParentRedirect("/operations")?.redirectTo).toBe("/operations/locations");
     expect(findParentRedirect("/hse")?.redirectTo).toBe("/hse/chemicals");
     expect(findParentRedirect("/risk")?.redirectTo).toBe("/risk/controls");
+    expect(findParentRedirect("/incidents")?.redirectTo).toBe("/incidents/log");
+    expect(findParentRedirect("/compliance")?.redirectTo).toBe("/compliance/items");
   });
 });

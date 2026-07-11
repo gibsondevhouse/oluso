@@ -4,11 +4,14 @@ export type RouteKind =
   | "findings"
   | "processes"
   | "equipment"
+  | "exposure-monitoring"
   | "chemicals"
   | "hazards"
   | "controls"
   | "risk-assessments"
   | "segs"
+  | "incidents"
+  | "compliance-items"
   | "corrective-actions"
   | "exports"
   | "settings"
@@ -22,11 +25,14 @@ export type RegisterRouteKind = Extract<
   | "findings"
   | "processes"
   | "equipment"
+  | "exposure-monitoring"
   | "chemicals"
   | "hazards"
   | "controls"
   | "risk-assessments"
   | "segs"
+  | "incidents"
+  | "compliance-items"
   | "corrective-actions"
 >;
 
@@ -129,6 +135,15 @@ export const APP_ROUTES: AppRoute[] = [
     basePath: "/hse/segs",
   },
   {
+    path: "/hse/exposure-monitoring",
+    title: "Exposure Monitoring",
+    summary: "Record basic exposure samples linked to SEGs, contaminants, and operational context.",
+    section: "HSE Registers",
+    kind: "exposure-monitoring",
+    mode: "list",
+    basePath: "/hse/exposure-monitoring",
+  },
+  {
     path: "/field/findings",
     title: "Findings",
     summary: "Record and track HSE findings from observations, inspections, audits, and field work.",
@@ -145,6 +160,24 @@ export const APP_ROUTES: AppRoute[] = [
     kind: "corrective-actions",
     mode: "list",
     basePath: "/actions/corrective-actions",
+  },
+  {
+    path: "/incidents/log",
+    title: "Incidents & Near Misses",
+    summary: "Track scoped incident and near-miss records without making legal determinations.",
+    section: "Incidents",
+    kind: "incidents",
+    mode: "list",
+    basePath: "/incidents/log",
+  },
+  {
+    path: "/compliance/items",
+    title: "Compliance Support",
+    summary: "Track obligations, permits, training status, controlled documents, owners, and evidence.",
+    section: "Compliance",
+    kind: "compliance-items",
+    mode: "list",
+    basePath: "/compliance/items",
   },
   {
     path: "/reports/exports",
@@ -181,6 +214,8 @@ export const PARENT_REDIRECTS: ParentRedirect[] = [
   { path: "/risk", redirectTo: "/risk/controls" },
   { path: "/field", redirectTo: "/field/findings" },
   { path: "/actions", redirectTo: "/actions/corrective-actions" },
+  { path: "/incidents", redirectTo: "/incidents/log" },
+  { path: "/compliance", redirectTo: "/compliance/items" },
   { path: "/reports", redirectTo: "/reports/exports" },
   { path: "/system", redirectTo: "/system/settings" },
 ];
@@ -199,11 +234,14 @@ export function isRegisterRouteKind(kind: RouteKind): kind is RegisterRouteKind 
     "findings",
     "processes",
     "equipment",
+    "exposure-monitoring",
     "chemicals",
     "hazards",
     "controls",
     "risk-assessments",
     "segs",
+    "incidents",
+    "compliance-items",
     "corrective-actions",
   ].includes(kind);
 }

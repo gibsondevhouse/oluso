@@ -145,7 +145,10 @@ describe("RouteOutlet", () => {
     ["/risk/controls/new", "Control Type", "Engineering"],
     ["/risk/assessments/new", "Inherent Severity", "Critical"],
     ["/hse/segs/new", "SEG Type", "Task-Based Group"],
-    ["/field/findings/new", "Finding Type", "Near Miss"],
+    ["/field/findings/new", "Finding Type", "Audit Finding"],
+    ["/hse/exposure-monitoring/new", "Context Type", "Task"],
+    ["/incidents/log/new", "Event Type", "Near Miss"],
+    ["/compliance/items/new", "Item Type", "Controlled Document"],
     ["/actions/corrective-actions/new", "Corrective Action Type", "Engineering Control"],
   ])("renders controlled picklists for %s", async (path, label, optionLabel) => {
     renderRoute(path);

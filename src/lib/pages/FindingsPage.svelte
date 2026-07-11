@@ -200,7 +200,7 @@
 
     return {
       title: "",
-      type: "Inspection Finding",
+      type: "Observation",
       description: "",
       locationId: $locationRecords[0]?.id ?? "",
       severity: "",
@@ -212,7 +212,7 @@
   function valuesToFindingInput(values: FormValues): FindingInput {
     return {
       title: values.title ?? "",
-      type: ((values.type as FindingType | undefined) ?? "Inspection Finding") as FindingType,
+      type: ((values.type as FindingType | undefined) ?? "Observation") as FindingType,
       description: values.description ?? "",
       locationId: values.locationId ?? "",
       processId: "",

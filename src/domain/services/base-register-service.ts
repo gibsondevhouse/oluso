@@ -163,12 +163,20 @@ export abstract class BaseRegisterService<
       if (required) {
         throw new RelationshipError(`${label} is required.`);
       }
-      return;
+      return null;
     }
 
-    if (!repository.getById(trimmedId)) {
+    const record = repository.getById(trimmedId);
+
+    if (!record) {
       throw new RelationshipError(`${label} was not found.`);
     }
+
+    if (record.lifecycleStatus === "archived") {
+      throw new RelationshipError(`${label} is archived and cannot be linked.`);
+    }
+
+    return record;
   }
 
   protected ensureRelatedRecords<TLinkedRecord extends IdentifiedLifecycleRecord>(
@@ -176,7 +184,12 @@ export abstract class BaseRegisterService<
     ids: string[],
     label: string,
   ) {
-    for (const id of ids) {
+    const normalizedIds = ids.map((id) => id.trim()).filter(Boolean);
+    if (new Set(normalizedIds).size !== normalizedIds.length) {
+      throw new RelationshipError(`${label} contains duplicate relationships.`);
+    }
+
+    for (const id of normalizedIds) {
       this.ensureRelatedRecord(repository, id, label);
     }
   }

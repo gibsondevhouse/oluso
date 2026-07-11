@@ -43,12 +43,11 @@
   );
   const config = $derived(getRegisterConfig(registerKind));
   const context = $derived(relationshipContext);
+  const formContext = $derived(getActiveFormContext(context));
   const columns = $derived(config.columns(context));
-  const fields = $derived(config.fields(context));
+  const fields = $derived(config.fields(formContext));
   const modeTitle = $derived(getModeTitle());
-  const formInitialValues = $derived(
-    config.getInitialValues(displayMode === "edit" ? currentRecord : null, context),
-  );
+  const formInitialValues = $derived(getFormInitialValues());
   const tableError = $derived(
     $persistenceDiagnostics.status === "error" ? $persistenceDiagnostics.lastError : operationError,
   );
@@ -128,6 +127,38 @@
     return config.summary;
   }
 
+  function getFormInitialValues() {
+    const values = config.getInitialValues(
+      displayMode === "edit" ? currentRecord : null,
+      formContext,
+    );
+
+    if (
+      displayMode !== "new" ||
+      config.kind !== "corrective-actions" ||
+      typeof window === "undefined"
+    ) {
+      return values;
+    }
+
+    const params = new URLSearchParams(window.location.search);
+    const sourceType = params.get("sourceType");
+    const sourceId = params.get("sourceId")?.trim() ?? "";
+    const sourceTitle = params.get("sourceTitle")?.trim() ?? "";
+    const allowedSourceTypes = ["Finding", "Hazard", "Incident", "Compliance Item"];
+
+    if (!sourceType || !sourceId || !allowedSourceTypes.includes(sourceType)) {
+      return values;
+    }
+
+    return {
+      ...values,
+      sourceType,
+      sourceId,
+      title: sourceTitle ? `Address: ${sourceTitle}` : values.title,
+    };
+  }
+
   function makeRecordPath(record: PersistedRegisterRecord) {
     return `${config.basePath}/${encodeURIComponent(record.id)}`;
   }
@@ -137,6 +168,7 @@
       locations: [],
       processes: [],
       equipment: [],
+      exposureMonitoring: [],
       chemicals: [],
       hazards: [],
       controls: [],
@@ -144,6 +176,29 @@
       segs: [],
       findings: [],
       correctiveActions: [],
+      incidents: [],
+      complianceItems: [],
+    };
+  }
+
+  function getActiveFormContext(nextContext: RegisterContext): RegisterContext {
+    const active = <TRecord extends { lifecycleStatus: string }>(records: TRecord[]) =>
+      records.filter((record) => record.lifecycleStatus !== "archived");
+
+    return {
+      locations: active(nextContext.locations),
+      processes: active(nextContext.processes),
+      equipment: active(nextContext.equipment),
+      exposureMonitoring: active(nextContext.exposureMonitoring),
+      chemicals: active(nextContext.chemicals),
+      hazards: active(nextContext.hazards),
+      controls: active(nextContext.controls),
+      riskAssessments: active(nextContext.riskAssessments),
+      segs: active(nextContext.segs),
+      findings: active(nextContext.findings),
+      correctiveActions: active(nextContext.correctiveActions),
+      incidents: active(nextContext.incidents),
+      complianceItems: active(nextContext.complianceItems),
     };
   }
 
@@ -152,6 +207,7 @@
       locations: olusoApplication.listRegisterRecords("locations", { includeArchived: true }) as RegisterContext["locations"],
       processes: olusoApplication.listRegisterRecords("processes", { includeArchived: true }) as RegisterContext["processes"],
       equipment: olusoApplication.listRegisterRecords("equipment", { includeArchived: true }) as RegisterContext["equipment"],
+      exposureMonitoring: olusoApplication.listRegisterRecords("exposureMonitoring", { includeArchived: true }) as RegisterContext["exposureMonitoring"],
       chemicals: olusoApplication.listRegisterRecords("chemicals", { includeArchived: true }) as RegisterContext["chemicals"],
       hazards: olusoApplication.listRegisterRecords("hazards", { includeArchived: true }) as RegisterContext["hazards"],
       controls: olusoApplication.listRegisterRecords("controls", { includeArchived: true }) as RegisterContext["controls"],
@@ -159,6 +215,8 @@
       segs: olusoApplication.listRegisterRecords("segs", { includeArchived: true }) as RegisterContext["segs"],
       findings: olusoApplication.listRegisterRecords("findings", { includeArchived: true }) as RegisterContext["findings"],
       correctiveActions: olusoApplication.listRegisterRecords("correctiveActions", { includeArchived: true }) as RegisterContext["correctiveActions"],
+      incidents: olusoApplication.listRegisterRecords("incidents", { includeArchived: true }) as RegisterContext["incidents"],
+      complianceItems: olusoApplication.listRegisterRecords("complianceItems", { includeArchived: true }) as RegisterContext["complianceItems"],
     };
   }
 
@@ -325,6 +383,7 @@
     primarySections={config.detailSections(currentRecord, context)}
     relatedSections={config.relatedSections?.(currentRecord, context)}
     relationshipSections={config.relationshipSections?.(currentRecord, context)}
+    additionalActions={config.detailActions?.(currentRecord, context)}
     backHref={config.basePath}
     onEdit={editCurrentRecord}
     onArchive={() => (pendingLifecycleAction = "archive")}
@@ -340,7 +399,7 @@
       summary={getRecordSummary()}
     />
 
-    {#key `${displayMode}-${displayRecordId}`}
+    {#key `${displayMode}-${displayRecordId}-${formInitialValues.sourceId ?? ""}`}
       <RecordForm
         title={modeTitle}
         ariaLabel={modeTitle}

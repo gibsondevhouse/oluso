@@ -32,6 +32,7 @@
     primarySections: DetailSection[];
     relatedSections?: DetailSection[];
     relationshipSections?: RelationshipSection[];
+    additionalActions?: Array<{ label: string; href: string }>;
     backHref: string;
     onEdit: () => void;
     onArchive: () => void;
@@ -49,6 +50,7 @@
     primarySections,
     relatedSections = [],
     relationshipSections = [],
+    additionalActions = [],
     backHref,
     onEdit,
     onArchive,
@@ -119,6 +121,9 @@
         <h2 id="detail-actions-title">Actions</h2>
       </div>
       <div class="action-row">
+        {#each additionalActions as action (action.href)}
+          <a class="button-link" href={action.href}>{action.label}</a>
+        {/each}
         <button class="button-link" type="button" onclick={onEdit}>Edit</button>
         {#if isArchived}
           <RestoreAction {onRestore} />

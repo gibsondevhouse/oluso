@@ -4,6 +4,7 @@ import {
   type EquipmentRecord,
 } from "$lib/persistence/equipment.types";
 import type { DomainRepositorySet, RegisterRepository, TransactionCoordinator } from "../contracts";
+import { RelationshipError } from "../errors";
 import { BaseRegisterService } from "./base-register-service";
 
 export class EquipmentService extends BaseRegisterService<EquipmentRecord, EquipmentInput> {
@@ -20,10 +21,22 @@ export class EquipmentService extends BaseRegisterService<EquipmentRecord, Equip
   }
 
   protected validateRelationships(input: EquipmentInput) {
-    this.ensureRelatedRecord(this.repositories.locations, input.locationId, "Selected location");
+    const location = this.ensureRelatedRecord(
+      this.repositories.locations,
+      input.locationId,
+      "Selected location",
+      true,
+    );
 
     if (input.processId.trim()) {
-      this.ensureRelatedRecord(this.repositories.processes, input.processId, "Selected process");
+      const process = this.ensureRelatedRecord(
+        this.repositories.processes,
+        input.processId,
+        "Selected process",
+      );
+      if (location && process?.locationId && process.locationId !== location.id) {
+        throw new RelationshipError("Selected process does not belong to the selected location.");
+      }
     }
   }
 }

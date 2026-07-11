@@ -12,6 +12,8 @@ describe("SidePanel", () => {
     });
 
     await fireEvent.click(screen.getByRole("button", { name: "Field Work" }));
+    await fireEvent.click(screen.getByRole("button", { name: "Incidents" }));
+    await fireEvent.click(screen.getByRole("button", { name: "Compliance" }));
     await fireEvent.click(screen.getByRole("button", { name: "Reports" }));
     await fireEvent.click(screen.getByRole("button", { name: "System" }));
 
@@ -25,8 +27,11 @@ describe("SidePanel", () => {
       "Controls",
       "Risk Assessments",
       "SEGs",
+      "Exposure Monitoring",
       "Findings",
       "Corrective Actions",
+      "Incidents & Near Misses",
+      "Compliance Support",
       "Exports",
       "Settings",
     ]) {

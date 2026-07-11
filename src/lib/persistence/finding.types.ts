@@ -1,9 +1,16 @@
 import type { LifecycleMetadata } from "./lifecycle.types";
 
 export type FindingSeverity = "Low" | "Medium" | "High" | "Critical";
-export type FindingStatus = "Open" | "In Progress" | "Closed";
+export type FindingStatus =
+  | "Draft"
+  | "Open"
+  | "Under Review"
+  | "In Progress"
+  | "Requires Action"
+  | "Closed";
 export type FindingType =
   | "Inspection Finding"
+  | "Audit Finding"
   | "Observation"
   | "Near Miss"
   | "Environmental Finding"
@@ -22,6 +29,15 @@ export interface FindingRecord extends LifecycleMetadata {
   severity: FindingSeverity;
   status: FindingStatus;
   reportedBy: string;
+  activityDate?: string;
+  equipmentId?: string;
+  chemicalId?: string;
+  controlId?: string;
+  scope?: string;
+  criteriaReference?: string;
+  evidenceReference?: string;
+  followUpRequired?: boolean;
+  notes?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -36,6 +52,15 @@ export interface FindingInput {
   severity: FindingSeverity;
   status: FindingStatus;
   reportedBy: string;
+  activityDate?: string;
+  equipmentId?: string;
+  chemicalId?: string;
+  controlId?: string;
+  scope?: string;
+  criteriaReference?: string;
+  evidenceReference?: string;
+  followUpRequired?: boolean;
+  notes?: string;
 }
 
 export interface FindingValidationResult {
@@ -44,9 +69,17 @@ export interface FindingValidationResult {
 }
 
 export const FINDING_SEVERITIES: FindingSeverity[] = ["Low", "Medium", "High", "Critical"];
-export const FINDING_STATUSES: FindingStatus[] = ["Open", "In Progress", "Closed"];
+export const FINDING_STATUSES: FindingStatus[] = [
+  "Draft",
+  "Open",
+  "Under Review",
+  "In Progress",
+  "Requires Action",
+  "Closed",
+];
 export const FINDING_TYPES: FindingType[] = [
   "Inspection Finding",
+  "Audit Finding",
   "Observation",
   "Near Miss",
   "Environmental Finding",
@@ -80,6 +113,24 @@ export function validateFindingInput(input: FindingInput): FindingValidationResu
     errors.status = "Status is required.";
   }
 
+  if (
+    (input.type === "Inspection Finding" || input.type === "Audit Finding") &&
+    !input.scope?.trim()
+  ) {
+    errors.scope = "Scope is required for inspection and audit findings.";
+  }
+
+  if (input.type === "Audit Finding" && !input.criteriaReference?.trim()) {
+    errors.criteriaReference = "Criteria reference is required for audit findings.";
+  }
+
+  if (
+    input.followUpRequired !== undefined &&
+    typeof input.followUpRequired !== "boolean"
+  ) {
+    errors.followUpRequired = "Follow-up required must be true or false.";
+  }
+
   return {
     valid: Object.keys(errors).length === 0,
     errors,
@@ -91,9 +142,13 @@ export function getFindingSeverityTone(severity: FindingSeverity) {
 }
 
 export function getFindingStatusTone(status: FindingStatus) {
-  if (status === "In Progress") {
+  if (status === "In Progress" || status === "Under Review") {
     return "progress";
   }
 
-  return status.toLowerCase() as "open" | "closed";
+  if (status === "Draft") {
+    return "neutral";
+  }
+
+  return status === "Closed" ? "closed" : "open";
 }

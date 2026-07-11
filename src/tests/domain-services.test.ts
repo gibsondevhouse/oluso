@@ -16,14 +16,17 @@ import {
 } from "../domain/errors";
 import { createDomainServices } from "../domain/services";
 import type { ChemicalInput, ChemicalRecord } from "$lib/persistence/chemical.types";
+import type { ComplianceItemInput, ComplianceItemRecord } from "$lib/persistence/compliance-item.types";
 import type { ControlInput, ControlRecord } from "$lib/persistence/control.types";
 import type {
   CorrectiveActionInput,
   CorrectiveActionRecord,
 } from "$lib/persistence/corrective-action.types";
 import type { EquipmentInput, EquipmentRecord } from "$lib/persistence/equipment.types";
+import type { ExposureMonitoringInput, ExposureMonitoringRecord } from "$lib/persistence/exposure-monitoring.types";
 import type { FindingInput, FindingRecord } from "$lib/persistence/finding.types";
 import type { HazardInput, HazardRecord } from "$lib/persistence/hazard.types";
+import type { IncidentInput, IncidentRecord } from "$lib/persistence/incident.types";
 import type { LocationInput, LocationRecord } from "$lib/persistence/location.types";
 import type { ProcessInput, ProcessRecord } from "$lib/persistence/process.types";
 import type {
@@ -224,6 +227,149 @@ const riskAssessmentRecord: RiskAssessmentRecord = {
   ...activeLifecycle(),
 };
 
+const segRecord: SegRecord = {
+  id: "seg-1",
+  name: "Blending operators",
+  type: "Similar Exposure Group",
+  description: "Operators assigned to the blending process.",
+  locationId: "loc-1",
+  processId: "process-1",
+  chemicalIds: [],
+  hazardIds: ["hazard-1"],
+  agentType: "Chemical",
+  exposureLevel: "Medium",
+  workerCount: "4",
+  controls: "Local exhaust ventilation",
+  monitoringFrequency: "Quarterly",
+  status: "active",
+  createdAt: "2026-07-09T12:00:00.000Z",
+  updatedAt: "2026-07-09T12:00:00.000Z",
+  ...activeLifecycle(),
+};
+
+const incidentRecord: IncidentRecord = {
+  id: "incident-1",
+  title: "Forklift near miss",
+  type: "Near Miss",
+  occurredAt: "2026-07-10T09:30:00.000Z",
+  locationId: "loc-1",
+  processId: "process-1",
+  equipmentId: "equipment-1",
+  chemicalId: "",
+  hazardIds: ["hazard-1"],
+  controlIds: ["control-1"],
+  description: "A forklift stopped before entering an occupied work area.",
+  actualOutcome: "No injury or damage.",
+  potentialOutcome: "Pedestrian strike.",
+  immediateActions: "Paused traffic and reviewed the route.",
+  investigationSummary: "Supervisor review opened.",
+  immediateCauses: "Obstructed sightline.",
+  contributingCauses: "Material staging near the crossing.",
+  evidenceReference: "incident-photo-1",
+  reportingStatus: "Pending Review",
+  status: "Under Investigation",
+  createdAt: "2026-07-10T10:00:00.000Z",
+  updatedAt: "2026-07-10T10:00:00.000Z",
+  ...activeLifecycle(),
+};
+
+const complianceItemRecord: ComplianceItemRecord = {
+  id: "compliance-1",
+  itemType: "Permit",
+  title: "Air permit annual review",
+  requirementSource: "Site air permit",
+  owner: "Environmental Manager",
+  audienceOrScope: "Main Plant",
+  segId: "seg-1",
+  locationId: "loc-1",
+  processId: "process-1",
+  equipmentId: "equipment-1",
+  issueDate: "2026-01-01",
+  dueDate: "2026-12-01",
+  expirationDate: "2026-12-31",
+  reviewDate: "2026-11-01",
+  recurrence: "Annual",
+  status: "Active",
+  reviewStatus: "Needs Review",
+  evidenceRequired: true,
+  evidenceReference: "permit-file-1",
+  notes: "Review operating conditions before renewal.",
+  createdAt: "2026-07-09T12:00:00.000Z",
+  updatedAt: "2026-07-09T12:00:00.000Z",
+  ...activeLifecycle(),
+};
+
+function createExposureMonitoringInput(
+  overrides: Partial<ExposureMonitoringInput> = {},
+): ExposureMonitoringInput {
+  return {
+    sampleReference: "SAMPLE-001",
+    contextType: "SEG",
+    segId: "seg-1",
+    contextDetail: "",
+    contaminant: "Acetone vapor",
+    chemicalId: "",
+    hazardId: "hazard-1",
+    locationId: "loc-1",
+    processId: "process-1",
+    samplingDate: "2026-07-10",
+    sampleType: "Personal",
+    result: "25",
+    unit: "ppm",
+    exposureLimit: "250",
+    exposureLimitReference: "Internal occupational exposure limit",
+    status: "Below Limit",
+    evidenceReference: "lab-result-001",
+    notes: "Full-shift sample.",
+    ...overrides,
+  };
+}
+
+function createIncidentInput(overrides: Partial<IncidentInput> = {}): IncidentInput {
+  const { id: _id, createdAt: _createdAt, updatedAt: _updatedAt, ...input } = incidentRecord;
+  void _id;
+  void _createdAt;
+  void _updatedAt;
+
+  return { ...input, ...overrides };
+}
+
+function createComplianceItemInput(
+  overrides: Partial<ComplianceItemInput> = {},
+): ComplianceItemInput {
+  const { id: _id, createdAt: _createdAt, updatedAt: _updatedAt, ...input } = complianceItemRecord;
+  void _id;
+  void _createdAt;
+  void _updatedAt;
+
+  return { ...input, ...overrides };
+}
+
+function createCorrectiveActionInput(
+  sourceType: CorrectiveActionInput["sourceType"],
+  sourceId: string,
+): CorrectiveActionInput {
+  return {
+    title: `Follow up ${sourceType.toLowerCase()}`,
+    type: "Other",
+    description: "Complete the required follow-up.",
+    findingId: "",
+    sourceType,
+    sourceId,
+    sourceJustification: "",
+    assignedTo: "HSE Lead",
+    priority: "Medium",
+    status: "Created",
+    dueDate: "2026-07-31",
+    completionSummary: "",
+    verificationRequired: true,
+    verificationMethod: "",
+    verificationResult: "",
+    evidenceReference: "",
+    closureNotes: "",
+  };
+}
+
 function createRepositorySet(overrides: Partial<DomainRepositorySet> = {}): DomainRepositorySet {
   return {
     locations: createMockRepository<LocationRecord, LocationInput>([
@@ -232,14 +378,19 @@ function createRepositorySet(overrides: Partial<DomainRepositorySet> = {}): Doma
     ]),
     processes: createMockRepository<ProcessRecord, ProcessInput>([{ ...processRecord }]),
     equipment: createMockRepository<EquipmentRecord, EquipmentInput>([{ ...equipmentRecord }]),
+    exposureMonitoring: createMockRepository<ExposureMonitoringRecord, ExposureMonitoringInput>(),
     chemicals: createMockRepository<ChemicalRecord, ChemicalInput>(),
+    complianceItems: createMockRepository<ComplianceItemRecord, ComplianceItemInput>([
+      { ...complianceItemRecord },
+    ]),
     hazards: createMockRepository<HazardRecord, HazardInput>([{ ...hazardRecord }]),
     controls: createMockRepository<ControlRecord, ControlInput>([{ ...controlRecord }]),
     riskAssessments: createMockRepository<RiskAssessmentRecord, RiskAssessmentInput>([
       { ...riskAssessmentRecord },
     ]),
-    segs: createMockRepository<SegRecord, SegInput>(),
+    segs: createMockRepository<SegRecord, SegInput>([{ ...segRecord }]),
     findings: createMockRepository<FindingRecord, FindingInput>([{ ...findingRecord }]),
+    incidents: createMockRepository<IncidentRecord, IncidentInput>([{ ...incidentRecord }]),
     correctiveActions: createMockRepository<CorrectiveActionRecord, CorrectiveActionInput>(),
     ...overrides,
   };
@@ -278,6 +429,26 @@ describe("domain services", () => {
         reportedBy: "Tester",
       }),
     ).toThrow(RelationshipError);
+    expect(repositories.findings.create).not.toHaveBeenCalled();
+  });
+
+  it("rejects links to archived related records", () => {
+    const repositories = createRepositorySet();
+    const services = createDomainServices(repositories);
+
+    expect(() =>
+      services.findings.create({
+        title: "Archived location relationship",
+        type: "Observation",
+        description: "",
+        locationId: "loc-archived",
+        processId: "",
+        hazardId: "",
+        severity: "Low",
+        status: "Open",
+        reportedBy: "Tester",
+      }),
+    ).toThrow("Selected location is archived and cannot be linked.");
     expect(repositories.findings.create).not.toHaveBeenCalled();
   });
 
@@ -419,6 +590,119 @@ describe("domain services", () => {
       hazardId: "hazard-1",
       controlIds: ["control-1"],
     });
+  });
+
+  it("creates exposure monitoring records with valid operational context", () => {
+    const repositories = createRepositorySet();
+    const services = createDomainServices(repositories);
+
+    expect(services.exposureMonitoring.create(createExposureMonitoringInput())).toMatchObject({
+      sampleReference: "SAMPLE-001",
+      segId: "seg-1",
+      locationId: "loc-1",
+      processId: "process-1",
+      status: "Below Limit",
+    });
+    expect(repositories.exposureMonitoring.create).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects missing and archived exposure monitoring relationships", () => {
+    const missingRepositories = createRepositorySet();
+    const missingServices = createDomainServices(missingRepositories);
+
+    expect(() =>
+      missingServices.exposureMonitoring.create(
+        createExposureMonitoringInput({ locationId: "missing-location" }),
+      ),
+    ).toThrow(RelationshipError);
+    expect(missingRepositories.exposureMonitoring.create).not.toHaveBeenCalled();
+
+    const archivedRepositories = createRepositorySet();
+    const archivedServices = createDomainServices(archivedRepositories);
+
+    expect(() =>
+      archivedServices.exposureMonitoring.create(
+        createExposureMonitoringInput({ locationId: "loc-archived" }),
+      ),
+    ).toThrow("Selected location is archived and cannot be linked.");
+    expect(archivedRepositories.exposureMonitoring.create).not.toHaveBeenCalled();
+  });
+
+  it("creates incidents with valid relationships and rejects an incompatible process location", () => {
+    const repositories = createRepositorySet();
+    const services = createDomainServices(repositories);
+
+    expect(services.incidents.create(createIncidentInput())).toMatchObject({
+      title: "Forklift near miss",
+      locationId: "loc-1",
+      processId: "process-1",
+      equipmentId: "equipment-1",
+    });
+
+    const secondaryLocation: LocationRecord = {
+      ...locationRecord,
+      id: "loc-2",
+      name: "Warehouse",
+    };
+    const incompatibleRepositories = createRepositorySet({
+      locations: createMockRepository<LocationRecord, LocationInput>([
+        { ...locationRecord },
+        secondaryLocation,
+      ]),
+    });
+    const incompatibleServices = createDomainServices(incompatibleRepositories);
+
+    expect(() =>
+      incompatibleServices.incidents.create(
+        createIncidentInput({
+          locationId: "loc-2",
+          processId: "process-1",
+          equipmentId: "",
+        }),
+      ),
+    ).toThrow("Selected process does not belong to the selected location.");
+    expect(incompatibleRepositories.incidents.create).not.toHaveBeenCalled();
+  });
+
+  it("creates a compliance item with valid linked context", () => {
+    const repositories = createRepositorySet();
+    const services = createDomainServices(repositories);
+
+    expect(services.complianceItems.create(createComplianceItemInput())).toMatchObject({
+      title: "Air permit annual review",
+      itemType: "Permit",
+      locationId: "loc-1",
+      processId: "process-1",
+      equipmentId: "equipment-1",
+      segId: "seg-1",
+    });
+    expect(repositories.complianceItems.create).toHaveBeenCalledTimes(1);
+  });
+
+  it("validates incident and compliance-item corrective action sources against their repositories", () => {
+    const repositories = createRepositorySet();
+    const services = createDomainServices(repositories);
+
+    expect(
+      services.correctiveActions.create(createCorrectiveActionInput("Incident", "incident-1")),
+    ).toMatchObject({ sourceType: "Incident", sourceId: "incident-1" });
+    expect(
+      services.correctiveActions.create(
+        createCorrectiveActionInput("Compliance Item", "compliance-1"),
+      ),
+    ).toMatchObject({ sourceType: "Compliance Item", sourceId: "compliance-1" });
+
+    expect(() =>
+      services.correctiveActions.create(
+        createCorrectiveActionInput("Incident", "missing-incident"),
+      ),
+    ).toThrow(RelationshipError);
+    expect(() =>
+      services.correctiveActions.create(
+        createCorrectiveActionInput("Compliance Item", "missing-compliance-item"),
+      ),
+    ).toThrow(RelationshipError);
+    expect(repositories.correctiveActions.create).toHaveBeenCalledTimes(2);
   });
 
   it("prevents duplicate explicit IDs before create", () => {

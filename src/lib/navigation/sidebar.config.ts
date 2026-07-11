@@ -77,6 +77,13 @@ export const SIDEBAR_CONFIG: SidebarConfig = {
           icon: "UsersRound",
           routeType: "register",
         },
+        {
+          id: "exposure-monitoring",
+          title: "Exposure Monitoring",
+          route: "/hse/exposure-monitoring",
+          icon: "FileBarChart",
+          routeType: "register",
+        },
       ],
     },
     {
@@ -130,6 +137,38 @@ export const SIDEBAR_CONFIG: SidebarConfig = {
           title: "Corrective Actions",
           route: "/actions/corrective-actions",
           icon: "ListChecks",
+          routeType: "register",
+        },
+      ],
+    },
+    {
+      id: "incidents",
+      title: "Incidents",
+      icon: "TriangleAlert",
+      collapsible: true,
+      defaultExpanded: false,
+      children: [
+        {
+          id: "incident-log",
+          title: "Incidents & Near Misses",
+          route: "/incidents/log",
+          icon: "TriangleAlert",
+          routeType: "register",
+        },
+      ],
+    },
+    {
+      id: "compliance",
+      title: "Compliance",
+      icon: "ClipboardCheck",
+      collapsible: true,
+      defaultExpanded: false,
+      children: [
+        {
+          id: "compliance-items",
+          title: "Compliance Support",
+          route: "/compliance/items",
+          icon: "ClipboardCheck",
           routeType: "register",
         },
       ],

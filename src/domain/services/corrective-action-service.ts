@@ -27,7 +27,10 @@ export class CorrectiveActionService extends BaseRegisterService<
 > {
   constructor(
     repository: RegisterRepository<CorrectiveActionRecord, CorrectiveActionInput>,
-    private readonly repositories: Pick<DomainRepositorySet, "findings" | "hazards">,
+    private readonly repositories: Pick<
+      DomainRepositorySet,
+      "findings" | "hazards" | "incidents" | "complianceItems"
+    >,
     transactionCoordinator?: TransactionCoordinator,
   ) {
     super(repository, "Corrective action", transactionCoordinator);
@@ -56,6 +59,21 @@ export class CorrectiveActionService extends BaseRegisterService<
 
     if (input.sourceType === "Hazard") {
       this.ensureRelatedRecord(this.repositories.hazards, input.sourceId, "Selected hazard", true);
+      return;
+    }
+
+    if (input.sourceType === "Incident") {
+      this.ensureRelatedRecord(this.repositories.incidents, input.sourceId, "Selected incident", true);
+      return;
+    }
+
+    if (input.sourceType === "Compliance Item") {
+      this.ensureRelatedRecord(
+        this.repositories.complianceItems,
+        input.sourceId,
+        "Selected compliance item",
+        true,
+      );
     }
   }
 }

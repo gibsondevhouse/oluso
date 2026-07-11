@@ -4,6 +4,7 @@ import {
   type RiskAssessmentRecord,
 } from "$lib/persistence/risk-assessment.types";
 import type { DomainRepositorySet, RegisterRepository, TransactionCoordinator } from "../contracts";
+import { RelationshipError } from "../errors";
 import { BaseRegisterService } from "./base-register-service";
 
 export class RiskAssessmentService extends BaseRegisterService<
@@ -25,5 +26,12 @@ export class RiskAssessmentService extends BaseRegisterService<
   protected validateRelationships(input: RiskAssessmentInput) {
     this.ensureRelatedRecord(this.repositories.hazards, input.hazardId, "Selected hazard");
     this.ensureRelatedRecords(this.repositories.controls, input.controlIds, "Selected control");
+
+    for (const controlId of input.controlIds) {
+      const control = this.repositories.controls.getById(controlId);
+      if (control && !control.hazardIds.includes(input.hazardId)) {
+        throw new RelationshipError("Selected control is not linked to the selected hazard.");
+      }
+    }
   }
 }

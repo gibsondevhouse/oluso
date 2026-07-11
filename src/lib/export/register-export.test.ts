@@ -76,4 +76,40 @@ describe("register export utilities", () => {
     });
     expect(createDataDownloadUrl(file)).toBe("data:application/json;charset=utf-8,%5B%5D");
   });
+
+  it.each([
+    {
+      collection: "exposureMonitoring" as const,
+      label: "Exposure Monitoring",
+      filenameStem: "exposure-monitoring",
+      expectedColumns: ["sampleReference", "segId", "samplingDate", "result", "status"],
+    },
+    {
+      collection: "incidents" as const,
+      label: "Incidents & Near Misses",
+      filenameStem: "incidents",
+      expectedColumns: ["title", "type", "occurredAt", "reportingStatus", "status"],
+    },
+    {
+      collection: "complianceItems" as const,
+      label: "Compliance Support",
+      filenameStem: "compliance-items",
+      expectedColumns: ["itemType", "title", "dueDate", "reviewStatus", "evidenceReference"],
+    },
+  ])("exports the $label register", ({ collection, label, filenameStem, expectedColumns }) => {
+    const definition = getExportRegisterDefinition(collection);
+
+    expect(definition).toMatchObject({ collection, label, filenameStem });
+    expect(definition.columns).toEqual(
+      expect.arrayContaining([
+        "id",
+        ...expectedColumns,
+        "createdAt",
+        "updatedAt",
+        "lifecycleStatus",
+        "archivedAt",
+        "archivedReason",
+      ]),
+    );
+  });
 });

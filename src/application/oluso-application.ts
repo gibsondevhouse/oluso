@@ -1,9 +1,12 @@
 import type { ChemicalInput } from "$lib/persistence/chemical.types";
+import type { ComplianceItemInput } from "$lib/persistence/compliance-item.types";
 import type { ControlInput } from "$lib/persistence/control.types";
 import type { CorrectiveActionInput } from "$lib/persistence/corrective-action.types";
 import type { EquipmentInput } from "$lib/persistence/equipment.types";
+import type { ExposureMonitoringInput } from "$lib/persistence/exposure-monitoring.types";
 import type { FindingInput } from "$lib/persistence/finding.types";
 import type { HazardInput } from "$lib/persistence/hazard.types";
+import type { IncidentInput } from "$lib/persistence/incident.types";
 import {
   localPersistenceRepository,
   type PersistedRegisterRecord,
@@ -26,8 +29,12 @@ function getService(collection: RegisterCollectionName, services: DomainServices
       return services.processes;
     case "equipment":
       return services.equipment;
+    case "exposureMonitoring":
+      return services.exposureMonitoring;
     case "chemicals":
       return services.chemicals;
+    case "complianceItems":
+      return services.complianceItems;
     case "hazards":
       return services.hazards;
     case "controls":
@@ -38,6 +45,8 @@ function getService(collection: RegisterCollectionName, services: DomainServices
       return services.segs;
     case "findings":
       return services.findings;
+    case "incidents":
+      return services.incidents;
     case "correctiveActions":
       return services.correctiveActions;
   }
@@ -53,6 +62,9 @@ export function createOlusoApplication(persistenceRepository: PersistenceReposit
     initialize: () => persistenceRepository.initialize(),
     clearAllData: () => persistenceRepository.clearAllData(),
     getDataPath: () => persistenceRepository.getDataPath(),
+    exportDatabase: () => persistenceRepository.exportDatabase(),
+    importDatabase: (snapshot: unknown) => persistenceRepository.importDatabase(snapshot),
+    restoreDatabase: (snapshot: unknown) => persistenceRepository.restoreDatabase(snapshot),
 
     listLocations: () => services.locations.list(),
     createLocation: (input: LocationInput) => services.locations.create(input),
@@ -69,10 +81,25 @@ export function createOlusoApplication(persistenceRepository: PersistenceReposit
     updateEquipment: (id: string, input: EquipmentInput) => services.equipment.update(id, input),
     validateEquipment: (input: EquipmentInput) => services.equipment.validate(input),
 
+    listExposureMonitoring: () => services.exposureMonitoring.list(),
+    createExposureMonitoring: (input: ExposureMonitoringInput) =>
+      services.exposureMonitoring.create(input),
+    updateExposureMonitoring: (id: string, input: ExposureMonitoringInput) =>
+      services.exposureMonitoring.update(id, input),
+    validateExposureMonitoring: (input: ExposureMonitoringInput) =>
+      services.exposureMonitoring.validate(input),
+
     listChemicals: () => services.chemicals.list(),
     createChemical: (input: ChemicalInput) => services.chemicals.create(input),
     updateChemical: (id: string, input: ChemicalInput) => services.chemicals.update(id, input),
     validateChemical: (input: ChemicalInput) => services.chemicals.validate(input),
+
+    listComplianceItems: () => services.complianceItems.list(),
+    createComplianceItem: (input: ComplianceItemInput) => services.complianceItems.create(input),
+    updateComplianceItem: (id: string, input: ComplianceItemInput) =>
+      services.complianceItems.update(id, input),
+    validateComplianceItem: (input: ComplianceItemInput) =>
+      services.complianceItems.validate(input),
 
     listHazards: () => services.hazards.list(),
     createHazard: (input: HazardInput) => services.hazards.create(input),
@@ -100,6 +127,11 @@ export function createOlusoApplication(persistenceRepository: PersistenceReposit
     createFinding: (input: FindingInput) => services.findings.create(input),
     updateFinding: (id: string, input: FindingInput) => services.findings.update(id, input),
     validateFinding: (input: FindingInput) => services.findings.validate(input),
+
+    listIncidents: () => services.incidents.list(),
+    createIncident: (input: IncidentInput) => services.incidents.create(input),
+    updateIncident: (id: string, input: IncidentInput) => services.incidents.update(id, input),
+    validateIncident: (input: IncidentInput) => services.incidents.validate(input),
 
     listCorrectiveActions: () => services.correctiveActions.list(),
     createCorrectiveAction: (input: CorrectiveActionInput) =>

@@ -1,15 +1,20 @@
 <script lang="ts">
   import { olusoApplication } from "../../application/oluso-application";
   import ConfirmDialog from "$lib/components/ui/ConfirmDialog.svelte";
+  import BackupRestoreControls from "$lib/components/system/BackupRestoreControls.svelte";
   import {
     getPersistenceStatusLabel,
     persistenceDiagnostics,
     locationRecords,
     findingRecords,
     processRecords,
+    equipmentRecords,
+    exposureMonitoringRecords,
     chemicalRecords,
+    complianceItemRecords,
     hazardRecords,
     segRecords,
+    incidentRecords,
     correctiveActionRecords,
   } from "$lib/persistence/local-persistence";
 
@@ -146,6 +151,14 @@
           <dd>{$processRecords.length} records</dd>
         </div>
         <div>
+          <dt>Equipment</dt>
+          <dd>{$equipmentRecords.length} records</dd>
+        </div>
+        <div>
+          <dt>Exposure Monitoring</dt>
+          <dd>{$exposureMonitoringRecords.length} records</dd>
+        </div>
+        <div>
           <dt>Chemicals</dt>
           <dd>{$chemicalRecords.length} records</dd>
         </div>
@@ -162,11 +175,21 @@
           <dd>{$findingRecords.length} records</dd>
         </div>
         <div>
+          <dt>Incidents &amp; Near Misses</dt>
+          <dd>{$incidentRecords.length} records</dd>
+        </div>
+        <div>
+          <dt>Compliance Support</dt>
+          <dd>{$complianceItemRecords.length} records</dd>
+        </div>
+        <div>
           <dt>Corrective Actions</dt>
           <dd>{$correctiveActionRecords.length} records</dd>
         </div>
       </dl>
     </section>
+
+    <BackupRestoreControls autoInitialize={false} />
 
     <!-- Data Management -->
     <section class="diagnostics-panel danger-panel" aria-labelledby="data-mgmt-title">

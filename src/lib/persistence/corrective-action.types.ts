@@ -149,10 +149,6 @@ export function validateCorrectiveActionInput(
     errors.findingId = "Finding source is required.";
   }
 
-  if ((input.sourceType === "Incident" || input.sourceType === "Compliance Item") && !input.sourceJustification.trim()) {
-    errors.sourceJustification = `${input.sourceType} sources require a source note until the register is implemented.`;
-  }
-
   if (!input.assignedTo.trim()) {
     errors.assignedTo = "Assigned to is required.";
   }

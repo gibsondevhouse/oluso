@@ -9,7 +9,7 @@ use std::path::{Path, PathBuf};
 use tauri::{AppHandle, Manager};
 use uuid::Uuid;
 
-const SCHEMA_VERSION: i64 = 6;
+const SCHEMA_VERSION: i64 = 7;
 const DB_FILE_NAME: &str = "oluso.db";
 const LOCAL_STORAGE_MIGRATION_KEY: &str = "local_storage_migration_complete";
 
@@ -39,6 +39,7 @@ enum FieldKind {
     JsonArray,
     NullableText,
     Boolean,
+    BooleanDefaultTrue,
 }
 
 #[derive(Clone, Copy)]
@@ -650,6 +651,51 @@ const FINDING_FIELDS: &[FieldSpec] = &[
         kind: FieldKind::Text,
     },
     FieldSpec {
+        key: "activityDate",
+        column: "activityDate",
+        kind: FieldKind::Text,
+    },
+    FieldSpec {
+        key: "equipmentId",
+        column: "equipmentId",
+        kind: FieldKind::Text,
+    },
+    FieldSpec {
+        key: "chemicalId",
+        column: "chemicalId",
+        kind: FieldKind::Text,
+    },
+    FieldSpec {
+        key: "controlId",
+        column: "controlId",
+        kind: FieldKind::Text,
+    },
+    FieldSpec {
+        key: "scope",
+        column: "scope",
+        kind: FieldKind::Text,
+    },
+    FieldSpec {
+        key: "criteriaReference",
+        column: "criteriaReference",
+        kind: FieldKind::Text,
+    },
+    FieldSpec {
+        key: "evidenceReference",
+        column: "evidenceReference",
+        kind: FieldKind::Text,
+    },
+    FieldSpec {
+        key: "followUpRequired",
+        column: "followUpRequired",
+        kind: FieldKind::Boolean,
+    },
+    FieldSpec {
+        key: "notes",
+        column: "notes",
+        kind: FieldKind::Text,
+    },
+    FieldSpec {
         key: "severity",
         column: "severity",
         kind: FieldKind::Text,
@@ -662,6 +708,325 @@ const FINDING_FIELDS: &[FieldSpec] = &[
     FieldSpec {
         key: "reportedBy",
         column: "reportedBy",
+        kind: FieldKind::Text,
+    },
+    COMMON_FIELDS[0],
+    COMMON_FIELDS[1],
+    COMMON_FIELDS[2],
+    COMMON_FIELDS[3],
+    COMMON_FIELDS[4],
+];
+
+const EXPOSURE_MONITORING_FIELDS: &[FieldSpec] = &[
+    FieldSpec {
+        key: "id",
+        column: "id",
+        kind: FieldKind::Text,
+    },
+    FieldSpec {
+        key: "sampleReference",
+        column: "sampleReference",
+        kind: FieldKind::Text,
+    },
+    FieldSpec {
+        key: "contextType",
+        column: "contextType",
+        kind: FieldKind::Text,
+    },
+    FieldSpec {
+        key: "segId",
+        column: "segId",
+        kind: FieldKind::Text,
+    },
+    FieldSpec {
+        key: "contextDetail",
+        column: "contextDetail",
+        kind: FieldKind::Text,
+    },
+    FieldSpec {
+        key: "contaminant",
+        column: "contaminant",
+        kind: FieldKind::Text,
+    },
+    FieldSpec {
+        key: "chemicalId",
+        column: "chemicalId",
+        kind: FieldKind::Text,
+    },
+    FieldSpec {
+        key: "hazardId",
+        column: "hazardId",
+        kind: FieldKind::Text,
+    },
+    FieldSpec {
+        key: "locationId",
+        column: "locationId",
+        kind: FieldKind::Text,
+    },
+    FieldSpec {
+        key: "processId",
+        column: "processId",
+        kind: FieldKind::Text,
+    },
+    FieldSpec {
+        key: "samplingDate",
+        column: "samplingDate",
+        kind: FieldKind::Text,
+    },
+    FieldSpec {
+        key: "sampleType",
+        column: "sampleType",
+        kind: FieldKind::Text,
+    },
+    FieldSpec {
+        key: "result",
+        column: "result",
+        kind: FieldKind::Text,
+    },
+    FieldSpec {
+        key: "unit",
+        column: "unit",
+        kind: FieldKind::Text,
+    },
+    FieldSpec {
+        key: "exposureLimit",
+        column: "exposureLimit",
+        kind: FieldKind::Text,
+    },
+    FieldSpec {
+        key: "exposureLimitReference",
+        column: "exposureLimitReference",
+        kind: FieldKind::Text,
+    },
+    FieldSpec {
+        key: "status",
+        column: "status",
+        kind: FieldKind::Text,
+    },
+    FieldSpec {
+        key: "evidenceReference",
+        column: "evidenceReference",
+        kind: FieldKind::Text,
+    },
+    FieldSpec {
+        key: "notes",
+        column: "notes",
+        kind: FieldKind::Text,
+    },
+    COMMON_FIELDS[0],
+    COMMON_FIELDS[1],
+    COMMON_FIELDS[2],
+    COMMON_FIELDS[3],
+    COMMON_FIELDS[4],
+];
+
+const INCIDENT_FIELDS: &[FieldSpec] = &[
+    FieldSpec {
+        key: "id",
+        column: "id",
+        kind: FieldKind::Text,
+    },
+    FieldSpec {
+        key: "title",
+        column: "title",
+        kind: FieldKind::Text,
+    },
+    FieldSpec {
+        key: "type",
+        column: "type",
+        kind: FieldKind::Text,
+    },
+    FieldSpec {
+        key: "occurredAt",
+        column: "occurredAt",
+        kind: FieldKind::Text,
+    },
+    FieldSpec {
+        key: "locationId",
+        column: "locationId",
+        kind: FieldKind::Text,
+    },
+    FieldSpec {
+        key: "processId",
+        column: "processId",
+        kind: FieldKind::Text,
+    },
+    FieldSpec {
+        key: "equipmentId",
+        column: "equipmentId",
+        kind: FieldKind::Text,
+    },
+    FieldSpec {
+        key: "chemicalId",
+        column: "chemicalId",
+        kind: FieldKind::Text,
+    },
+    FieldSpec {
+        key: "hazardIds",
+        column: "hazardIds",
+        kind: FieldKind::JsonArray,
+    },
+    FieldSpec {
+        key: "controlIds",
+        column: "controlIds",
+        kind: FieldKind::JsonArray,
+    },
+    FieldSpec {
+        key: "description",
+        column: "description",
+        kind: FieldKind::Text,
+    },
+    FieldSpec {
+        key: "actualOutcome",
+        column: "actualOutcome",
+        kind: FieldKind::Text,
+    },
+    FieldSpec {
+        key: "potentialOutcome",
+        column: "potentialOutcome",
+        kind: FieldKind::Text,
+    },
+    FieldSpec {
+        key: "immediateActions",
+        column: "immediateActions",
+        kind: FieldKind::Text,
+    },
+    FieldSpec {
+        key: "investigationSummary",
+        column: "investigationSummary",
+        kind: FieldKind::Text,
+    },
+    FieldSpec {
+        key: "immediateCauses",
+        column: "immediateCauses",
+        kind: FieldKind::Text,
+    },
+    FieldSpec {
+        key: "contributingCauses",
+        column: "contributingCauses",
+        kind: FieldKind::Text,
+    },
+    FieldSpec {
+        key: "evidenceReference",
+        column: "evidenceReference",
+        kind: FieldKind::Text,
+    },
+    FieldSpec {
+        key: "reportingStatus",
+        column: "reportingStatus",
+        kind: FieldKind::Text,
+    },
+    FieldSpec {
+        key: "status",
+        column: "status",
+        kind: FieldKind::Text,
+    },
+    COMMON_FIELDS[0],
+    COMMON_FIELDS[1],
+    COMMON_FIELDS[2],
+    COMMON_FIELDS[3],
+    COMMON_FIELDS[4],
+];
+
+const COMPLIANCE_ITEM_FIELDS: &[FieldSpec] = &[
+    FieldSpec {
+        key: "id",
+        column: "id",
+        kind: FieldKind::Text,
+    },
+    FieldSpec {
+        key: "itemType",
+        column: "itemType",
+        kind: FieldKind::Text,
+    },
+    FieldSpec {
+        key: "title",
+        column: "title",
+        kind: FieldKind::Text,
+    },
+    FieldSpec {
+        key: "requirementSource",
+        column: "requirementSource",
+        kind: FieldKind::Text,
+    },
+    FieldSpec {
+        key: "owner",
+        column: "owner",
+        kind: FieldKind::Text,
+    },
+    FieldSpec {
+        key: "audienceOrScope",
+        column: "audienceOrScope",
+        kind: FieldKind::Text,
+    },
+    FieldSpec {
+        key: "segId",
+        column: "segId",
+        kind: FieldKind::Text,
+    },
+    FieldSpec {
+        key: "locationId",
+        column: "locationId",
+        kind: FieldKind::Text,
+    },
+    FieldSpec {
+        key: "processId",
+        column: "processId",
+        kind: FieldKind::Text,
+    },
+    FieldSpec {
+        key: "equipmentId",
+        column: "equipmentId",
+        kind: FieldKind::Text,
+    },
+    FieldSpec {
+        key: "issueDate",
+        column: "issueDate",
+        kind: FieldKind::Text,
+    },
+    FieldSpec {
+        key: "dueDate",
+        column: "dueDate",
+        kind: FieldKind::Text,
+    },
+    FieldSpec {
+        key: "expirationDate",
+        column: "expirationDate",
+        kind: FieldKind::Text,
+    },
+    FieldSpec {
+        key: "reviewDate",
+        column: "reviewDate",
+        kind: FieldKind::Text,
+    },
+    FieldSpec {
+        key: "recurrence",
+        column: "recurrence",
+        kind: FieldKind::Text,
+    },
+    FieldSpec {
+        key: "status",
+        column: "status",
+        kind: FieldKind::Text,
+    },
+    FieldSpec {
+        key: "reviewStatus",
+        column: "reviewStatus",
+        kind: FieldKind::Text,
+    },
+    FieldSpec {
+        key: "evidenceRequired",
+        column: "evidenceRequired",
+        kind: FieldKind::Boolean,
+    },
+    FieldSpec {
+        key: "evidenceReference",
+        column: "evidenceReference",
+        kind: FieldKind::Text,
+    },
+    FieldSpec {
+        key: "notes",
+        column: "notes",
         kind: FieldKind::Text,
     },
     COMMON_FIELDS[0],
@@ -745,7 +1110,7 @@ const CORRECTIVE_ACTION_FIELDS: &[FieldSpec] = &[
     FieldSpec {
         key: "verificationRequired",
         column: "verificationRequired",
-        kind: FieldKind::Boolean,
+        kind: FieldKind::BooleanDefaultTrue,
     },
     FieldSpec {
         key: "verificationMethod",
@@ -842,11 +1207,32 @@ const COLLECTIONS: &[Collection] = &[
         fields: SEG_FIELDS,
     },
     Collection {
+        api_name: "exposureMonitoring",
+        table: "exposure_monitoring",
+        snapshot_key: "exposureMonitoring",
+        primary_label: "sampleReference",
+        fields: EXPOSURE_MONITORING_FIELDS,
+    },
+    Collection {
         api_name: "findings",
         table: "findings",
         snapshot_key: "findings",
         primary_label: "title",
         fields: FINDING_FIELDS,
+    },
+    Collection {
+        api_name: "incidents",
+        table: "incidents",
+        snapshot_key: "incidents",
+        primary_label: "title",
+        fields: INCIDENT_FIELDS,
+    },
+    Collection {
+        api_name: "complianceItems",
+        table: "compliance_items",
+        snapshot_key: "complianceItems",
+        primary_label: "title",
+        fields: COMPLIANCE_ITEM_FIELDS,
     },
     Collection {
         api_name: "correctiveActions",
@@ -943,7 +1329,9 @@ impl MigrationRunner {
                 Migration {
                     version: 3,
                     name: "003_corrective_actions_evidence_reference",
-                    sql: include_str!("../migrations/003_corrective_actions_evidence_reference.sql"),
+                    sql: include_str!(
+                        "../migrations/003_corrective_actions_evidence_reference.sql"
+                    ),
                 },
                 Migration {
                     version: 4,
@@ -959,6 +1347,11 @@ impl MigrationRunner {
                     version: 6,
                     name: "006_controls_risk_assessments",
                     sql: include_str!("../migrations/006_controls_risk_assessments.sql"),
+                },
+                Migration {
+                    version: 7,
+                    name: "007_p1_product_gaps",
+                    sql: include_str!("../migrations/007_p1_product_gaps.sql"),
                 },
             ],
         }
@@ -1223,6 +1616,31 @@ impl DatabaseManager {
         )
     }
 
+    pub fn import_snapshot(&self, database: Value, replace: bool) -> Result<PersistenceSnapshot> {
+        validate_database_snapshot(&database)?;
+        let mut conn = self.connection_manager.connect()?;
+        let migration_status = MigrationRunner::new().run(&mut conn)?;
+        run_in_transaction(&mut conn, |tx| {
+            if replace {
+                import_database(tx, &database)?;
+            } else {
+                merge_database(tx, &database)?;
+            }
+            set_meta(tx, "database_updated_at", &now_iso())?;
+            Ok(())
+        })?;
+        self.snapshot_with_status(
+            &conn,
+            if replace {
+                "Database restored from backup."
+            } else {
+                "Missing backup records imported."
+            },
+            &migration_status,
+            None,
+        )
+    }
+
     fn ensure_data_initialized(
         &self,
         conn: &mut Connection,
@@ -1404,7 +1822,7 @@ fn row_to_record(collection: Collection, row: &rusqlite::Row<'_>) -> rusqlite::R
                     value.map(Value::String).unwrap_or(Value::Null),
                 );
             }
-            FieldKind::Boolean => {
+            FieldKind::Boolean | FieldKind::BooleanDefaultTrue => {
                 let value: i64 = row.get(index)?;
                 map.insert(field.key.to_string(), Value::Bool(value != 0));
             }
@@ -1484,7 +1902,7 @@ fn sql_values_for(collection: Collection, record: &Value) -> Result<Vec<SqlValue
                 let value = nullable_string_field(record, field.key);
                 values.push(value.map(SqlValue::Text).unwrap_or(SqlValue::Null));
             }
-            FieldKind::Boolean => {
+            FieldKind::Boolean | FieldKind::BooleanDefaultTrue => {
                 let value = record
                     .get(field.key)
                     .and_then(Value::as_bool)
@@ -1511,7 +1929,10 @@ fn build_created_record(collection: Collection, input: Value) -> Result<Value> {
     record.insert("archivedReason".into(), Value::Null);
     if collection.api_name == "correctiveActions" {
         let status = normalize_corrective_action_status(
-            record.get("status").and_then(Value::as_str).unwrap_or("Created"),
+            record
+                .get("status")
+                .and_then(Value::as_str)
+                .unwrap_or("Created"),
         );
         let transition_at = record.get("updatedAt").cloned().unwrap_or(Value::Null);
         record.insert(
@@ -1547,7 +1968,10 @@ fn build_updated_record(collection: Collection, existing: Value, input: Value) -
     let input = object_from_value(input)?;
     let timestamp = now_iso();
     let previous_status = normalize_corrective_action_status(
-        record.get("status").and_then(Value::as_str).unwrap_or("Created"),
+        record
+            .get("status")
+            .and_then(Value::as_str)
+            .unwrap_or("Created"),
     );
 
     for (key, value) in input {
@@ -1558,7 +1982,10 @@ fn build_updated_record(collection: Collection, existing: Value, input: Value) -
 
     if collection.api_name == "correctiveActions" {
         let next_status = normalize_corrective_action_status(
-            record.get("status").and_then(Value::as_str).unwrap_or("Created"),
+            record
+                .get("status")
+                .and_then(Value::as_str)
+                .unwrap_or("Created"),
         );
         let existing_completed_at = record.get("completedAt").cloned().unwrap_or(Value::Null);
         let existing_verified_at = record.get("verifiedAt").cloned().unwrap_or(Value::Null);
@@ -1573,8 +2000,7 @@ fn build_updated_record(collection: Collection, existing: Value, input: Value) -
         );
         record.insert(
             "verifiedAt".into(),
-            if action_has_verification(&next_status) && !action_has_verification(&previous_status)
-            {
+            if action_has_verification(&next_status) && !action_has_verification(&previous_status) {
                 Value::String(timestamp.clone())
             } else {
                 existing_verified_at
@@ -1602,7 +2028,8 @@ fn normalize_record(collection: Collection, record: Value) -> Result<Value> {
                 FieldKind::Text => Value::String(String::new()),
                 FieldKind::NullableText => Value::Null,
                 FieldKind::JsonArray => json!([]),
-                FieldKind::Boolean => Value::Bool(true),
+                FieldKind::Boolean => Value::Bool(false),
+                FieldKind::BooleanDefaultTrue => Value::Bool(true),
             };
             map.insert(field.key.to_string(), default);
         }
@@ -1676,7 +2103,9 @@ fn action_has_verification(status: &str) -> bool {
 
 fn normalize_corrective_action_record(map: &mut Map<String, Value>) {
     let status = normalize_corrective_action_status(
-        map.get("status").and_then(Value::as_str).unwrap_or("Created"),
+        map.get("status")
+            .and_then(Value::as_str)
+            .unwrap_or("Created"),
     );
     map.insert("status".into(), Value::String(status.clone()));
 
@@ -1865,6 +2294,112 @@ fn validate_record(
                 "processes",
                 string_field(record, "processId")?,
                 "Selected process",
+            )?;
+            ensure_ref_field_matches(
+                conn,
+                "processes",
+                &string_field(record, "processId")?,
+                "locationId",
+                &string_field(record, "locationId")?,
+                "Selected process does not belong to the selected location.",
+            )?;
+        }
+        "exposureMonitoring" => {
+            require_text(record, "sampleReference", "Sample reference is required.")?;
+            require_enum(
+                record,
+                "contextType",
+                &["SEG", "Person", "Task"],
+                "Context type",
+            )?;
+            if string_field(record, "contextType")? == "SEG" {
+                require_text(record, "segId", "SEG is required for SEG sampling context.")?;
+            } else {
+                require_text(
+                    record,
+                    "contextDetail",
+                    "Person or task context is required.",
+                )?;
+            }
+            require_text(record, "contaminant", "Contaminant is required.")?;
+            require_text(record, "locationId", "Location is required.")?;
+            require_text(record, "samplingDate", "Sampling date is required.")?;
+            require_enum(
+                record,
+                "sampleType",
+                &["Personal", "Area", "Task", "Noise", "Other"],
+                "Sampling type",
+            )?;
+            require_enum(
+                record,
+                "status",
+                &["Pending", "Below Limit", "Above Limit", "Needs Review"],
+                "Status",
+            )?;
+            for (key, label) in [("result", "Result"), ("exposureLimit", "Exposure limit")] {
+                let value = string_field(record, key)?;
+                if !value.is_empty()
+                    && value
+                        .parse::<f64>()
+                        .map(|number| number < 0.0 || !number.is_finite())
+                        .unwrap_or(true)
+                {
+                    return Err(PersistenceError::Message(format!(
+                        "{label} must be a non-negative number."
+                    )));
+                }
+            }
+            if !string_field(record, "result")?.is_empty() {
+                require_text(record, "unit", "Unit is required when a result is entered.")?;
+            }
+            ensure_required_ref(
+                conn,
+                "locations",
+                string_field(record, "locationId")?,
+                "Selected location",
+            )?;
+            ensure_optional_ref(
+                conn,
+                "processes",
+                string_field(record, "processId")?,
+                "Selected process",
+            )?;
+            ensure_optional_ref(conn, "segs", string_field(record, "segId")?, "Selected SEG")?;
+            ensure_optional_ref(
+                conn,
+                "chemicals",
+                string_field(record, "chemicalId")?,
+                "Selected chemical",
+            )?;
+            ensure_optional_ref(
+                conn,
+                "hazards",
+                string_field(record, "hazardId")?,
+                "Selected hazard",
+            )?;
+            ensure_ref_field_matches(
+                conn,
+                "processes",
+                &string_field(record, "processId")?,
+                "locationId",
+                &string_field(record, "locationId")?,
+                "Selected process does not belong to the selected location.",
+            )?;
+            ensure_ref_field_matches(
+                conn,
+                "segs",
+                &string_field(record, "segId")?,
+                "locationId",
+                &string_field(record, "locationId")?,
+                "Selected SEG does not belong to the selected location.",
+            )?;
+            ensure_ref_field_matches(
+                conn,
+                "segs",
+                &string_field(record, "segId")?,
+                "processId",
+                &string_field(record, "processId")?,
+                "Selected SEG does not belong to the selected process.",
             )?;
         }
         "chemicals" => {
@@ -2098,6 +2633,14 @@ fn validate_record(
                 string_array_value(record.get("hazardIds")),
                 "Selected hazard",
             )?;
+            ensure_ref_field_matches(
+                conn,
+                "processes",
+                &string_field(record, "processId")?,
+                "locationId",
+                &string_field(record, "locationId")?,
+                "Selected process does not belong to the selected location.",
+            )?;
         }
         "findings" => {
             require_text(record, "title", "Title is required.")?;
@@ -2106,6 +2649,7 @@ fn validate_record(
                 "type",
                 &[
                     "Inspection Finding",
+                    "Audit Finding",
                     "Observation",
                     "Near Miss",
                     "Environmental Finding",
@@ -2125,9 +2669,34 @@ fn validate_record(
             require_enum(
                 record,
                 "status",
-                &["Open", "In Progress", "Closed"],
+                &[
+                    "Draft",
+                    "Open",
+                    "Under Review",
+                    "In Progress",
+                    "Requires Action",
+                    "Closed",
+                ],
                 "Status",
             )?;
+            let finding_type = string_field(record, "type")?;
+            if matches!(
+                finding_type.as_str(),
+                "Inspection Finding" | "Audit Finding"
+            ) {
+                require_text(
+                    record,
+                    "scope",
+                    "Scope is required for inspection and audit findings.",
+                )?;
+            }
+            if finding_type == "Audit Finding" {
+                require_text(
+                    record,
+                    "criteriaReference",
+                    "Criteria reference is required for audit findings.",
+                )?;
+            }
             ensure_required_ref(
                 conn,
                 "locations",
@@ -2145,6 +2714,229 @@ fn validate_record(
                 "hazards",
                 string_field(record, "hazardId")?,
                 "Selected hazard",
+            )?;
+            ensure_optional_ref(
+                conn,
+                "equipment",
+                string_field(record, "equipmentId")?,
+                "Selected equipment",
+            )?;
+            ensure_optional_ref(
+                conn,
+                "chemicals",
+                string_field(record, "chemicalId")?,
+                "Selected chemical",
+            )?;
+            ensure_optional_ref(
+                conn,
+                "controls",
+                string_field(record, "controlId")?,
+                "Selected control",
+            )?;
+            ensure_ref_field_matches(
+                conn,
+                "processes",
+                &string_field(record, "processId")?,
+                "locationId",
+                &string_field(record, "locationId")?,
+                "Selected process does not belong to the selected location.",
+            )?;
+            ensure_ref_field_matches(
+                conn,
+                "equipment",
+                &string_field(record, "equipmentId")?,
+                "locationId",
+                &string_field(record, "locationId")?,
+                "Selected equipment does not belong to the selected location.",
+            )?;
+        }
+        "incidents" => {
+            require_text(record, "title", "Title is required.")?;
+            require_enum(
+                record,
+                "type",
+                &[
+                    "Near Miss",
+                    "Injury or Illness",
+                    "Property Damage",
+                    "Environmental Release",
+                    "Process Safety Event",
+                    "Other",
+                ],
+                "Event type",
+            )?;
+            require_text(record, "occurredAt", "Event date and time are required.")?;
+            require_text(record, "locationId", "Location is required.")?;
+            require_text(record, "description", "Description is required.")?;
+            require_enum(
+                record,
+                "reportingStatus",
+                &[
+                    "Not Evaluated",
+                    "Pending Review",
+                    "Not Reportable",
+                    "Reported",
+                ],
+                "Reporting status",
+            )?;
+            require_enum(
+                record,
+                "status",
+                &["Open", "Under Investigation", "Action Required", "Closed"],
+                "Status",
+            )?;
+            ensure_required_ref(
+                conn,
+                "locations",
+                string_field(record, "locationId")?,
+                "Selected location",
+            )?;
+            ensure_optional_ref(
+                conn,
+                "processes",
+                string_field(record, "processId")?,
+                "Selected process",
+            )?;
+            ensure_optional_ref(
+                conn,
+                "equipment",
+                string_field(record, "equipmentId")?,
+                "Selected equipment",
+            )?;
+            ensure_optional_ref(
+                conn,
+                "chemicals",
+                string_field(record, "chemicalId")?,
+                "Selected chemical",
+            )?;
+            ensure_array_refs(
+                conn,
+                "hazards",
+                string_array_value(record.get("hazardIds")),
+                "Selected hazard",
+            )?;
+            ensure_array_refs(
+                conn,
+                "controls",
+                string_array_value(record.get("controlIds")),
+                "Selected control",
+            )?;
+            ensure_ref_field_matches(
+                conn,
+                "processes",
+                &string_field(record, "processId")?,
+                "locationId",
+                &string_field(record, "locationId")?,
+                "Selected process does not belong to the selected location.",
+            )?;
+            ensure_ref_field_matches(
+                conn,
+                "equipment",
+                &string_field(record, "equipmentId")?,
+                "locationId",
+                &string_field(record, "locationId")?,
+                "Selected equipment does not belong to the selected location.",
+            )?;
+            ensure_ref_field_matches(
+                conn,
+                "equipment",
+                &string_field(record, "equipmentId")?,
+                "processId",
+                &string_field(record, "processId")?,
+                "Selected equipment does not belong to the selected process.",
+            )?;
+        }
+        "complianceItems" => {
+            require_enum(
+                record,
+                "itemType",
+                &["Training", "Permit", "Obligation", "Controlled Document"],
+                "Compliance item type",
+            )?;
+            require_text(record, "title", "Title is required.")?;
+            require_text(
+                record,
+                "requirementSource",
+                "Requirement source is required.",
+            )?;
+            require_text(record, "owner", "Owner is required.")?;
+            require_enum(
+                record,
+                "status",
+                &[
+                    "Draft",
+                    "Active",
+                    "Upcoming",
+                    "Due Soon",
+                    "Overdue",
+                    "Complete",
+                    "Needs Evidence",
+                    "Expired",
+                    "Superseded",
+                    "Cancelled",
+                ],
+                "Status",
+            )?;
+            require_enum(
+                record,
+                "reviewStatus",
+                &["Not Reviewed", "In Review", "Reviewed", "Needs Review"],
+                "Review status",
+            )?;
+            if record
+                .get("evidenceRequired")
+                .and_then(Value::as_bool)
+                .unwrap_or(false)
+                && string_field(record, "status")? == "Complete"
+            {
+                require_text(
+                    record,
+                    "evidenceReference",
+                    "Evidence reference is required before marking this item complete.",
+                )?;
+            }
+            ensure_optional_ref(conn, "segs", string_field(record, "segId")?, "Selected SEG")?;
+            ensure_optional_ref(
+                conn,
+                "locations",
+                string_field(record, "locationId")?,
+                "Selected location",
+            )?;
+            ensure_optional_ref(
+                conn,
+                "processes",
+                string_field(record, "processId")?,
+                "Selected process",
+            )?;
+            ensure_optional_ref(
+                conn,
+                "equipment",
+                string_field(record, "equipmentId")?,
+                "Selected equipment",
+            )?;
+            ensure_ref_field_matches(
+                conn,
+                "processes",
+                &string_field(record, "processId")?,
+                "locationId",
+                &string_field(record, "locationId")?,
+                "Selected process does not belong to the selected location.",
+            )?;
+            ensure_ref_field_matches(
+                conn,
+                "equipment",
+                &string_field(record, "equipmentId")?,
+                "locationId",
+                &string_field(record, "locationId")?,
+                "Selected equipment does not belong to the selected location.",
+            )?;
+            ensure_ref_field_matches(
+                conn,
+                "equipment",
+                &string_field(record, "equipmentId")?,
+                "processId",
+                &string_field(record, "processId")?,
+                "Selected equipment does not belong to the selected process.",
             )?;
         }
         "correctiveActions" => {
@@ -2179,13 +2971,6 @@ fn validate_record(
                 )?;
             } else {
                 require_text(record, "sourceId", "Source record is required.")?;
-            }
-            if matches!(source_type.as_str(), "Incident" | "Compliance Item") {
-                require_text(
-                    record,
-                    "sourceJustification",
-                    "External source note is required.",
-                )?;
             }
             require_text(record, "assignedTo", "Assigned to is required.")?;
             require_enum(
@@ -2257,6 +3042,18 @@ fn validate_record(
                     string_field(record, "sourceId")?,
                     "Selected hazard",
                 )?,
+                "Incident" => ensure_required_ref(
+                    conn,
+                    "incidents",
+                    string_field(record, "sourceId")?,
+                    "Selected incident",
+                )?,
+                "Compliance Item" => ensure_required_ref(
+                    conn,
+                    "compliance_items",
+                    string_field(record, "sourceId")?,
+                    "Selected compliance item",
+                )?,
                 _ => {}
             }
         }
@@ -2285,20 +3082,54 @@ fn ensure_optional_ref(conn: &Connection, table: &str, id: String, label: &str) 
     if id.trim().is_empty() {
         return Ok(());
     }
-    let sql = format!("SELECT EXISTS(SELECT 1 FROM {table} WHERE id = ?1)");
-    let exists = conn.query_row(&sql, params![id], |row| row.get::<_, bool>(0))?;
-    if exists {
-        Ok(())
-    } else {
-        Err(PersistenceError::Message(format!("{label} was not found.")))
+    let sql = format!("SELECT lifecycleStatus FROM {table} WHERE id = ?1");
+    let lifecycle_status = conn
+        .query_row(&sql, params![id], |row| row.get::<_, String>(0))
+        .optional()?;
+    match lifecycle_status.as_deref() {
+        Some("archived") => Err(PersistenceError::Message(format!(
+            "{label} is archived and cannot be linked."
+        ))),
+        Some(_) => Ok(()),
+        None => Err(PersistenceError::Message(format!("{label} was not found."))),
     }
 }
 
 fn ensure_array_refs(conn: &Connection, table: &str, ids: Vec<String>, label: &str) -> Result<()> {
-    for id in ids.into_iter().filter(|id| !id.trim().is_empty()) {
+    let ids = ids
+        .into_iter()
+        .map(|id| id.trim().to_string())
+        .filter(|id| !id.is_empty())
+        .collect::<Vec<_>>();
+    if ids.iter().collect::<BTreeSet<_>>().len() != ids.len() {
+        return Err(PersistenceError::Message(format!(
+            "{label} contains duplicate relationships."
+        )));
+    }
+    for id in ids {
         ensure_optional_ref(conn, table, id, label)?;
     }
     Ok(())
+}
+
+fn ensure_ref_field_matches(
+    conn: &Connection,
+    table: &str,
+    id: &str,
+    field: &str,
+    expected: &str,
+    message: &str,
+) -> Result<()> {
+    if id.trim().is_empty() || expected.trim().is_empty() {
+        return Ok(());
+    }
+    let sql = format!("SELECT {field} FROM {table} WHERE id = ?1");
+    let actual = conn.query_row(&sql, params![id], |row| row.get::<_, String>(0))?;
+    if actual.is_empty() || actual == expected {
+        Ok(())
+    } else {
+        Err(PersistenceError::Message(message.into()))
+    }
 }
 
 fn require_text(record: &Value, key: &str, message: &str) -> Result<()> {
@@ -2477,6 +3308,9 @@ fn clear_domain_tables(conn: &Connection) -> Result<()> {
 fn recreate_schema(conn: &Connection) -> Result<()> {
     for table in [
         "corrective_actions",
+        "compliance_items",
+        "incidents",
+        "exposure_monitoring",
         "findings",
         "segs",
         "risk_assessments",
@@ -2494,7 +3328,9 @@ fn recreate_schema(conn: &Connection) -> Result<()> {
     }
 
     conn.execute_batch(include_str!("../migrations/001_initial.sql"))?;
-    conn.execute_batch(include_str!("../migrations/002_corrective_actions_workflow.sql"))?;
+    conn.execute_batch(include_str!(
+        "../migrations/002_corrective_actions_workflow.sql"
+    ))?;
     conn.execute_batch(include_str!(
         "../migrations/003_corrective_actions_evidence_reference.sql"
     ))?;
@@ -2502,7 +3338,10 @@ fn recreate_schema(conn: &Connection) -> Result<()> {
     conn.execute_batch(include_str!(
         "../migrations/005_chemical_sds_exposure_fields.sql"
     ))?;
-    conn.execute_batch(include_str!("../migrations/006_controls_risk_assessments.sql"))?;
+    conn.execute_batch(include_str!(
+        "../migrations/006_controls_risk_assessments.sql"
+    ))?;
+    conn.execute_batch(include_str!("../migrations/007_p1_product_gaps.sql"))?;
     conn.execute(
         "INSERT INTO schema_version (version, applied_at) VALUES (?1, ?2)",
         params![SCHEMA_VERSION, now_iso()],
@@ -2532,6 +3371,52 @@ fn import_database(conn: &Connection, database: &Value) -> Result<()> {
         for record in records {
             let normalized = normalize_import_record(*collection, record)?;
             insert_record(conn, *collection, &normalized)?;
+        }
+    }
+    Ok(())
+}
+
+fn validate_database_snapshot(database: &Value) -> Result<()> {
+    let object = database.as_object().ok_or_else(|| {
+        PersistenceError::Message("Backup must contain a database object.".into())
+    })?;
+    if !object
+        .get("schemaVersion")
+        .map(Value::is_number)
+        .unwrap_or(false)
+    {
+        return Err(PersistenceError::Message(
+            "Backup schema version is missing or invalid.".into(),
+        ));
+    }
+    for collection in COLLECTIONS {
+        if !object
+            .get(collection.snapshot_key)
+            .map(Value::is_array)
+            .unwrap_or(false)
+        {
+            return Err(PersistenceError::Message(format!(
+                "Backup collection {} is missing or invalid.",
+                collection.snapshot_key
+            )));
+        }
+    }
+    Ok(())
+}
+
+fn merge_database(conn: &Connection, database: &Value) -> Result<()> {
+    for collection in COLLECTIONS {
+        let records = database
+            .get(collection.snapshot_key)
+            .and_then(Value::as_array)
+            .cloned()
+            .unwrap_or_default();
+        for record in records {
+            let normalized = normalize_import_record(*collection, record)?;
+            let id = string_field(&normalized, "id")?;
+            if !record_exists(conn, *collection, &id)? {
+                insert_record(conn, *collection, &normalized)?;
+            }
         }
     }
     Ok(())
@@ -2633,7 +3518,7 @@ fn seed_records_for(collection: Collection) -> Result<Vec<Value>> {
                 json!({"id":"equipment-demo-dust-collector","name":"Workshop Dust Collector","type":"Dust Collector","locationId":"loc-demo-workshop","processId":"process-demo-equipment-maint","description":"Local exhaust equipment used during grinding and fabrication tasks.","status":"active","notes":"Track as HSE-relevant ventilation equipment, not a maintenance asset ledger."}),
             ),
             lifecycle(
-                json!({"id":"equipment-demo-flammable-cabinet","name":"Flammable Storage Cabinet","type":"Emergency Equipment","locationId":"loc-demo-chemical-storage","processId":"process-demo-chemical-receipt","description":"Approved cabinet used for storing flammable chemicals before transfer to use areas.","status":"active","notes":"Relevant to chemical storage controls and inspection findings."}),
+                json!({"id":"equipment-demo-flammable-cabinet","name":"Flammable Storage Cabinet","type":"Emergency Equipment","locationId":"loc-demo-chemical-storage","processId":"","description":"Approved cabinet used for storing flammable chemicals before transfer to use areas.","status":"active","notes":"Relevant to chemical storage controls and inspection findings."}),
             ),
         ],
         "chemicals" => vec![
@@ -2660,11 +3545,9 @@ fn seed_records_for(collection: Collection) -> Result<Vec<Value>> {
                 json!({"id":"control-demo-hearing-protection","name":"Workshop hearing protection zone","type":"PPE","hazardIds":["hazard-demo-noise"],"description":"Mandatory hearing protection and entry signage for high-noise workshop tasks.","owner":"HSE Officer","verificationMethod":"Field observation","verificationFrequency":"Quarterly","lastVerifiedAt":"","status":"active","notes":"Pair with noise monitoring review."}),
             ),
         ],
-        "riskAssessments" => vec![
-            lifecycle(
-                json!({"id":"risk-demo-slip-storage-entry","title":"Chemical storage entry slip risk","hazardId":"hazard-demo-slips","controlIds":["control-demo-slip-matting"],"inherentSeverity":"Medium","inherentLikelihood":"Likely","residualSeverity":"Medium","residualLikelihood":"Possible","assessor":"Demo HSE Lead","reviewStatus":"Needs Review","nextReviewDate":"2026-10-01","notes":"Review after confirming matting condition and housekeeping controls."}),
-            ),
-        ],
+        "riskAssessments" => vec![lifecycle(
+            json!({"id":"risk-demo-slip-storage-entry","title":"Chemical storage entry slip risk","hazardId":"hazard-demo-slips","controlIds":["control-demo-slip-matting"],"inherentSeverity":"Medium","inherentLikelihood":"Likely","residualSeverity":"Medium","residualLikelihood":"Possible","assessor":"Demo HSE Lead","reviewStatus":"Needs Review","nextReviewDate":"2026-10-01","notes":"Review after confirming matting condition and housekeeping controls."}),
+        )],
         "segs" => vec![
             lifecycle(
                 json!({"id":"seg-demo-chemical-handlers","name":"Chemical Handlers","type":"Similar Exposure Group","description":"Personnel who regularly handle, transfer, or work in proximity to stored chemicals.","locationId":"loc-demo-main-facility","processId":"process-demo-chemical-receipt","chemicalIds":["chem-demo-acetone","chem-demo-sodium-hydroxide"],"hazardIds":["hazard-demo-slips"],"agentType":"Chemical","exposureLevel":"Medium","workerCount":"8","controls":"PPE provision, ventilation, training, SDS access.","monitoringFrequency":"Monthly","status":"active"}),
@@ -2673,12 +3556,44 @@ fn seed_records_for(collection: Collection) -> Result<Vec<Value>> {
                 json!({"id":"seg-demo-welders","name":"Welders and Fabricators","type":"Task-Based Group","description":"Workshop personnel performing welding, cutting, and grinding tasks.","locationId":"loc-demo-workshop","processId":"process-demo-equipment-maint","chemicalIds":[],"hazardIds":["hazard-demo-noise"],"agentType":"Chemical / Physical","exposureLevel":"High","workerCount":"5","controls":"Welding screens, respiratory protection, LEV system, hearing protection.","monitoringFrequency":"Quarterly","status":"active"}),
             ),
         ],
+        "exposureMonitoring" => vec![lifecycle(json!({
+            "id":"exposure-demo-acetone-twa",
+            "sampleReference":"IH-2026-001",
+            "contextType":"SEG",
+            "segId":"seg-demo-chemical-handlers",
+            "contextDetail":"Chemical transfer task",
+            "contaminant":"Acetone vapor",
+            "chemicalId":"chem-demo-acetone",
+            "hazardId":"hazard-demo-slips",
+            "locationId":"loc-demo-main-facility",
+            "processId":"process-demo-chemical-receipt",
+            "samplingDate":"2026-07-08",
+            "sampleType":"Personal",
+            "result":"120",
+            "unit":"ppm",
+            "exposureLimit":"250",
+            "exposureLimitReference":"ACGIH TLV, 8-hour TWA",
+            "status":"Below Limit",
+            "evidenceReference":"IH worksheet IH-2026-001",
+            "notes":"Basic demonstration sample; advanced calculations are deferred."
+        }))],
         "findings" => vec![
             lifecycle(
-                json!({"id":"finding-demo-egress","title":"Blocked emergency egress path","type":"Inspection Finding","description":"Materials were staged in front of a marked egress path during field review.","locationId":"loc-demo-main-facility","processId":"process-demo-equipment-maint","hazardId":"hazard-demo-slips","severity":"High","status":"Open","reportedBy":"Demo HSE Lead"}),
+                json!({"id":"finding-demo-egress","title":"Blocked emergency egress path","type":"Inspection Finding","description":"Materials were staged in front of a marked egress path during field review.","locationId":"loc-demo-main-facility","processId":"process-demo-chemical-receipt","hazardId":"hazard-demo-slips","activityDate":"2026-07-08","equipmentId":"","chemicalId":"","controlId":"control-demo-slip-matting","scope":"Emergency egress route walkthrough","criteriaReference":"Internal emergency egress inspection criteria","evidenceReference":"Field photo set FW-2026-11","followUpRequired":true,"notes":"","severity":"High","status":"Requires Action","reportedBy":"Demo HSE Lead"}),
             ),
             lifecycle(
-                json!({"id":"finding-demo-labeling","title":"Secondary container label needs update","type":"Observation","description":"A secondary chemical container label was partially unreadable.","locationId":"loc-demo-chemical-storage","processId":"process-demo-chemical-receipt","hazardId":"","severity":"Medium","status":"In Progress","reportedBy":"Demo Observer"}),
+                json!({"id":"finding-demo-labeling","title":"Secondary container label needs update","type":"Observation","description":"A secondary chemical container label was partially unreadable.","locationId":"loc-demo-chemical-storage","processId":"","hazardId":"","activityDate":"2026-07-08","equipmentId":"equipment-demo-flammable-cabinet","chemicalId":"chem-demo-acetone","controlId":"","scope":"","criteriaReference":"","evidenceReference":"Walkthrough note FW-2026-12","followUpRequired":true,"notes":"","severity":"Medium","status":"In Progress","reportedBy":"Demo Observer"}),
+            ),
+        ],
+        "incidents" => vec![lifecycle(
+            json!({"id":"incident-demo-grinding-near-miss","title":"Grinding spark near combustible packaging","type":"Near Miss","occurredAt":"2026-07-08T14:15","locationId":"loc-demo-workshop","processId":"process-demo-equipment-maint","equipmentId":"equipment-demo-dust-collector","chemicalId":"","hazardIds":["hazard-demo-noise"],"controlIds":["control-demo-hearing-protection"],"description":"Sparks from a grinding task reached packaging staged outside the work zone.","actualOutcome":"No injury, damage, or ignition occurred.","potentialOutcome":"Potential fire and employee exposure.","immediateActions":"Stopped work and cleared the staging area.","investigationSummary":"Review work-zone housekeeping and hot-work boundaries.","immediateCauses":"Packaging was staged inside the grinding exclusion zone.","contributingCauses":"Pre-task area check did not include temporary stored materials.","evidenceReference":"Field note NM-2026-004","reportingStatus":"Not Evaluated","status":"Under Investigation"}),
+        )],
+        "complianceItems" => vec![
+            lifecycle(
+                json!({"id":"compliance-demo-air-permit-review","itemType":"Permit","title":"Air permit annual review","requirementSource":"Facility air permit AP-2025-14","owner":"Environmental Coordinator","audienceOrScope":"Workshop ventilation and chemical handling operations","segId":"","locationId":"loc-demo-main-facility","processId":"process-demo-chemical-receipt","equipmentId":"","issueDate":"2025-09-01","dueDate":"2026-08-15","expirationDate":"2026-09-01","reviewDate":"2026-08-15","recurrence":"Annual","status":"Due Soon","reviewStatus":"Needs Review","evidenceRequired":true,"evidenceReference":"Permit file AP-2025-14","notes":"Tracking supports readiness and does not determine legal compliance."}),
+            ),
+            lifecycle(
+                json!({"id":"compliance-demo-chemical-training","itemType":"Training","title":"Annual chemical handling refresher","requirementSource":"Internal chemical safety program","owner":"HSE Officer","audienceOrScope":"Chemical Handlers SEG","segId":"seg-demo-chemical-handlers","locationId":"loc-demo-main-facility","processId":"process-demo-chemical-receipt","equipmentId":"","issueDate":"","dueDate":"2026-10-01","expirationDate":"","reviewDate":"2026-09-01","recurrence":"Annual","status":"Upcoming","reviewStatus":"Not Reviewed","evidenceRequired":true,"evidenceReference":"","notes":"Status register only; learning management is out of scope."}),
             ),
         ],
         "correctiveActions" => vec![
@@ -2816,6 +3731,18 @@ pub fn oluso_restore_record(
 }
 
 #[tauri::command]
+pub fn oluso_import_database(
+    app: AppHandle,
+    database: Value,
+    replace: bool,
+) -> std::result::Result<PersistenceSnapshot, String> {
+    let path = DatabaseManager::database_path_for_app(&app)?;
+    DatabaseManager::new(path)
+        .import_snapshot(database, replace)
+        .map_err(Into::into)
+}
+
+#[tauri::command]
 pub fn oluso_reset_persistence(app: AppHandle) -> std::result::Result<PersistenceSnapshot, String> {
     let path = DatabaseManager::database_path_for_app(&app)?;
     DatabaseManager::new(path).reset().map_err(Into::into)
@@ -2837,11 +3764,23 @@ mod tests {
         let (_dir, manager) = test_manager();
         let snapshot = manager.initialize(None).expect("initialize");
 
-        assert_eq!(snapshot.diagnostics["schemaVersion"], json!(6));
+        assert_eq!(snapshot.diagnostics["schemaVersion"], json!(7));
         assert_eq!(snapshot.diagnostics["recordCounts"]["locations"], json!(3));
         assert_eq!(snapshot.diagnostics["recordCounts"]["equipment"], json!(2));
         assert_eq!(snapshot.diagnostics["recordCounts"]["controls"], json!(2));
-        assert_eq!(snapshot.diagnostics["recordCounts"]["riskAssessments"], json!(1));
+        assert_eq!(
+            snapshot.diagnostics["recordCounts"]["riskAssessments"],
+            json!(1)
+        );
+        assert_eq!(
+            snapshot.diagnostics["recordCounts"]["exposureMonitoring"],
+            json!(1)
+        );
+        assert_eq!(snapshot.diagnostics["recordCounts"]["incidents"], json!(1));
+        assert_eq!(
+            snapshot.diagnostics["recordCounts"]["complianceItems"],
+            json!(2)
+        );
         assert!(snapshot.database["chemicals"]
             .as_array()
             .unwrap()
@@ -3023,5 +3962,77 @@ mod tests {
             .unwrap()
             .iter()
             .all(|record| record["lifecycleStatus"] == json!("active")));
+    }
+
+    #[test]
+    fn restores_new_collections_atomically() {
+        let (_dir, manager) = test_manager();
+        let before = manager.initialize(None).expect("initialize");
+        let mut replacement = before.database.clone();
+
+        for (collection, id, title) in [
+            (
+                "exposureMonitoring",
+                "exposure-restored",
+                "Restored exposure sample",
+            ),
+            ("incidents", "incident-restored", "Restored near miss"),
+            (
+                "complianceItems",
+                "compliance-restored",
+                "Restored permit review",
+            ),
+        ] {
+            let mut record = replacement[collection][0]
+                .as_object()
+                .expect("seeded record")
+                .clone();
+            record.insert("id".into(), json!(id));
+            record.insert("title".into(), json!(title));
+            replacement[collection]
+                .as_array_mut()
+                .expect("collection array")
+                .push(Value::Object(record));
+        }
+
+        let restored = manager
+            .import_snapshot(replacement.clone(), true)
+            .expect("restore new collections");
+        for (collection, id) in [
+            ("exposureMonitoring", "exposure-restored"),
+            ("incidents", "incident-restored"),
+            ("complianceItems", "compliance-restored"),
+        ] {
+            assert!(restored.database[collection]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|record| record["id"] == json!(id)));
+        }
+
+        let mut invalid = replacement;
+        let duplicate = invalid["complianceItems"][0].clone();
+        invalid["complianceItems"]
+            .as_array_mut()
+            .unwrap()
+            .push(duplicate);
+        manager
+            .import_snapshot(invalid, true)
+            .expect_err("duplicate restore must roll back");
+
+        let after_failed_restore = manager
+            .initialize(None)
+            .expect("reload after failed restore");
+        for (collection, id) in [
+            ("exposureMonitoring", "exposure-restored"),
+            ("incidents", "incident-restored"),
+            ("complianceItems", "compliance-restored"),
+        ] {
+            assert!(after_failed_restore.database[collection]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|record| record["id"] == json!(id)));
+        }
     }
 }

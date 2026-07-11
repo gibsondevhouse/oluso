@@ -11,6 +11,7 @@ pub fn run() {
             persistence::oluso_update_record,
             persistence::oluso_archive_record,
             persistence::oluso_restore_record,
+            persistence::oluso_import_database,
             persistence::oluso_reset_persistence
         ])
         .run(tauri::generate_context!())
