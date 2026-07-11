@@ -1,0 +1,8 @@
+ALTER TABLE chemicals ADD COLUMN sdsStatus TEXT NOT NULL DEFAULT 'Missing';
+ALTER TABLE chemicals ADD COLUMN sdsReference TEXT NOT NULL DEFAULT '';
+ALTER TABLE chemicals ADD COLUMN sdsRevisionDate TEXT NOT NULL DEFAULT '';
+ALTER TABLE chemicals ADD COLUMN sdsReviewDate TEXT NOT NULL DEFAULT '';
+ALTER TABLE chemicals ADD COLUMN exposureLimitValue TEXT NOT NULL DEFAULT '';
+ALTER TABLE chemicals ADD COLUMN exposureLimitUnit TEXT NOT NULL DEFAULT '';
+ALTER TABLE chemicals ADD COLUMN exposureLimitSource TEXT NOT NULL DEFAULT '';
+ALTER TABLE chemicals ADD COLUMN exposureLimitAveragingPeriod TEXT NOT NULL DEFAULT '';

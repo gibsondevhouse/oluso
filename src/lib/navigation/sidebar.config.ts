@@ -1,0 +1,170 @@
+import type { SidebarConfig } from "./sidebar.types";
+
+export const SIDEBAR_CONFIG: SidebarConfig = {
+  appTitle: "OLUSO",
+  sections: [
+    {
+      id: "dashboard",
+      title: "Dashboard",
+      icon: "LayoutDashboard",
+      collapsible: false,
+      defaultExpanded: true,
+      children: [
+        {
+          id: "dashboard-home",
+          title: "Dashboard",
+          route: "/dashboard",
+          icon: "LayoutDashboard",
+          routeType: "landing",
+        },
+      ],
+    },
+    {
+      id: "operations",
+      title: "Operations",
+      icon: "Factory",
+      collapsible: true,
+      defaultExpanded: true,
+      children: [
+        {
+          id: "locations",
+          title: "Locations",
+          route: "/operations/locations",
+          icon: "MapPinned",
+          routeType: "register",
+        },
+        {
+          id: "processes",
+          title: "Processes",
+          route: "/operations/processes",
+          icon: "Workflow",
+          routeType: "register",
+        },
+        {
+          id: "equipment",
+          title: "Equipment",
+          route: "/operations/equipment",
+          icon: "Wrench",
+          routeType: "register",
+        },
+      ],
+    },
+    {
+      id: "hse-registers",
+      title: "HSE Registers",
+      icon: "ShieldAlert",
+      collapsible: true,
+      defaultExpanded: true,
+      children: [
+        {
+          id: "chemicals",
+          title: "Chemicals",
+          route: "/hse/chemicals",
+          icon: "FlaskConical",
+          routeType: "register",
+        },
+        {
+          id: "hazards",
+          title: "Hazards",
+          route: "/hse/hazards",
+          icon: "TriangleAlert",
+          routeType: "register",
+        },
+        {
+          id: "segs",
+          title: "SEGs",
+          route: "/hse/segs",
+          icon: "UsersRound",
+          routeType: "register",
+        },
+      ],
+    },
+    {
+      id: "risk-management",
+      title: "Risk Management",
+      icon: "ShieldCheck",
+      collapsible: true,
+      defaultExpanded: true,
+      children: [
+        {
+          id: "controls",
+          title: "Controls",
+          route: "/risk/controls",
+          icon: "ShieldCheck",
+          routeType: "register",
+        },
+        {
+          id: "risk-assessments",
+          title: "Risk Assessments",
+          route: "/risk/assessments",
+          icon: "FileBarChart",
+          routeType: "register",
+        },
+      ],
+    },
+    {
+      id: "field-work",
+      title: "Field Work",
+      icon: "ClipboardCheck",
+      collapsible: true,
+      defaultExpanded: false,
+      children: [
+        {
+          id: "findings",
+          title: "Findings",
+          route: "/field/findings",
+          icon: "ClipboardList",
+          routeType: "register",
+        },
+      ],
+    },
+    {
+      id: "actions",
+      title: "Actions",
+      icon: "CheckSquare",
+      collapsible: true,
+      defaultExpanded: true,
+      children: [
+        {
+          id: "corrective-actions",
+          title: "Corrective Actions",
+          route: "/actions/corrective-actions",
+          icon: "ListChecks",
+          routeType: "register",
+        },
+      ],
+    },
+    {
+      id: "reports",
+      title: "Reports",
+      icon: "FileBarChart",
+      collapsible: true,
+      defaultExpanded: false,
+      children: [
+        {
+          id: "exports",
+          title: "Exports",
+          route: "/reports/exports",
+          icon: "FileOutput",
+          routeType: "report",
+        },
+      ],
+    },
+    {
+      id: "system",
+      title: "System",
+      icon: "Settings",
+      collapsible: true,
+      defaultExpanded: false,
+      children: [
+        {
+          id: "settings",
+          title: "Settings",
+          route: "/system/settings",
+          icon: "Settings",
+          routeType: "system",
+        },
+      ],
+    },
+  ],
+};
