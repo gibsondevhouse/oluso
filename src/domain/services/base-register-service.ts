@@ -68,7 +68,7 @@ export abstract class BaseRegisterService<
 
   update(id: string, input: TInput): MaybePromise<TRecord> {
     this.requireExistingRecord(id);
-    this.assertValidForWrite(input);
+    this.assertValidForWrite(input, id);
     return this.withRepositoryErrors(() =>
       this.runInTransaction(() => this.repository.update(id, input)),
     );
@@ -149,7 +149,7 @@ export abstract class BaseRegisterService<
 
   protected abstract validateInput(input: TInput): FieldErrors<TInput>;
 
-  protected validateRelationships(_input: TInput): void {}
+  protected validateRelationships(_input: TInput, _existingId?: string): void {}
 
   protected ensureRelatedRecord<TLinkedRecord extends IdentifiedLifecycleRecord>(
     repository: Pick<RegisterRepository<TLinkedRecord, object>, "getById">,
@@ -194,13 +194,13 @@ export abstract class BaseRegisterService<
     }
   }
 
-  private assertValidForWrite(input: TInput) {
+  private assertValidForWrite(input: TInput, existingId?: string) {
     const errors = compactErrors(this.validateInput(input));
     if (Object.keys(errors).length > 0) {
       throw new ValidationError(firstError(errors, `${this.recordLabel} is invalid.`), errors);
     }
 
-    this.validateRelationships(input);
+    this.validateRelationships(input, existingId);
   }
 
   private assertNoDuplicateInputId(input: TInput) {

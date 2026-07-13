@@ -73,4 +73,20 @@ describe("ReportsExportsPage", () => {
     expect(href).toContain('"id": "finding-demo-egress"');
     expect(href).toContain('"title": "Blocked emergency egress path"');
   });
+
+  it("generates a printable cross-register review support package", async () => {
+    render(ReportsExportsPage);
+
+    expect(await screen.findByRole("heading", { level: 2, name: "Review Support Package" })).toBeInTheDocument();
+    await fireEvent.change(screen.getByLabelText("Package preset"), { target: { value: "full" } });
+    await fireEvent.click(screen.getByRole("button", { name: /Generate review package/ }));
+
+    const download = await screen.findByRole("link", { name: "Download HTML" });
+    const href = decodeURIComponent(download.getAttribute("href") ?? "");
+
+    expect(download.getAttribute("download")).toMatch(/^oluso-review-support-package-.*\.html$/);
+    expect(href).toContain("data:text/html;charset=utf-8");
+    expect(href).toContain("point-in-time projection of source register records");
+    expect(href).toContain("Print or save as PDF");
+  });
 });

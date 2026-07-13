@@ -3,6 +3,7 @@
   import StatusPill from "$lib/components/ui/StatusPill.svelte";
   import type {
     RegisterRecord,
+    RegisterFilterValue,
     RegisterSortDirection,
     RegisterStatusOption,
     RegisterTableAction,
@@ -28,6 +29,9 @@
     statusFilterLabel?: string;
     statusFilterOptions?: RegisterStatusOption[];
     statusAccessor?: (record: TRecord) => string;
+    extraFilterLabel?: string;
+    extraFilterOptions?: RegisterStatusOption[];
+    extraFilterAccessor?: (record: TRecord) => RegisterFilterValue;
     initialSortKey?: string;
     initialSortDirection?: RegisterSortDirection;
     initialPageSize?: number;
@@ -53,6 +57,9 @@
     statusFilterLabel = "Status",
     statusFilterOptions = [],
     statusAccessor,
+    extraFilterLabel = "Filter",
+    extraFilterOptions = [],
+    extraFilterAccessor,
     initialSortKey,
     initialSortDirection = "asc",
     initialPageSize = 5,
@@ -68,6 +75,7 @@
 
   let searchQuery = $state("");
   let statusFilter = $state("");
+  let extraFilter = $state("");
   let sortKey = $state(getInitialSortKey());
   let sortDirection = $state<RegisterSortDirection>(getInitialSortDirection());
   let currentPage = $state(1);
@@ -81,13 +89,15 @@
       searchQuery,
       statusFilter,
       statusAccessor,
+      extraFilter,
+      extraFilterAccessor,
       sortKey,
       sortDirection,
     }),
   );
   const page = $derived(paginateRecords(visibleRecords, currentPage, pageSize));
   const countText = $derived(formatRecordCount(visibleRecords.length, records.length, recordLabel, pluralLabel));
-  const hasFilters = $derived(Boolean(searchQuery.trim() || statusFilter));
+  const hasFilters = $derived(Boolean(searchQuery.trim() || statusFilter || extraFilter));
 
   function getInitialSortKey() {
     return initialSortKey ?? columns.find((column) => column.sortable)?.key ?? "";
@@ -126,6 +136,11 @@
     resetToFirstPage();
   }
 
+  function updateExtraFilter(event: Event) {
+    extraFilter = (event.currentTarget as HTMLSelectElement).value;
+    resetToFirstPage();
+  }
+
   function updatePageSize(event: Event) {
     pageSize = Number((event.currentTarget as HTMLSelectElement).value);
     resetToFirstPage();
@@ -134,6 +149,7 @@
   function clearFilters() {
     searchQuery = "";
     statusFilter = "";
+    extraFilter = "";
     resetToFirstPage();
   }
 
@@ -248,6 +264,25 @@
           </select>
         </label>
       {/if}
+
+      {#if extraFilterOptions.length > 0}
+        <label class="toolbar-control">
+          <span>{extraFilterLabel}</span>
+          <select
+            id={getControlId("extra-filter")}
+            name={getControlId("extra-filter")}
+            class="toolbar-input"
+            aria-label={extraFilterLabel}
+            value={extraFilter}
+            onchange={updateExtraFilter}
+          >
+            <option value="">All {extraFilterLabel.toLowerCase()}</option>
+            {#each extraFilterOptions as option}
+              <option value={option.value}>{option.label}</option>
+            {/each}
+          </select>
+        </label>
+      {/if}
     </div>
   </div>
 
@@ -263,7 +298,7 @@
   {:else if visibleRecords.length === 0}
     <RegisterState
       title="No records found"
-      message={hasFilters ? "Clear the current search or status filter to view records." : emptyMessage}
+      message={hasFilters ? "Clear the current filters to view records." : emptyMessage}
       primaryActionLabel={!hasFilters ? emptyActionLabel : undefined}
       onPrimaryAction={!hasFilters ? onEmptyAction : undefined}
       secondaryActionLabel={hasFilters ? "Clear filters" : undefined}

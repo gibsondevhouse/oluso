@@ -14,6 +14,7 @@ export interface LocationRecord extends LifecycleMetadata {
   id: string;
   name: string;
   type: LocationType;
+  parentLocationId: string;
   description: string;
   status: LocationStatus;
   createdAt: string;
@@ -23,6 +24,7 @@ export interface LocationRecord extends LifecycleMetadata {
 export interface LocationInput {
   name: string;
   type: LocationType;
+  parentLocationId?: string;
   description: string;
   status: LocationStatus;
 }

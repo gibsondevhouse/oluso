@@ -9,9 +9,10 @@ use std::path::{Path, PathBuf};
 use tauri::{AppHandle, Manager};
 use uuid::Uuid;
 
-const SCHEMA_VERSION: i64 = 7;
+const SCHEMA_VERSION: i64 = 8;
 const DB_FILE_NAME: &str = "oluso.db";
 const LOCAL_STORAGE_MIGRATION_KEY: &str = "local_storage_migration_complete";
+const ALLOW_EMPTY_DATABASE_KEY: &str = "allow_empty_database";
 
 type Result<T> = std::result::Result<T, PersistenceError>;
 
@@ -129,6 +130,11 @@ const LOCATION_FIELDS: &[FieldSpec] = &[
     FieldSpec {
         key: "type",
         column: "type",
+        kind: FieldKind::Text,
+    },
+    FieldSpec {
+        key: "parentLocationId",
+        column: "parentLocationId",
         kind: FieldKind::Text,
     },
     FieldSpec {
@@ -1353,6 +1359,11 @@ impl MigrationRunner {
                     name: "007_p1_product_gaps",
                     sql: include_str!("../migrations/007_p1_product_gaps.sql"),
                 },
+                Migration {
+                    version: 8,
+                    name: "008_location_hierarchy",
+                    sql: include_str!("../migrations/008_location_hierarchy.sql"),
+                },
             ],
         }
     }
@@ -1605,6 +1616,7 @@ impl DatabaseManager {
             set_meta(tx, "initialized_at", &now_iso())?;
             set_meta(tx, "database_updated_at", &now_iso())?;
             set_meta(tx, LOCAL_STORAGE_MIGRATION_KEY, "true")?;
+            set_meta(tx, ALLOW_EMPTY_DATABASE_KEY, "false")?;
             set_meta(tx, "local_storage_migration_status", "Skipped after reset.")?;
             Ok(())
         })?;
@@ -1627,6 +1639,15 @@ impl DatabaseManager {
                 merge_database(tx, &database)?;
             }
             set_meta(tx, "database_updated_at", &now_iso())?;
+            set_meta(
+                tx,
+                ALLOW_EMPTY_DATABASE_KEY,
+                if count_all_records(tx)? == 0 {
+                    "true"
+                } else {
+                    "false"
+                },
+            )?;
             Ok(())
         })?;
         self.snapshot_with_status(
@@ -1697,10 +1718,14 @@ impl DatabaseManager {
             }
         }
 
-        if count_all_records(conn)? == 0 {
+        let allow_empty_database =
+            get_meta(conn, ALLOW_EMPTY_DATABASE_KEY)?.as_deref() == Some("true");
+
+        if count_all_records(conn)? == 0 && !allow_empty_database {
             run_in_transaction(conn, |tx| {
                 seed_demo_data(tx)?;
                 set_meta(tx, "database_updated_at", &now_iso())?;
+                set_meta(tx, ALLOW_EMPTY_DATABASE_KEY, "false")?;
                 Ok(())
             })?;
             return Ok("SQLite initialized and seeded with demo data.".into());
@@ -2227,6 +2252,7 @@ fn validate_record(
                 "Type",
             )?;
             require_enum(record, "status", &["active", "inactive"], "Status")?;
+            ensure_location_parent_valid(conn, &id, &string_field(record, "parentLocationId")?)?;
         }
         "processes" => {
             require_text(record, "name", "Name is required.")?;
@@ -3095,6 +3121,70 @@ fn ensure_optional_ref(conn: &Connection, table: &str, id: String, label: &str) 
     }
 }
 
+fn ensure_location_parent_valid(
+    conn: &Connection,
+    location_id: &str,
+    parent_id: &str,
+) -> Result<()> {
+    if parent_id.trim().is_empty() {
+        return Ok(());
+    }
+
+    if parent_id == location_id {
+        return Err(PersistenceError::Message(
+            "Parent location cannot be the same location.".into(),
+        ));
+    }
+
+    let parent = conn
+        .query_row(
+            "SELECT parentLocationId, status, lifecycleStatus FROM locations WHERE id = ?1",
+            params![parent_id],
+            |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, String>(2)?,
+                ))
+            },
+        )
+        .optional()?;
+
+    let Some((mut ancestor_parent_id, status, lifecycle_status)) = parent else {
+        return Err(PersistenceError::Message(
+            "Parent location was not found.".into(),
+        ));
+    };
+
+    if status != "active" || lifecycle_status == "archived" {
+        return Err(PersistenceError::Message(
+            "Parent location must be an active location.".into(),
+        ));
+    }
+
+    let mut visited = BTreeSet::from([location_id.to_string(), parent_id.to_string()]);
+
+    while !ancestor_parent_id.trim().is_empty() {
+        if visited.contains(&ancestor_parent_id) {
+            return Err(PersistenceError::Message(
+                "Parent location cannot create a circular hierarchy.".into(),
+            ));
+        }
+
+        visited.insert(ancestor_parent_id.clone());
+        ancestor_parent_id = conn
+            .query_row(
+                "SELECT parentLocationId FROM locations WHERE id = ?1",
+                params![ancestor_parent_id],
+                |row| row.get::<_, String>(0),
+            )
+            .optional()?
+            .unwrap_or_default();
+    }
+
+    Ok(())
+}
+
 fn ensure_array_refs(conn: &Connection, table: &str, ids: Vec<String>, label: &str) -> Result<()> {
     let ids = ids
         .into_iter()
@@ -3342,6 +3432,7 @@ fn recreate_schema(conn: &Connection) -> Result<()> {
         "../migrations/006_controls_risk_assessments.sql"
     ))?;
     conn.execute_batch(include_str!("../migrations/007_p1_product_gaps.sql"))?;
+    conn.execute_batch(include_str!("../migrations/008_location_hierarchy.sql"))?;
     conn.execute(
         "INSERT INTO schema_version (version, applied_at) VALUES (?1, ?2)",
         params![SCHEMA_VERSION, now_iso()],
@@ -3496,13 +3587,19 @@ fn seed_records_for(collection: Collection) -> Result<Vec<Value>> {
     let records = match collection.api_name {
         "locations" => vec![
             lifecycle(
-                json!({"id":"loc-demo-main-facility","name":"Main Facility","type":"Facility","description":"Primary operating location seeded for the MVP Locations workflow.","status":"active"}),
+                json!({"id":"loc-demo-main-facility","name":"Main Facility","type":"Facility","parentLocationId":"","description":"Primary operating location seeded for the MVP Locations workflow.","status":"active"}),
             ),
             lifecycle(
-                json!({"id":"loc-demo-chemical-storage","name":"Chemical Storage Room","type":"Storage","description":"Controlled storage area seeded so persistence can be verified immediately.","status":"active"}),
+                json!({"id":"loc-demo-chemical-storage","name":"Chemical Storage Room","type":"Storage","parentLocationId":"loc-demo-main-facility","description":"Controlled storage area seeded so persistence can be verified immediately.","status":"active"}),
             ),
             lifecycle(
-                json!({"id":"loc-demo-workshop","name":"Workshop","type":"Production Area","description":"Maintenance and fabrication workshop area.","status":"active"}),
+                json!({"id":"loc-demo-workshop","name":"Workshop","type":"Production Area","parentLocationId":"loc-demo-main-facility","description":"Maintenance and fabrication workshop area.","status":"active"}),
+            ),
+            lifecycle(
+                json!({"id":"loc-demo-secondary-site","name":"Secondary Site","type":"Facility","parentLocationId":"","description":"Secondary plant seeded to demonstrate multi-plant filtering.","status":"active"}),
+            ),
+            lifecycle(
+                json!({"id":"loc-demo-secondary-warehouse","name":"Secondary Warehouse","type":"Storage","parentLocationId":"loc-demo-secondary-site","description":"Storage area under the secondary plant.","status":"active"}),
             ),
         ],
         "processes" => vec![
@@ -3764,8 +3861,8 @@ mod tests {
         let (_dir, manager) = test_manager();
         let snapshot = manager.initialize(None).expect("initialize");
 
-        assert_eq!(snapshot.diagnostics["schemaVersion"], json!(7));
-        assert_eq!(snapshot.diagnostics["recordCounts"]["locations"], json!(3));
+        assert_eq!(snapshot.diagnostics["schemaVersion"], json!(8));
+        assert_eq!(snapshot.diagnostics["recordCounts"]["locations"], json!(5));
         assert_eq!(snapshot.diagnostics["recordCounts"]["equipment"], json!(2));
         assert_eq!(snapshot.diagnostics["recordCounts"]["controls"], json!(2));
         assert_eq!(
@@ -3956,12 +4053,55 @@ mod tests {
             .expect("archive");
 
         let reset = manager.reset().expect("reset");
-        assert_eq!(reset.diagnostics["recordCounts"]["locations"], json!(3));
+        assert_eq!(reset.diagnostics["recordCounts"]["locations"], json!(5));
         assert!(reset.database["locations"]
             .as_array()
             .unwrap()
             .iter()
             .all(|record| record["lifecycleStatus"] == json!("active")));
+    }
+
+    #[test]
+    fn restored_empty_database_stays_empty_after_initialize() {
+        let (_dir, manager) = test_manager();
+        let seeded = manager.initialize(None).expect("initialize");
+        let mut empty_database = seeded.database.clone();
+
+        for collection in COLLECTIONS {
+            empty_database[collection.snapshot_key] = json!([]);
+        }
+
+        let restored = manager
+            .import_snapshot(empty_database, true)
+            .expect("restore empty database");
+        for collection in COLLECTIONS {
+            assert_eq!(
+                restored.database[collection.snapshot_key]
+                    .as_array()
+                    .expect("collection array")
+                    .len(),
+                0
+            );
+            assert_eq!(
+                restored.diagnostics["recordCounts"][collection.snapshot_key],
+                json!(0)
+            );
+        }
+
+        let reinitialized = manager.initialize(None).expect("reinitialize");
+        for collection in COLLECTIONS {
+            assert_eq!(
+                reinitialized.database[collection.snapshot_key]
+                    .as_array()
+                    .expect("collection array")
+                    .len(),
+                0
+            );
+            assert_eq!(
+                reinitialized.diagnostics["recordCounts"][collection.snapshot_key],
+                json!(0)
+            );
+        }
     }
 
     #[test]

@@ -27,6 +27,8 @@ export interface RegisterStatusOption {
   label: string;
 }
 
+export type RegisterFilterValue = string | string[];
+
 export interface RegisterTableAction<TRecord extends RegisterRecord> {
   label: string;
   onSelect: (record: TRecord) => void;

@@ -83,10 +83,14 @@ describe("local persistence", () => {
     await repository.initialize();
 
     expect(get(persistenceDiagnostics).status).toBe("ready");
-    expect(get(locationRecords)).toHaveLength(3);
+    expect(get(locationRecords)).toHaveLength(5);
     expect(get(findingRecords)).toHaveLength(2);
     expect(get(locationRecords)[0]?.id).toBe("loc-demo-main-facility");
     expect(get(locationRecords)[2]?.id).toBe("loc-demo-workshop");
+    expect(get(locationRecords)[1]).toMatchObject({
+      id: "loc-demo-chemical-storage",
+      parentLocationId: "loc-demo-main-facility",
+    });
     expect(get(equipmentRecords)[0]?.id).toBe("equipment-demo-dust-collector");
     expect(get(controlRecords)[0]?.id).toBe("control-demo-slip-matting");
     expect(get(riskAssessmentRecords)[0]?.id).toBe("risk-demo-slip-storage-entry");

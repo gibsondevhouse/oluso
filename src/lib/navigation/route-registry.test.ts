@@ -27,6 +27,7 @@ describe("route registry", () => {
     expect(getRegisteredRoutePaths()).toEqual(
       expect.arrayContaining([
         "/dashboard",
+        "/search",
         "/operations/locations",
         "/operations/processes",
         "/operations/equipment",
@@ -54,6 +55,7 @@ describe("route registry", () => {
   });
 
   it("marks Locations and Settings as implemented MVP workflow routes", () => {
+    expect(findRoute("/search")?.kind).toBe("global-search");
     expect(findRoute("/operations/locations")?.kind).toBe("locations");
     expect(findRoute("/field/findings")?.kind).toBe("findings");
     expect(findRoute("/system/settings")?.kind).toBe("settings");

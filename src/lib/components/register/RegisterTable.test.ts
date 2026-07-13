@@ -153,7 +153,7 @@ describe("RegisterTable", () => {
     await fireEvent.input(screen.getByPlaceholderText("Search demo records"), {
       target: { value: "missing" },
     });
-    expect(screen.getByText("Clear the current search or status filter to view records.")).toBeInTheDocument();
+    expect(screen.getByText("Clear the current filters to view records.")).toBeInTheDocument();
 
     await rerender({
       records,

@@ -17,6 +17,13 @@ export const SIDEBAR_CONFIG: SidebarConfig = {
           icon: "LayoutDashboard",
           routeType: "landing",
         },
+        {
+          id: "global-search",
+          title: "Global Search",
+          route: "/search",
+          icon: "Search",
+          routeType: "landing",
+        },
       ],
     },
     {

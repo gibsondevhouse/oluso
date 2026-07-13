@@ -117,6 +117,7 @@ const locationRecord: LocationRecord = {
   id: "loc-1",
   name: "Main Plant",
   type: "Facility",
+  parentLocationId: "",
   description: "",
   status: "active",
   createdAt: "2026-07-09T12:00:00.000Z",
@@ -450,6 +451,78 @@ describe("domain services", () => {
       }),
     ).toThrow("Selected location is archived and cannot be linked.");
     expect(repositories.findings.create).not.toHaveBeenCalled();
+  });
+
+  it("validates location parent relationships and rejects archived parents", () => {
+    const repositories = createRepositorySet();
+    const services = createDomainServices(repositories);
+
+    expect(
+      services.locations.create({
+        name: "Warehouse",
+        type: "Storage",
+        parentLocationId: "loc-1",
+        description: "",
+        status: "active",
+      }),
+    ).toMatchObject({ parentLocationId: "loc-1" });
+
+    expect(() =>
+      services.locations.create({
+        name: "Missing parent",
+        type: "Storage",
+        parentLocationId: "missing-location",
+        description: "",
+        status: "active",
+      }),
+    ).toThrow("Parent location was not found.");
+
+    expect(() =>
+      services.locations.create({
+        name: "Archived parent",
+        type: "Storage",
+        parentLocationId: "loc-archived",
+        description: "",
+        status: "active",
+      }),
+    ).toThrow("Parent location must be an active location.");
+  });
+
+  it("prevents self-referential and circular location hierarchies", () => {
+    const childLocation: LocationRecord = {
+      ...locationRecord,
+      id: "loc-child",
+      name: "Child",
+      type: "Storage",
+      parentLocationId: "loc-1",
+    };
+    const repositories = createRepositorySet({
+      locations: createMockRepository<LocationRecord, LocationInput>([
+        { ...locationRecord },
+        { ...childLocation },
+      ]),
+    });
+    const services = createDomainServices(repositories);
+
+    expect(() =>
+      services.locations.update("loc-1", {
+        name: "Main Plant",
+        type: "Facility",
+        parentLocationId: "loc-1",
+        description: "",
+        status: "active",
+      }),
+    ).toThrow("Parent location cannot be the same location.");
+
+    expect(() =>
+      services.locations.update("loc-1", {
+        name: "Main Plant",
+        type: "Facility",
+        parentLocationId: "loc-child",
+        description: "",
+        status: "active",
+      }),
+    ).toThrow("Parent location cannot create a circular hierarchy.");
   });
 
   it("validates equipment location and optional process relationships", () => {

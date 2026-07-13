@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { Download, FileJson, FileSpreadsheet, RefreshCw } from "lucide-svelte";
+  import { Download, FileJson, FileSpreadsheet, PackageCheck, RefreshCw } from "lucide-svelte";
   import { olusoApplication } from "../../application/oluso-application";
   import RegisterPageHeader from "$lib/components/register/RegisterPageHeader.svelte";
   import RegisterState from "$lib/components/register/RegisterState.svelte";
@@ -20,6 +20,13 @@
     type ExportLifecycleScope,
     type RegisterExportFile,
   } from "$lib/export/register-export";
+  import {
+    applyExportPreset,
+    buildAuditPackage,
+    collectReviewPackageRegisters,
+    type ExportPreset,
+    type ReviewPackageFile,
+  } from "$lib/export/review-package";
 
   interface Props {
     autoInitialize?: boolean;
@@ -41,12 +48,22 @@
     registerLabel: string;
   }
 
+  interface GeneratedPackage extends ReviewPackageFile {
+    href: string;
+    generatedAtLabel: string;
+    sizeLabel: string;
+  }
+
   let { autoInitialize = true }: Props = $props();
   let selectedCollection = $state<RegisterCollectionName>("locations");
   let exportFormat = $state<ExportFormat>("csv");
   let lifecycleScope = $state<ExportLifecycleScope>("active");
+  let exportPreset = $state<ExportPreset>("full");
+  let packagePreset = $state<ExportPreset>("review-ready");
+  let packageFormat = $state<"json" | "html">("html");
   let summaries = $state<ExportSummary[]>([]);
   let generatedExport = $state<GeneratedExport | null>(null);
+  let generatedPackage = $state<GeneratedPackage | null>(null);
   let pageError = $state<string | null>(null);
   let isGenerating = $state(false);
 
@@ -89,9 +106,10 @@
   }
 
   function getExportRecords() {
-    return olusoApplication.listRegisterRecords(selectedCollection, {
+    const records = olusoApplication.listRegisterRecords(selectedCollection, {
       includeArchived: lifecycleScope === "all",
     }) as PersistedRegisterRecord[];
+    return applyExportPreset(records, exportPreset);
   }
 
   function formatSize(bytes: number) {
@@ -139,6 +157,34 @@
     }
   }
 
+  async function generateReviewPackage() {
+    pageError = null;
+    generatedPackage = null;
+    isGenerating = true;
+
+    try {
+      if ($persistenceDiagnostics.status !== "ready") await olusoApplication.initialize();
+      const generatedAt = new Date();
+      const registers = collectReviewPackageRegisters(
+        (collection) =>
+          olusoApplication.listRegisterRecords(collection, { includeArchived: true }) as PersistedRegisterRecord[],
+        packagePreset,
+        generatedAt,
+      );
+      const file = buildAuditPackage(registers, packageFormat, generatedAt);
+      generatedPackage = {
+        ...file,
+        href: `data:${file.mimeType};charset=utf-8,${encodeURIComponent(file.content)}`,
+        generatedAtLabel: generatedAt.toLocaleString(),
+        sizeLabel: formatSize(file.content.length),
+      };
+    } catch (error) {
+      pageError = error instanceof Error ? error.message : String(error);
+    } finally {
+      isGenerating = false;
+    }
+  }
+
   onMount(() => {
     if (autoInitialize) void initializePage();
   });
@@ -149,7 +195,7 @@
     breadcrumbs="Reports"
     title="Reports & Exports"
     titleId="exports-title"
-    summary="Generate CSV or JSON exports from the local register data."
+    summary="Generate source-register exports and point-in-time review support packages."
     statusLabel={statusLabel}
     statusTone={persistenceTone}
   />
@@ -219,6 +265,20 @@
           </select>
         </label>
 
+        <label>
+          <span>Export preset</span>
+          <select bind:value={exportPreset}>
+            <option value="full">Full register</option>
+            <option value="review-ready">Needs review</option>
+            <option value="evidence-gaps">Missing required evidence</option>
+            <option value="overdue">Overdue records</option>
+          </select>
+        </label>
+
+        <p class="projection-note">
+          Register exports contain source records. Presets filter those records without creating a second source of truth.
+        </p>
+
         {#if selectedSummary}
           <div class="selection-summary" aria-live="polite">
             <span>{selectedSummary.activeCount} active</span>
@@ -250,6 +310,38 @@
         </div>
       </section>
     </div>
+
+    <section class="export-panel review-package-panel" aria-labelledby="review-package-title">
+      <div class="panel-heading">
+        <div>
+          <h2 id="review-package-title">Review Support Package</h2>
+          <p class="projection-note">Build a cross-register, point-in-time projection for review or audit support.</p>
+        </div>
+        <PackageCheck size={20} aria-hidden="true" />
+      </div>
+      <div class="form-grid">
+        <label>
+          <span>Package preset</span>
+          <select bind:value={packagePreset}>
+            <option value="review-ready">Needs review, overdue, or missing evidence</option>
+            <option value="evidence-gaps">Missing required evidence</option>
+            <option value="overdue">Overdue records</option>
+            <option value="full">All source records</option>
+          </select>
+        </label>
+        <label>
+          <span>Package format</span>
+          <select bind:value={packageFormat}>
+            <option value="html">Printable HTML / PDF-ready</option>
+            <option value="json">Structured JSON</option>
+          </select>
+        </label>
+      </div>
+      <button class="button-link icon-button" type="button" onclick={generateReviewPackage} disabled={isGenerating}>
+        <PackageCheck size={16} aria-hidden="true" />
+        {isGenerating ? "Generating" : "Generate review package"}
+      </button>
+    </section>
 
     {#if generatedExport}
       <section class="export-result" aria-labelledby="generated-export-title" aria-live="polite">
@@ -285,6 +377,24 @@
         </label>
       </section>
     {/if}
+
+    {#if generatedPackage}
+      <section class="export-result" aria-labelledby="generated-package-title" aria-live="polite">
+        <div class="result-header">
+          <div>
+            <h2 id="generated-package-title">Generated Review Package</h2>
+            <p>{generatedPackage.recordCount} records / {generatedPackage.sizeLabel} / generated {generatedPackage.generatedAtLabel}</p>
+          </div>
+          <a class="button-link icon-button" href={generatedPackage.href} download={generatedPackage.fileName}>
+            <Download size={16} aria-hidden="true" />
+            Download {generatedPackage.extension.toUpperCase()}
+          </a>
+        </div>
+        <p class="projection-note">
+          This file is a review projection. Open the HTML package and use Print to save a PDF; return to the source records for edits.
+        </p>
+      </section>
+    {/if}
   {/if}
 </section>
 
@@ -305,6 +415,9 @@
     background: var(--color-surface);
     padding: 18px;
   }
+
+  .review-package-panel { max-width: 980px; margin-top: 16px; }
+  .projection-note { margin: 0; color: var(--color-muted); font-size: 0.8125rem; line-height: 1.45; }
 
   .export-result {
     margin-top: 16px;

@@ -3,6 +3,7 @@
   import { isRegisterRouteKind } from "$lib/navigation/route-registry";
   import DashboardPage from "./DashboardPage.svelte";
   import ErrorPage from "./ErrorPage.svelte";
+  import GlobalSearchPage from "./GlobalSearchPage.svelte";
   import NotFoundPage from "./NotFoundPage.svelte";
   import RegisterCrudPage from "./RegisterCrudPage.svelte";
   import ReportsExportsPage from "./ReportsExportsPage.svelte";
@@ -18,6 +19,8 @@
 
 {#if route.kind === "dashboard"}
   <DashboardPage />
+{:else if route.kind === "global-search"}
+  <GlobalSearchPage />
 {:else if isRegisterRouteKind(route.kind)}
   <RegisterCrudPage {route} />
 {:else if route.kind === "exports"}

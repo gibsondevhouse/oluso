@@ -8,6 +8,8 @@
   import RecordDetailLayout from "$lib/components/register/RecordDetailLayout.svelte";
   import RecordForm from "$lib/components/register/RecordForm.svelte";
   import {
+    getSiteFilterOptions,
+    getSiteIdForLocation,
     getRegisterConfig,
     type RegisterContext,
     type MvpRegisterKind,
@@ -46,6 +48,7 @@
   const formContext = $derived(getActiveFormContext(context));
   const columns = $derived(config.columns(context));
   const fields = $derived(config.fields(formContext));
+  const siteFilterOptions = $derived(getSiteFilterOptions(context));
   const modeTitle = $derived(getModeTitle());
   const formInitialValues = $derived(getFormInitialValues());
   const tableError = $derived(
@@ -202,6 +205,18 @@
     };
   }
 
+  function getRecordSiteFilterValues(record: PersistedRegisterRecord): string[] {
+    const locationIds = config.siteFilterLocationIds?.(record, context) ?? [];
+
+    return Array.from(
+      new Set(
+        locationIds
+          .map((locationId) => getSiteIdForLocation(locationId, context.locations))
+          .filter((siteId): siteId is string => Boolean(siteId)),
+      ),
+    );
+  }
+
   function loadRelationshipContext(): RegisterContext {
     return {
       locations: olusoApplication.listRegisterRecords("locations", { includeArchived: true }) as RegisterContext["locations"],
@@ -342,6 +357,9 @@
       statusFilterLabel={`${config.recordLabel.charAt(0).toUpperCase()}${config.recordLabel.slice(1)} status`}
       statusFilterOptions={config.statusOptions}
       statusAccessor={config.getStatusFilterValue}
+      extraFilterLabel="Site / Plant"
+      extraFilterOptions={siteFilterOptions}
+      extraFilterAccessor={getRecordSiteFilterValues}
       initialSortKey={columns[0]?.key}
       loading={isLoading}
       loadingMessage={`Loading ${config.pluralRecordLabel}.`}

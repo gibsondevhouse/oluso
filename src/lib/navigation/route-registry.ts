@@ -1,5 +1,6 @@
 export type RouteKind =
   | "dashboard"
+  | "global-search"
   | "locations"
   | "findings"
   | "processes"
@@ -61,6 +62,13 @@ export const APP_ROUTES: AppRoute[] = [
     summary: "Resume field work, review open actions, and jump back into core HSE registers.",
     section: "Dashboard",
     kind: "dashboard",
+  },
+  {
+    path: "/search",
+    title: "Global Search",
+    summary: "Search active and archived records across all registers.",
+    section: "Dashboard",
+    kind: "global-search",
   },
   {
     path: "/operations/locations",

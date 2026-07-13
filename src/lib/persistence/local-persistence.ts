@@ -250,6 +250,27 @@ function defaultNow() {
   return new Date();
 }
 
+function createEmptyDatabase(timestamp: string): PersistedDatabase {
+  return {
+    schemaVersion: SCHEMA_VERSION,
+    locations: [],
+    findings: [],
+    processes: [],
+    equipment: [],
+    exposureMonitoring: [],
+    chemicals: [],
+    complianceItems: [],
+    hazards: [],
+    controls: [],
+    riskAssessments: [],
+    segs: [],
+    incidents: [],
+    correctiveActions: [],
+    initializedAt: timestamp,
+    updatedAt: timestamp,
+  };
+}
+
 function defaultCreateId() {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
     return crypto.randomUUID();
@@ -323,6 +344,7 @@ function normalizeLocationRecord(record: object): LocationRecord {
     type: normalizePicklistValue(raw.type, LOCATION_TYPES, "Facility", {
       Workshop: "Production Area",
     }),
+    parentLocationId: raw.parentLocationId ?? "",
     description: raw.description ?? "",
     status: raw.status === "inactive" ? "inactive" : "active",
     createdAt: raw.createdAt ?? SEED_TIMESTAMP,
@@ -787,6 +809,7 @@ export function createSeedLocations(): LocationRecord[] {
       id: "loc-demo-main-facility",
       name: "Main Facility",
       type: "Facility",
+      parentLocationId: "",
       description: "Primary operating location seeded for the MVP Locations workflow.",
       status: "active",
       createdAt: SEED_TIMESTAMP,
@@ -796,6 +819,7 @@ export function createSeedLocations(): LocationRecord[] {
       id: "loc-demo-chemical-storage",
       name: "Chemical Storage Room",
       type: "Storage",
+      parentLocationId: "loc-demo-main-facility",
       description: "Controlled storage area seeded so persistence can be verified immediately.",
       status: "active",
       createdAt: SEED_TIMESTAMP,
@@ -805,7 +829,28 @@ export function createSeedLocations(): LocationRecord[] {
       id: "loc-demo-workshop",
       name: "Workshop",
       type: "Production Area",
+      parentLocationId: "loc-demo-main-facility",
       description: "Maintenance and fabrication workshop area.",
+      status: "active",
+      createdAt: SEED_TIMESTAMP,
+      updatedAt: SEED_TIMESTAMP,
+    },
+    {
+      id: "loc-demo-secondary-site",
+      name: "Secondary Site",
+      type: "Facility",
+      parentLocationId: "",
+      description: "Secondary plant seeded to demonstrate multi-plant filtering.",
+      status: "active",
+      createdAt: SEED_TIMESTAMP,
+      updatedAt: SEED_TIMESTAMP,
+    },
+    {
+      id: "loc-demo-secondary-warehouse",
+      name: "Secondary Warehouse",
+      type: "Storage",
+      parentLocationId: "loc-demo-secondary-site",
+      description: "Storage area under the secondary plant.",
       status: "active",
       createdAt: SEED_TIMESTAMP,
       updatedAt: SEED_TIMESTAMP,
@@ -1486,7 +1531,7 @@ export function createLocalPersistenceRepository(options: RepositoryOptions = {}
     };
   }
 
-  function readDatabase(): PersistedDatabase | null {
+  function readStoredDatabase() {
     const activeStorage = requireStorage();
     const raw = activeStorage.getItem(storageKey);
 
@@ -1494,7 +1539,21 @@ export function createLocalPersistenceRepository(options: RepositoryOptions = {}
       return null;
     }
 
-    return parseDatabase(raw);
+    const source = JSON.parse(raw) as Partial<Record<RegisterCollectionName, unknown>> & {
+      schemaVersion?: number;
+    };
+
+    return {
+      database: parseDatabase(raw),
+      sourceSchemaVersion: source.schemaVersion,
+      missingCollections: new Set(
+        REGISTER_COLLECTION_NAMES.filter((collection) => !Array.isArray(source[collection])),
+      ),
+    };
+  }
+
+  function readDatabase(): PersistedDatabase | null {
+    return readStoredDatabase()?.database ?? null;
   }
 
   function writeDatabase(database: PersistedDatabase) {
@@ -1561,76 +1620,80 @@ export function createLocalPersistenceRepository(options: RepositoryOptions = {}
 
     try {
       const timestamp = now().toISOString();
-      const existingDatabase = readDatabase();
+      const storedDatabase = readStoredDatabase();
 
-      if (!existingDatabase) {
+      if (!storedDatabase) {
         const seededDatabase = createInitialDatabase(timestamp);
         writeDatabase(seededDatabase);
         publishReady(seededDatabase, `Created schema v${SCHEMA_VERSION} and seeded all registers.`);
         return seededDatabase;
       }
 
-      // Check for missing collections and seed them if empty
+      const { database: existingDatabase, sourceSchemaVersion, missingCollections } = storedDatabase;
+      const shouldSeedEmptyCollection = (collection: RegisterCollectionName) =>
+        sourceSchemaVersion !== SCHEMA_VERSION || missingCollections.has(collection);
+
+      // Seed empty legacy or missing collections while preserving valid, intentionally empty
+      // collections in a current-schema database.
       const nextLocations =
-        existingDatabase.locations.length === 0 ? createSeedLocations() : existingDatabase.locations;
+        existingDatabase.locations.length === 0 && shouldSeedEmptyCollection("locations")
+          ? createSeedLocations()
+          : existingDatabase.locations;
       const nextFindings =
-        existingDatabase.findings.length === 0
+        existingDatabase.findings.length === 0 && shouldSeedEmptyCollection("findings")
           ? createSeedFindings(nextLocations)
           : existingDatabase.findings;
       const nextProcesses =
-        existingDatabase.processes.length === 0
+        existingDatabase.processes.length === 0 && shouldSeedEmptyCollection("processes")
           ? createSeedProcesses(nextLocations)
           : existingDatabase.processes;
       const nextEquipment =
-        existingDatabase.equipment.length === 0
+        existingDatabase.equipment.length === 0 && shouldSeedEmptyCollection("equipment")
           ? createSeedEquipment(nextLocations, nextProcesses)
           : existingDatabase.equipment;
       const nextExposureMonitoring =
-        existingDatabase.exposureMonitoring.length === 0
+        existingDatabase.exposureMonitoring.length === 0 &&
+        shouldSeedEmptyCollection("exposureMonitoring")
           ? createSeedExposureMonitoring()
           : existingDatabase.exposureMonitoring;
       const nextChemicals =
-        existingDatabase.chemicals.length === 0
+        existingDatabase.chemicals.length === 0 && shouldSeedEmptyCollection("chemicals")
           ? createSeedChemicals(nextLocations)
           : existingDatabase.chemicals;
       const nextComplianceItems =
-        existingDatabase.complianceItems.length === 0
+        existingDatabase.complianceItems.length === 0 &&
+        shouldSeedEmptyCollection("complianceItems")
           ? createSeedComplianceItems()
           : existingDatabase.complianceItems;
       const nextHazards =
-        existingDatabase.hazards.length === 0
+        existingDatabase.hazards.length === 0 && shouldSeedEmptyCollection("hazards")
           ? createSeedHazards(nextLocations)
           : existingDatabase.hazards;
       const nextControls =
-        existingDatabase.controls.length === 0 ? createSeedControls(nextHazards) : existingDatabase.controls;
+        existingDatabase.controls.length === 0 && shouldSeedEmptyCollection("controls")
+          ? createSeedControls(nextHazards)
+          : existingDatabase.controls;
       const nextRiskAssessments =
-        existingDatabase.riskAssessments.length === 0
+        existingDatabase.riskAssessments.length === 0 &&
+        shouldSeedEmptyCollection("riskAssessments")
           ? createSeedRiskAssessments(nextHazards, nextControls)
           : existingDatabase.riskAssessments;
       const nextSegs =
-        existingDatabase.segs.length === 0 ? createSeedSegs(nextLocations) : existingDatabase.segs;
+        existingDatabase.segs.length === 0 && shouldSeedEmptyCollection("segs")
+          ? createSeedSegs(nextLocations)
+          : existingDatabase.segs;
       const nextIncidents =
-        existingDatabase.incidents.length === 0 ? createSeedIncidents() : existingDatabase.incidents;
+        existingDatabase.incidents.length === 0 && shouldSeedEmptyCollection("incidents")
+          ? createSeedIncidents()
+          : existingDatabase.incidents;
       const nextCorrectiveActions =
-        existingDatabase.correctiveActions.length === 0
+        existingDatabase.correctiveActions.length === 0 &&
+        shouldSeedEmptyCollection("correctiveActions")
           ? createSeedCorrectiveActions(nextFindings)
           : existingDatabase.correctiveActions;
 
       const needsWrite =
-        existingDatabase.schemaVersion !== SCHEMA_VERSION ||
-        existingDatabase.locations.length === 0 ||
-        existingDatabase.findings.length === 0 ||
-        existingDatabase.processes.length === 0 ||
-        existingDatabase.equipment.length === 0 ||
-        existingDatabase.exposureMonitoring.length === 0 ||
-        existingDatabase.chemicals.length === 0 ||
-        existingDatabase.complianceItems.length === 0 ||
-        existingDatabase.hazards.length === 0 ||
-        existingDatabase.controls.length === 0 ||
-        existingDatabase.riskAssessments.length === 0 ||
-        existingDatabase.segs.length === 0 ||
-        existingDatabase.incidents.length === 0 ||
-        existingDatabase.correctiveActions.length === 0;
+        sourceSchemaVersion !== SCHEMA_VERSION || missingCollections.size > 0;
 
       if (needsWrite) {
         const migratedDatabase: PersistedDatabase = {
@@ -1702,6 +1765,7 @@ export function createLocalPersistenceRepository(options: RepositoryOptions = {}
         id: createId(),
         name: input.name.trim(),
         type: input.type,
+        parentLocationId: input.parentLocationId?.trim() ?? "",
         description: input.description.trim(),
         status: input.status,
         createdAt: timestamp,
@@ -1730,6 +1794,7 @@ export function createLocalPersistenceRepository(options: RepositoryOptions = {}
         ...existing,
         name: input.name.trim(),
         type: input.type,
+        parentLocationId: input.parentLocationId?.trim() ?? "",
         description: input.description.trim(),
         status: input.status,
         updatedAt: timestamp,
@@ -3090,6 +3155,19 @@ export function createLocalPersistenceRepository(options: RepositoryOptions = {}
     }
   }
 
+  function clearAllDataWithoutSeed() {
+    try {
+      const timestamp = now().toISOString();
+      const database = createEmptyDatabase(timestamp);
+      writeDatabase(database);
+      publishReady(database, `Schema v${SCHEMA_VERSION} is ready with no demo data.`);
+      return database;
+    } catch (error) {
+      setErrorStatus(error);
+      throw error;
+    }
+  }
+
   return {
     initialize,
     listLocations,
@@ -3139,6 +3217,7 @@ export function createLocalPersistenceRepository(options: RepositoryOptions = {}
     importDatabase,
     restoreDatabase,
     clearAllData,
+    clearAllDataWithoutSeed,
     getDataPath,
   };
 }
@@ -3526,6 +3605,15 @@ function createSqlitePersistenceRepository(): LocalPersistenceRepository {
     clearAllData() {
       return invokeSnapshot("oluso_reset_persistence").then(() => undefined) as unknown as void;
     },
+    clearAllDataWithoutSeed() {
+      const timestamp = defaultNow().toISOString();
+      const emptyDatabase = createEmptyDatabase(timestamp);
+
+      return invokeSnapshot("oluso_import_database", {
+        database: emptyDatabase,
+        replace: true,
+      }).then((snapshot) => snapshot.database) as unknown as PersistedDatabase;
+    },
     getDataPath() {
       return persistenceDiagnosticsDataPath();
     },
@@ -3603,6 +3691,7 @@ function createHybridPersistenceRepository(): LocalPersistenceRepository {
     importDatabase: (snapshot) => getRepository().importDatabase(snapshot),
     restoreDatabase: (snapshot) => getRepository().restoreDatabase(snapshot),
     clearAllData: () => getRepository().clearAllData(),
+    clearAllDataWithoutSeed: () => getRepository().clearAllDataWithoutSeed(),
     getDataPath: () => getRepository().getDataPath(),
   };
 }

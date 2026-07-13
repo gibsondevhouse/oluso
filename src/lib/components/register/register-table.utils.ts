@@ -1,4 +1,5 @@
 import type {
+  RegisterFilterValue,
   RegisterRecord,
   RegisterSortDirection,
   RegisterTableColumn,
@@ -86,6 +87,21 @@ export function filterRecordsByStatus<TRecord extends RegisterRecord>(
   return records.filter((record) => statusAccessor(record) === statusFilter);
 }
 
+export function filterRecordsByValue<TRecord extends RegisterRecord>(
+  records: TRecord[],
+  filterValue: string,
+  accessor?: (record: TRecord) => RegisterFilterValue,
+): TRecord[] {
+  if (!filterValue || !accessor) {
+    return records;
+  }
+
+  return records.filter((record) => {
+    const value = accessor(record);
+    return Array.isArray(value) ? value.includes(filterValue) : value === filterValue;
+  });
+}
+
 export function sortRecords<TRecord extends RegisterRecord>(
   records: TRecord[],
   columns: RegisterTableColumn<TRecord>[],
@@ -112,6 +128,8 @@ export function getVisibleRegisterRows<TRecord extends RegisterRecord>({
   searchQuery,
   statusFilter,
   statusAccessor,
+  extraFilter,
+  extraFilterAccessor,
   sortKey,
   sortDirection,
 }: {
@@ -120,14 +138,20 @@ export function getVisibleRegisterRows<TRecord extends RegisterRecord>({
   searchQuery: string;
   statusFilter: string;
   statusAccessor?: (record: TRecord) => string;
+  extraFilter?: string;
+  extraFilterAccessor?: (record: TRecord) => RegisterFilterValue;
   sortKey: string;
   sortDirection: RegisterSortDirection;
 }): TRecord[] {
   return sortRecords(
-    filterRecordsByStatus(
-      filterRecordsBySearch(records, columns, searchQuery),
-      statusFilter,
-      statusAccessor,
+    filterRecordsByValue(
+      filterRecordsByStatus(
+        filterRecordsBySearch(records, columns, searchQuery),
+        statusFilter,
+        statusAccessor,
+      ),
+      extraFilter ?? "",
+      extraFilterAccessor,
     ),
     columns,
     sortKey,

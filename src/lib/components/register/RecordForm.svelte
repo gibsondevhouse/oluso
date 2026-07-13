@@ -382,6 +382,9 @@
     <button class="secondary-button" type="button" disabled={isSaving} onclick={requestCancel}>
       {cancelLabel}
     </button>
+    <span class="save-state" role="status" aria-live="polite">
+      {isSaving ? "Saving changes" : isDirty ? "Unsaved changes" : "No unsaved changes"}
+    </span>
   </div>
 </form>
 
@@ -424,6 +427,12 @@
 
   select[multiple] {
     min-height: 104px;
+  }
+
+  .save-state {
+    align-self: center;
+    color: var(--color-muted);
+    font-size: 0.8125rem;
   }
 
   .checkbox-control {

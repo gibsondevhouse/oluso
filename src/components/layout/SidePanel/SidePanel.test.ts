@@ -19,6 +19,7 @@ describe("SidePanel", () => {
 
     for (const item of [
       "Dashboard",
+      "Global Search",
       "Locations",
       "Processes",
       "Equipment",

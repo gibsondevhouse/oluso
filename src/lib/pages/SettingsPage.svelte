@@ -13,6 +13,8 @@
     chemicalRecords,
     complianceItemRecords,
     hazardRecords,
+    controlRecords,
+    riskAssessmentRecords,
     segRecords,
     incidentRecords,
     correctiveActionRecords,
@@ -20,6 +22,7 @@
 
   let retryMessage = $state<string | null>(null);
   let showClearConfirm = $state(false);
+  let showEmptyClearConfirm = $state(false);
 
   const statusLabel = $derived(getPersistenceStatusLabel($persistenceDiagnostics.status));
 
@@ -38,6 +41,10 @@
     showClearConfirm = true;
   }
 
+  function confirmClearDataWithoutSeed() {
+    showEmptyClearConfirm = true;
+  }
+
   async function clearAndReinitialize() {
     showClearConfirm = false;
     retryMessage = null;
@@ -46,6 +53,18 @@
       await olusoApplication.clearAllData();
       await olusoApplication.initialize();
       retryMessage = "All data cleared and re-seeded successfully.";
+    } catch (error) {
+      retryMessage = error instanceof Error ? error.message : String(error);
+    }
+  }
+
+  async function clearAndStartEmpty() {
+    showEmptyClearConfirm = false;
+    retryMessage = null;
+
+    try {
+      await olusoApplication.clearAllDataWithoutSeed();
+      retryMessage = "All data cleared. The database is empty.";
     } catch (error) {
       retryMessage = error instanceof Error ? error.message : String(error);
     }
@@ -167,6 +186,14 @@
           <dd>{$hazardRecords.length} records</dd>
         </div>
         <div>
+          <dt>Controls</dt>
+          <dd>{$controlRecords.length} records</dd>
+        </div>
+        <div>
+          <dt>Risk Assessments</dt>
+          <dd>{$riskAssessmentRecords.length} records</dd>
+        </div>
+        <div>
           <dt>SEGs</dt>
           <dd>{$segRecords.length} records</dd>
         </div>
@@ -202,9 +229,17 @@
         with demo data. This action cannot be undone.
       </p>
 
+      <p class="settings-message">
+        To begin without demo data, clear all records and start with an empty database instead.
+        This action also cannot be undone.
+      </p>
+
       <div class="action-row">
         <button class="danger-button" type="button" onclick={confirmClearData}>
           Clear all data and re-seed
+        </button>
+        <button class="danger-button" type="button" onclick={confirmClearDataWithoutSeed}>
+          Clear all data (start empty)
         </button>
       </div>
     </section>
@@ -219,6 +254,17 @@
     danger
     onConfirm={clearAndReinitialize}
     onCancel={() => (showClearConfirm = false)}
+  />
+{/if}
+
+{#if showEmptyClearConfirm}
+  <ConfirmDialog
+    title="Clear all data and start empty?"
+    message="This will permanently delete all records and start with an empty database. No demo data will be created. This cannot be undone."
+    confirmLabel="Clear and start empty"
+    danger
+    onConfirm={clearAndStartEmpty}
+    onCancel={() => (showEmptyClearConfirm = false)}
   />
 {/if}
 

@@ -6,6 +6,14 @@
   } from "$lib/components/register/RelationshipPanel.svelte";
   import RestoreAction from "$lib/components/register/RestoreAction.svelte";
   import StatusPill from "$lib/components/ui/StatusPill.svelte";
+  import { formatTimestamp } from "$lib/utils/date";
+  import {
+    getRecordActivity,
+    getRecordEvidenceState,
+    getRecordOwner,
+    getRecordSource,
+    type TraceableRecord,
+  } from "./record-traceability";
   import type { LifecycleMetadata } from "$lib/persistence/lifecycle.types";
 
   export interface DetailField {
@@ -59,6 +67,20 @@
   }: Props = $props();
 
   const isArchived = $derived(record.lifecycleStatus === "archived");
+  const traceableRecord = $derived(record as unknown as TraceableRecord);
+  const owner = $derived(getRecordOwner(traceableRecord));
+  const source = $derived(getRecordSource(traceableRecord));
+  const evidence = $derived(getRecordEvidenceState(traceableRecord));
+  const activity = $derived(getRecordActivity(traceableRecord));
+  const linkedCount = $derived(
+    relationshipSections.reduce((total, section) => total + section.items.filter((item) => !item.missing).length, 0),
+  );
+  const relationshipIssueCount = $derived(
+    relationshipSections.reduce(
+      (total, section) => total + section.items.filter((item) => item.missing || item.archived).length,
+      0,
+    ),
+  );
 </script>
 
 <section class="page" aria-labelledby="record-detail-title">
@@ -76,6 +98,17 @@
       {/if}
     </div>
   </header>
+
+  <section class="traceability-strip" aria-label="Record traceability summary">
+    <div><span>Source</span><strong>{source}</strong></div>
+    <div><span>Owner</span><strong>{owner}</strong></div>
+    <div><span>Last updated</span><strong>{formatTimestamp(record.updatedAt)}</strong></div>
+    <div>
+      <span>Linked context</span>
+      <strong>{linkedCount} linked{relationshipIssueCount ? ` / ${relationshipIssueCount} need review` : ""}</strong>
+    </div>
+    <div><span>Evidence</span><StatusPill label={evidence.label} tone={evidence.tone} context="evidence" compact /></div>
+  </section>
 
   <div class="detail-layout">
     <RecordMetadataPanel {record} />
@@ -116,6 +149,18 @@
       <RelationshipPanel sections={relationshipSections} />
     {/if}
 
+    <section class="detail-panel" aria-labelledby="record-activity-title">
+      <div class="detail-header"><h2 id="record-activity-title">Activity</h2></div>
+      <ol class="activity-list">
+        {#each activity as item (`${item.label}-${item.timestamp}`)}
+          <li>
+            <div><strong>{item.label}</strong><time datetime={item.timestamp}>{formatTimestamp(item.timestamp)}</time></div>
+            <p>{item.detail}</p>
+          </li>
+        {/each}
+      </ol>
+    </section>
+
     <section class="detail-panel" aria-labelledby="detail-actions-title">
       <div class="detail-header">
         <h2 id="detail-actions-title">Actions</h2>
@@ -137,6 +182,30 @@
 </section>
 
 <style>
+  .traceability-strip {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 1px;
+    max-width: 1180px;
+    margin-bottom: 16px;
+    overflow: hidden;
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    background: var(--color-border);
+  }
+
+  .traceability-strip > div {
+    display: grid;
+    align-content: start;
+    gap: 5px;
+    min-width: 0;
+    background: var(--color-surface);
+    padding: 12px;
+  }
+
+  .traceability-strip span { color: var(--color-muted); font-size: 0.75rem; font-weight: 700; }
+  .traceability-strip strong { font-size: 0.8125rem; overflow-wrap: anywhere; }
+
   .detail-layout {
     display: grid;
     gap: 16px;
@@ -192,7 +261,14 @@
     overflow-wrap: anywhere;
   }
 
+  .activity-list { display: grid; gap: 0; margin: 0; padding: 0; list-style: none; }
+  .activity-list li { border-top: 1px solid var(--color-border); padding: 10px 0; }
+  .activity-list li > div { display: flex; justify-content: space-between; gap: 12px; }
+  .activity-list time, .activity-list p { color: var(--color-muted); font-size: 0.8125rem; }
+  .activity-list p { margin: 4px 0 0; }
+
   @media (max-width: 720px) {
+    .traceability-strip { grid-template-columns: 1fr 1fr; }
     .detail-list div {
       grid-template-columns: 1fr;
       gap: 4px;

@@ -93,7 +93,9 @@ describe("RouteOutlet", () => {
     });
 
     expect(screen.getByRole("heading", { level: 1, name: "Locations" })).toBeInTheDocument();
-    expect(await screen.findByText("Main Facility")).toBeInTheDocument();
+    expect(
+      await screen.findByRole("row", { name: "Open record loc-demo-main-facility" }),
+    ).toBeInTheDocument();
   });
 
   it("renders the Controls workflow route", async () => {
@@ -301,7 +303,7 @@ describe("RouteOutlet", () => {
     renderRoute(`/operations/locations/${location.id}`);
 
     expect(await screen.findByRole("heading", { level: 1, name: "Standalone Office" })).toBeInTheDocument();
-    expect(screen.getAllByText("No related records yet.")).toHaveLength(4);
+    expect(screen.getAllByText("No related records yet.")).toHaveLength(5);
   });
 
   it("opens a read-only detail page when a register row is clicked", async () => {

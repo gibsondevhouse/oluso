@@ -61,6 +61,7 @@ export function createOlusoApplication(persistenceRepository: PersistenceReposit
     services,
     initialize: () => persistenceRepository.initialize(),
     clearAllData: () => persistenceRepository.clearAllData(),
+    clearAllDataWithoutSeed: () => persistenceRepository.clearAllDataWithoutSeed(),
     getDataPath: () => persistenceRepository.getDataPath(),
     exportDatabase: () => persistenceRepository.exportDatabase(),
     importDatabase: (snapshot: unknown) => persistenceRepository.importDatabase(snapshot),

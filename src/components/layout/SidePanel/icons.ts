@@ -20,7 +20,8 @@ import {
   PanelLeftOpen,
   ChevronDown,
   ChevronRight,
-  Menu
+  Menu,
+  Search,
 } from "lucide-svelte";
 
 export const iconMap: Record<string, any> = {
@@ -45,5 +46,6 @@ export const iconMap: Record<string, any> = {
   PanelLeftOpen,
   ChevronDown,
   ChevronRight,
-  Menu
+  Menu,
+  Search,
 };

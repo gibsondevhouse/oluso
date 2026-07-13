@@ -241,6 +241,7 @@ export interface RegisterConfig<TRecord extends PersistedRegisterRecord = Persis
   detailSections: (record: TRecord, context: RegisterContext) => DetailSection[];
   relatedSections?: (record: TRecord, context: RegisterContext) => DetailSection[];
   relationshipSections?: (record: TRecord, context: RegisterContext) => RelationshipSection[];
+  siteFilterLocationIds?: (record: TRecord, context: RegisterContext) => string[];
   detailActions?: (
     record: TRecord,
     context: RegisterContext,
@@ -261,6 +262,96 @@ function option(value: string, label = value): RecordFormFieldOption {
 
 function locationsById(context: RegisterContext) {
   return new Map(context.locations.map((location) => [location.id, location]));
+}
+
+function activePlantLocations(locations: LocationRecord[]) {
+  return locations.filter(
+    (location) =>
+      location.type === "Facility" &&
+      !location.parentLocationId &&
+      location.status === "active" &&
+      location.lifecycleStatus !== "archived",
+  );
+}
+
+export function getSiteIdForLocation(
+  locationId: string,
+  allLocations: LocationRecord[],
+): string | null {
+  const locations = new Map(allLocations.map((location) => [location.id, location]));
+  let location = locations.get(locationId);
+  const visited = new Set<string>();
+
+  while (location) {
+    if (visited.has(location.id)) {
+      return null;
+    }
+
+    visited.add(location.id);
+
+    if (location.type === "Facility" && !location.parentLocationId) {
+      return location.id;
+    }
+
+    if (!location.parentLocationId) {
+      return null;
+    }
+
+    location = locations.get(location.parentLocationId);
+  }
+
+  return null;
+}
+
+export function getSiteFilterOptions(context: RegisterContext): RecordFormFieldOption[] {
+  return activePlantLocations(context.locations).map((location) => option(location.id, location.name));
+}
+
+function uniqueValues(values: Array<string | null | undefined>) {
+  return Array.from(new Set(values.filter((value): value is string => Boolean(value))));
+}
+
+function directLocationIds(record: PersistedRegisterRecord, keys: string[]) {
+  return uniqueValues(
+    keys.map((key) => {
+      const value = (record as unknown as Record<string, unknown>)[key];
+      return typeof value === "string" ? value : null;
+    }),
+  );
+}
+
+function hazardLocationIds(hazard: HazardRecord | undefined) {
+  if (!hazard) {
+    return [];
+  }
+
+  return uniqueValues([hazard.locationId, ...hazard.locationIds]);
+}
+
+function controlLocationIds(record: ControlRecord, context: RegisterContext) {
+  const hazards = hazardsById(context);
+  return uniqueValues(record.hazardIds.flatMap((id) => hazardLocationIds(hazards.get(id))));
+}
+
+function riskAssessmentLocationIds(record: RiskAssessmentRecord, context: RegisterContext) {
+  return hazardLocationIds(hazardsById(context).get(record.hazardId));
+}
+
+function correctiveActionLocationIds(record: CorrectiveActionRecord, context: RegisterContext) {
+  switch (record.sourceType) {
+    case "Finding":
+      return directLocationIds(findingsById(context).get(record.sourceId) ?? record, ["locationId"]);
+    case "Hazard":
+      return hazardLocationIds(hazardsById(context).get(record.sourceId));
+    case "Incident":
+      return directLocationIds(incidentsById(context).get(record.sourceId) ?? record, ["locationId"]);
+    case "Compliance Item":
+      return directLocationIds(complianceItemsById(context).get(record.sourceId) ?? record, [
+        "locationId",
+      ]);
+    default:
+      return [];
+  }
 }
 
 function findingsById(context: RegisterContext) {
@@ -404,10 +495,11 @@ export const REGISTER_CONFIGS: Record<MvpRegisterKind, RegisterConfig> = {
     getInitialValues: (record) => ({
       name: (record as LocationRecord | null)?.name ?? "",
       type: (record as LocationRecord | null)?.type ?? "",
+      parentLocationId: (record as LocationRecord | null)?.parentLocationId ?? "",
       status: (record as LocationRecord | null)?.status ?? "active",
       description: (record as LocationRecord | null)?.description ?? "",
     }),
-    fields: () => [
+    fields: (context) => [
       { name: "name", label: "Name", type: "text", required: true },
       {
         name: "type",
@@ -415,6 +507,15 @@ export const REGISTER_CONFIGS: Record<MvpRegisterKind, RegisterConfig> = {
         type: "select",
         required: true,
         options: [option("", "Select type"), ...LOCATION_TYPES.map((type) => option(type))],
+      },
+      {
+        name: "parentLocationId",
+        label: "Parent Location",
+        type: "select",
+        options: [
+          option("", "Top level / Plant"),
+          ...context.locations.map((location) => option(location.id, location.name)),
+        ],
       },
       {
         name: "status",
@@ -425,7 +526,7 @@ export const REGISTER_CONFIGS: Record<MvpRegisterKind, RegisterConfig> = {
       },
       { name: "description", label: "Description", type: "textarea", rows: 4 },
     ],
-    columns: () => [
+    columns: (context) => [
       {
         key: "name",
         label: "Name",
@@ -441,6 +542,13 @@ export const REGISTER_CONFIGS: Record<MvpRegisterKind, RegisterConfig> = {
         sortable: true,
       },
       {
+        key: "parent",
+        label: "Parent",
+        accessor: (record) =>
+          locationsById(context).get((record as LocationRecord).parentLocationId)?.name ?? "—",
+        sortable: true,
+      },
+      {
         key: "status",
         label: "Status",
         accessor: (record) => ((record as LocationRecord).status === "active" ? "Active" : "Inactive"),
@@ -450,18 +558,33 @@ export const REGISTER_CONFIGS: Record<MvpRegisterKind, RegisterConfig> = {
       },
       commonUpdatedColumn(),
     ],
-    detailSections: (record) => [
+    detailSections: (record, context) => [
       {
         title: "Location fields",
         fields: [
           { label: "Name", value: (record as LocationRecord).name },
           { label: "Type", value: (record as LocationRecord).type },
+          {
+            label: "Parent location",
+            value:
+              locationsById(context).get((record as LocationRecord).parentLocationId)?.name ??
+              "—",
+          },
+          {
+            label: "Child locations",
+            value:
+              context.locations
+                .filter((location) => location.parentLocationId === (record as LocationRecord).id)
+                .map((location) => location.name)
+                .join(", ") || "—",
+          },
           { label: "Domain status", value: (record as LocationRecord).status },
           { label: "Description", value: (record as LocationRecord).description },
         ],
       },
     ],
     relationshipSections: (record, context) => locationRelationshipSections(record as LocationRecord, context),
+    siteFilterLocationIds: (record) => [(record as LocationRecord).id],
     getRecordTitle: (record) => (record as LocationRecord).name,
     getStatusLabel: (record) => ((record as LocationRecord).status === "active" ? "Active" : "Inactive"),
     getStatusTone: (record) => (record as LocationRecord).status,
@@ -648,6 +771,7 @@ export const REGISTER_CONFIGS: Record<MvpRegisterKind, RegisterConfig> = {
       },
     ],
     relationshipSections: (record, context) => findingRelationshipSections(record as FindingRecord, context),
+    siteFilterLocationIds: (record) => directLocationIds(record, ["locationId"]),
     detailActions: (record) => record.lifecycleStatus === "archived" ? [] : [
       {
         label: "Create Corrective Action",
@@ -727,6 +851,7 @@ function makeProcessConfig(): RegisterConfig {
       ] },
     ],
     relationshipSections: (record, context) => processRelationshipSections(record as ProcessRecord, context),
+    siteFilterLocationIds: (record) => directLocationIds(record, ["locationId"]),
     getRecordTitle: (record) => (record as ProcessRecord).name,
     getStatusLabel: (record) => getProcessStatusLabel((record as ProcessRecord).status),
     getStatusTone: (record) => getProcessStatusTone((record as ProcessRecord).status),
@@ -797,6 +922,7 @@ function makeEquipmentConfig(): RegisterConfig {
       ] },
     ],
     relationshipSections: (record, context) => equipmentRelationshipSections(record as EquipmentRecord, context),
+    siteFilterLocationIds: (record) => directLocationIds(record, ["locationId"]),
     getRecordTitle: (record) => (record as EquipmentRecord).name,
     getStatusLabel: (record) => getEquipmentStatusLabel((record as EquipmentRecord).status),
     getStatusTone: (record) => getEquipmentStatusTone((record as EquipmentRecord).status),
@@ -896,6 +1022,7 @@ function makeChemicalConfig(): RegisterConfig {
       ] },
     ],
     relationshipSections: (record, context) => chemicalRelationshipSections(record as ChemicalRecord, context),
+    siteFilterLocationIds: (record) => directLocationIds(record, ["storageLocationId"]),
     getRecordTitle: (record) => (record as ChemicalRecord).name,
     getStatusLabel: (record) => (record as ChemicalRecord).status,
     getStatusTone: (record) => getChemicalStatusTone((record as ChemicalRecord).status),
@@ -974,6 +1101,11 @@ function makeHazardConfig(): RegisterConfig {
       ] },
     ],
     relationshipSections: (record, context) => hazardRelationshipSections(record as HazardRecord, context),
+    siteFilterLocationIds: (record) =>
+      uniqueValues([
+        (record as HazardRecord).locationId,
+        ...(record as HazardRecord).locationIds,
+      ]),
     getRecordTitle: (record) => (record as HazardRecord).title,
     getStatusLabel: (record) => getHazardStatusLabel((record as HazardRecord).status),
     getStatusTone: (record) => getHazardStatusTone((record as HazardRecord).status),
@@ -1049,6 +1181,8 @@ function makeControlConfig(): RegisterConfig {
       ] },
     ],
     relationshipSections: (record, context) => controlRelationshipSections(record as ControlRecord, context),
+    siteFilterLocationIds: (record, context) =>
+      controlLocationIds(record as ControlRecord, context),
     getRecordTitle: (record) => (record as ControlRecord).name,
     getStatusLabel: (record) => getControlStatusLabel((record as ControlRecord).status),
     getStatusTone: (record) => getControlStatusTone((record as ControlRecord).status),
@@ -1125,6 +1259,8 @@ function makeRiskAssessmentConfig(): RegisterConfig {
       ] },
     ],
     relationshipSections: (record, context) => riskAssessmentRelationshipSections(record as RiskAssessmentRecord, context),
+    siteFilterLocationIds: (record, context) =>
+      riskAssessmentLocationIds(record as RiskAssessmentRecord, context),
     getRecordTitle: (record) => (record as RiskAssessmentRecord).title,
     getStatusLabel: (record) => (record as RiskAssessmentRecord).reviewStatus,
     getStatusTone: (record) => getRiskAssessmentStatusTone((record as RiskAssessmentRecord).reviewStatus),
@@ -1209,6 +1345,7 @@ function makeSegConfig(): RegisterConfig {
       ] },
     ],
     relationshipSections: (record, context) => segRelationshipSections(record as SegRecord, context),
+    siteFilterLocationIds: (record) => directLocationIds(record, ["locationId"]),
     getRecordTitle: (record) => (record as SegRecord).name,
     getStatusLabel: (record) => getSegStatusLabel((record as SegRecord).status),
     getStatusTone: (record) => getSegStatusTone((record as SegRecord).status),
@@ -1321,6 +1458,8 @@ function makeCorrectiveActionConfig(): RegisterConfig {
     ],
     relationshipSections: (record, context) =>
       correctiveActionRelationshipSections(record as CorrectiveActionRecord, context),
+    siteFilterLocationIds: (record, context) =>
+      correctiveActionLocationIds(record as CorrectiveActionRecord, context),
     getRecordTitle: (record) => (record as CorrectiveActionRecord).title,
     getStatusLabel: (record) => (record as CorrectiveActionRecord).status,
     getStatusTone: (record) => getCorrectiveActionStatusTone((record as CorrectiveActionRecord).status),
@@ -1540,6 +1679,7 @@ function makeExposureMonitoringConfig(): RegisterConfig {
     },
     relationshipSections: (record, context) =>
       exposureMonitoringRelationshipSections(record as ExposureMonitoringRecord, context),
+    siteFilterLocationIds: (record) => directLocationIds(record, ["locationId"]),
     getRecordTitle: (record) => (record as ExposureMonitoringRecord).sampleReference,
     getStatusLabel: (record) => (record as ExposureMonitoringRecord).status,
     getStatusTone: (record) =>
@@ -1653,6 +1793,7 @@ function makeIncidentConfig(): RegisterConfig {
       ];
     },
     relationshipSections: (record, context) => incidentRelationshipSections(record as IncidentRecord, context),
+    siteFilterLocationIds: (record) => directLocationIds(record, ["locationId"]),
     detailActions: (record) => record.lifecycleStatus === "archived" ? [] : [
       {
         label: "Create Corrective Action",
@@ -1767,6 +1908,7 @@ function makeComplianceItemConfig(): RegisterConfig {
       ];
     },
     relationshipSections: (record, context) => complianceItemRelationshipSections(record as ComplianceItemRecord, context),
+    siteFilterLocationIds: (record) => directLocationIds(record, ["locationId"]),
     detailActions: (record) => record.lifecycleStatus === "archived" ? [] : [
       {
         label: "Create Corrective Action",
@@ -1852,6 +1994,12 @@ function complianceItemRelationshipSections(
 
 function locationRelationshipSections(record: LocationRecord, context: RegisterContext): RelationshipSection[] {
   return [
+    {
+      title: "Child Locations",
+      items: context.locations
+        .filter((location) => location.parentLocationId === record.id)
+        .map((location) => relatedItem("locations", location, location.name, location.type)),
+    },
     {
       title: "Related Processes",
       items: context.processes
@@ -2270,6 +2418,7 @@ function valuesToLocationInput(values: FormValues): LocationInput {
   return {
     name: values.name ?? "",
     type: (values.type ?? "") as LocationType,
+    parentLocationId: values.parentLocationId ?? "",
     description: values.description ?? "",
     status: (values.status ?? "active") as LocationStatus,
   };

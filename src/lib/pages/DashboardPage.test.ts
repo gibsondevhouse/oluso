@@ -31,6 +31,7 @@ describe("DashboardPage", () => {
         id: "loc-test",
         name: "Test Facility",
         type: "Facility" as const,
+        parentLocationId: "",
         description: "",
         status: "active" as const,
         createdAt: "2026-07-09T12:00:00.000Z",
@@ -102,7 +103,7 @@ describe("DashboardPage", () => {
       "href",
       "/field/findings",
     );
-    expect(screen.getByRole("link", { name: /Locations\s+2\s+registered/ })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: /Locations\s+4\s+registered/ })).toHaveAttribute(
       "href",
       "/operations/locations",
     );
