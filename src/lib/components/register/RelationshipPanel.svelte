@@ -59,15 +59,18 @@
   .relationship-panel {
     display: grid;
     gap: 12px;
-    border: 1px solid var(--color-border);
-    border-radius: 8px;
-    background: var(--color-surface);
+    border: 1px solid var(--glass-border-subtle);
+    border-radius: var(--radius-surface);
+    background: linear-gradient(180deg, rgba(22, 33, 36, 0.86), rgba(14, 23, 25, 0.84));
+    box-shadow: var(--surface-shadow);
     padding: 18px;
   }
 
   .relationship-header h2 {
     margin: 0;
-    font-size: 1rem;
+    color: var(--color-text);
+    font-size: 1.0625rem;
+    font-weight: 760;
     line-height: 1.25;
   }
 
@@ -90,15 +93,20 @@
   .relationship-card {
     display: grid;
     gap: 4px;
-    border: 1px solid var(--color-border);
-    border-radius: 8px;
+    border: 1px solid var(--glass-border-subtle);
+    border-radius: var(--radius-control);
+    background: rgba(7, 12, 14, 0.28);
     color: inherit;
-    padding: 10px 12px;
+    padding: 11px 12px;
     text-decoration: none;
+    transition:
+      background-color var(--motion-duration-fast) var(--motion-ease-standard),
+      border-color var(--motion-duration-fast) var(--motion-ease-standard);
   }
 
   .relationship-card:hover {
-    background: var(--color-hover);
+    border-color: var(--glass-border);
+    background: rgba(255, 255, 255, 0.045);
   }
 
   .relationship-card.missing {

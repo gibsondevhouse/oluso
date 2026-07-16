@@ -64,6 +64,15 @@ describe("RegisterCrudPage", () => {
 
     await fireEvent.input(screen.getByLabelText("Name"), { target: { value: "North Yard" } });
     await fireEvent.change(screen.getByLabelText("Type"), { target: { value: "Outdoor Area" } });
+    await fireEvent.change(screen.getByLabelText("Parent Location / Site"), {
+      target: { value: "loc-demo-main-facility" },
+    });
+    await fireEvent.change(screen.getByLabelText("Country"), {
+      target: { value: "United States" },
+    });
+    await fireEvent.change(screen.getByLabelText("State / Province"), {
+      target: { value: "Michigan" },
+    });
     await fireEvent.input(screen.getByLabelText("Description"), {
       target: { value: "Outdoor staging area." },
     });
@@ -71,6 +80,9 @@ describe("RegisterCrudPage", () => {
 
     expect(await screen.findByRole("heading", { level: 1, name: "North Yard" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { level: 2, name: "Location fields" })).toBeInTheDocument();
+    expect(screen.getByText("Main Facility")).toBeInTheDocument();
+    expect(screen.getByText("United States")).toBeInTheDocument();
+    expect(screen.getByText("Michigan")).toBeInTheDocument();
   });
 
   it("renders location parent and child relationships", async () => {

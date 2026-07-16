@@ -1,6 +1,6 @@
 # OLUSO MVP Evolution Plan
 
-Last updated: 2026-07-12
+Last updated: 2026-07-14
 
 This document is the execution-oriented companion to the scope and roadmap docs. It tracks what exists now, what must be hardened for MVP credibility, and how OLUSO should be elevated after the core backbone is stable.
 
@@ -33,6 +33,17 @@ The worktree currently has a functional SvelteKit/Tauri shell with local persist
 - Incidents and Near Misses
 - Compliance Support
 - Corrective Actions
+
+The implementation now also includes the campaign delivery register set from the OLUSO Project Delivery System:
+
+- Campaign 0 foundation extensions across identity, relationships, navigation, search, exports, and Settings counts.
+- Campaign 1 people and work registers: organizations, people, SEG memberships, tasks, and contractor scopes.
+- Campaign 2 field assurance register: inspections.
+- Campaign 3 industrial hygiene registers: exposure agents, exposure limits, exposure assessments, determinations, sampling campaigns, control verifications, HSE programs, program applicability, and medical surveillance administration.
+- Campaign 4 training registers: courses, requirements, and records.
+- Campaign 5 change-control registers: management of change, change reviews, and PSSRs.
+- Campaign 6 environmental registers: requirements, permits, waste streams, waste shipments, environmental sources, inspections, and events.
+- Campaign 7 transition and reporting registers: document references, data quality findings, migration mappings, import runs, and migration bundles.
 
 The main implementation backbone is the shared register route pattern in `src/lib/pages/RegisterCrudPage.svelte` and `src/lib/components/register/register-config.ts`.
 
@@ -126,6 +137,14 @@ These features are valuable, but they should be treated as post-MVP elevation un
 - Reports provide full, review-ready, evidence-gap, and overdue presets plus printable HTML/PDF-ready and structured JSON review packages.
 - Automated verification covers 145 frontend/domain tests and 7 native persistence tests; static checks and production builds pass.
 - Live browser verification covered the report package flow, record traceability view, and dirty-state feedback with no console errors.
+
+### Campaign delivery evidence (2026-07-14)
+
+- Added a metadata-driven campaign register layer covering all Campaign 0-7 register families, route definitions, sidebar navigation, shared CRUD/detail/archive/restore flows, relationship fields, global search, Settings counts, and export definitions.
+- Added browser/localStorage persistence for campaign collections with schema v14 migration, seeding, backup/restore/import behavior, generated business IDs, lifecycle metadata, and shared generic create/update APIs.
+- Added native SQLite persistence for campaign records with schema v9, `campaign_records` storage, snapshot/import/export support, validation gates, and schema recreation support.
+- Added targeted campaign persistence test coverage for seed, create, update, archive, restore, export, and import behavior.
+- Verification passed: `npm run check`, `npm test` (146 tests), `npm run build`, `cargo test`, and dev-server route smoke checks for representative campaign routes. The browser automation plugin reported no available browser, so interactive browser verification was limited to HTTP route smoke checks in this environment.
 
 ## 6. Explicit Deferred Scope
 

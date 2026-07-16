@@ -7,6 +7,7 @@ import type {
 } from "$lib/persistence/local-persistence";
 import { olusoApplication } from "../../../application/oluso-application";
 import {
+  campaignRecordStores,
   chemicalRecords,
   complianceItemRecords,
   controlRecords,
@@ -21,8 +22,20 @@ import {
   riskAssessmentRecords,
   segRecords,
 } from "$lib/persistence/local-persistence";
+import {
+  CAMPAIGN_COLLECTION_NAMES,
+  CAMPAIGN_REGISTER_DEFINITIONS,
+  getCampaignRegisterDefinitionByCollection,
+  type CampaignCollectionName,
+  type CampaignFieldDefinition,
+  type CampaignRecord,
+  type CampaignRegisterDefinition,
+  type CampaignRegisterKind,
+} from "$lib/persistence/campaign-register.types";
 import type { RegisterTableColumn } from "./register-table.types";
 import {
+  LOCATION_COUNTRIES,
+  LOCATION_STATE_PROVINCES,
   LOCATION_STATUSES,
   LOCATION_TYPES,
   type LocationInput,
@@ -174,7 +187,7 @@ import { formatTimestamp } from "$lib/utils/date";
 type FormValues = Record<string, string>;
 type MaybePromise<T> = T | Promise<T>;
 
-export type MvpRegisterKind =
+export type CoreRegisterKind =
   | "locations"
   | "findings"
   | "processes"
@@ -188,6 +201,8 @@ export type MvpRegisterKind =
   | "incidents"
   | "compliance-items"
   | "corrective-actions";
+
+export type MvpRegisterKind = CoreRegisterKind | CampaignRegisterKind;
 
 export interface RecordFormFieldOption {
   value: string;
@@ -206,6 +221,7 @@ export interface RecordFormFieldConfig {
 }
 
 export interface RegisterContext {
+  currentRecordId?: string;
   locations: LocationRecord[];
   processes: ProcessRecord[];
   equipment: EquipmentRecord[];
@@ -219,6 +235,7 @@ export interface RegisterContext {
   correctiveActions: CorrectiveActionRecord[];
   incidents: IncidentRecord[];
   complianceItems: ComplianceItemRecord[];
+  campaignRecords: Record<CampaignCollectionName, CampaignRecord[]>;
 }
 
 export interface RegisterConfig<TRecord extends PersistedRegisterRecord = PersistedRegisterRecord> {
@@ -262,6 +279,67 @@ function option(value: string, label = value): RecordFormFieldOption {
 
 function locationsById(context: RegisterContext) {
   return new Map(context.locations.map((location) => [location.id, location]));
+}
+
+function getLocationPath(locationId: string, locations: LocationRecord[]) {
+  if (!locationId) {
+    return "";
+  }
+
+  const byId = new Map(locations.map((location) => [location.id, location]));
+  const path: string[] = [];
+  const visited = new Set<string>();
+  let location = byId.get(locationId);
+
+  while (location) {
+    if (visited.has(location.id)) {
+      return path.reverse().join(" > ");
+    }
+
+    visited.add(location.id);
+    path.push(location.name);
+    location = location.parentLocationId ? byId.get(location.parentLocationId) : undefined;
+  }
+
+  return path.reverse().join(" > ");
+}
+
+function isDescendantLocation(candidateId: string, ancestorId: string, locations: LocationRecord[]) {
+  if (!candidateId || !ancestorId) {
+    return false;
+  }
+
+  const byId = new Map(locations.map((location) => [location.id, location]));
+  const visited = new Set<string>();
+  let location = byId.get(candidateId);
+
+  while (location?.parentLocationId) {
+    if (location.parentLocationId === ancestorId) {
+      return true;
+    }
+
+    if (visited.has(location.parentLocationId)) {
+      return false;
+    }
+
+    visited.add(location.parentLocationId);
+    location = byId.get(location.parentLocationId);
+  }
+
+  return false;
+}
+
+function locationParentOptions(context: RegisterContext) {
+  const currentRecordId = context.currentRecordId ?? "";
+
+  return context.locations
+    .filter((location) => location.id !== currentRecordId)
+    .filter((location) => !isDescendantLocation(location.id, currentRecordId, context.locations))
+    .map((location) => option(location.id, getLocationPath(location.id, context.locations) || location.name));
+}
+
+function formatLocationGeography(location: Pick<LocationRecord, "country" | "stateProvince">) {
+  return [location.stateProvince, location.country].filter(Boolean).join(", ") || "—";
 }
 
 function activePlantLocations(locations: LocationRecord[]) {
@@ -396,20 +474,7 @@ function recordPath(kind: MvpRegisterKind, id: string) {
 
 function relatedItem(
   kind: MvpRegisterKind,
-  record:
-    | LocationRecord
-    | ProcessRecord
-    | EquipmentRecord
-    | ExposureMonitoringRecord
-    | ChemicalRecord
-    | ComplianceItemRecord
-    | HazardRecord
-    | ControlRecord
-    | RiskAssessmentRecord
-    | SegRecord
-    | FindingRecord
-    | IncidentRecord
-    | CorrectiveActionRecord,
+  record: PersistedRegisterRecord,
   title: string,
   meta?: string,
 ): RelationshipItem {
@@ -477,6 +542,466 @@ function commonUpdatedColumn<TRecord extends PersistedRegisterRecord>(): Registe
   };
 }
 
+function campaignStatusTone(status: string) {
+  const normalized = status.toLowerCase();
+
+  if (normalized.includes("critical") || normalized.includes("blocked") || normalized.includes("unacceptable")) {
+    return "critical";
+  }
+
+  if (normalized.includes("overdue") || normalized.includes("expired") || normalized.includes("not ready")) {
+    return "high";
+  }
+
+  if (
+    normalized.includes("review") ||
+    normalized.includes("required") ||
+    normalized.includes("due") ||
+    normalized.includes("condition") ||
+    normalized.includes("uncertain")
+  ) {
+    return "medium";
+  }
+
+  if (
+    normalized.includes("complete") ||
+    normalized.includes("closed") ||
+    normalized.includes("current") ||
+    normalized.includes("active") ||
+    normalized.includes("authorized") ||
+    normalized.includes("validated")
+  ) {
+    return "active";
+  }
+
+  return "neutral";
+}
+
+function campaignKindForCollection(collection: CampaignCollectionName): CampaignRegisterKind {
+  const definition = getCampaignRegisterDefinitionByCollection(collection);
+  return definition.kind as CampaignRegisterKind;
+}
+
+function recordsForCollection(
+  collection: RegisterCollectionName,
+  context: RegisterContext,
+): PersistedRegisterRecord[] {
+  switch (collection) {
+    case "locations":
+      return context.locations;
+    case "processes":
+      return context.processes;
+    case "equipment":
+      return context.equipment;
+    case "exposureMonitoring":
+      return context.exposureMonitoring;
+    case "chemicals":
+      return context.chemicals;
+    case "complianceItems":
+      return context.complianceItems;
+    case "hazards":
+      return context.hazards;
+    case "controls":
+      return context.controls;
+    case "riskAssessments":
+      return context.riskAssessments;
+    case "segs":
+      return context.segs;
+    case "findings":
+      return context.findings;
+    case "incidents":
+      return context.incidents;
+    case "correctiveActions":
+      return context.correctiveActions;
+    default:
+      return context.campaignRecords[collection as CampaignCollectionName] ?? [];
+  }
+}
+
+function recordTitleForCollection(collection: RegisterCollectionName, record: PersistedRegisterRecord) {
+  switch (collection) {
+    case "locations":
+      return (record as LocationRecord).name;
+    case "processes":
+      return (record as ProcessRecord).name;
+    case "equipment":
+      return (record as EquipmentRecord).name;
+    case "chemicals":
+      return (record as ChemicalRecord).name;
+    case "hazards":
+      return (record as HazardRecord).title;
+    case "controls":
+      return (record as ControlRecord).name;
+    case "riskAssessments":
+      return (record as RiskAssessmentRecord).title;
+    case "segs":
+      return (record as SegRecord).name;
+    case "findings":
+      return (record as FindingRecord).title;
+    case "incidents":
+      return (record as IncidentRecord).title;
+    case "complianceItems":
+      return (record as ComplianceItemRecord).title;
+    case "correctiveActions":
+      return (record as CorrectiveActionRecord).title;
+    case "exposureMonitoring":
+      return (record as ExposureMonitoringRecord).sampleReference;
+    default:
+      return (record as CampaignRecord).title || (record as CampaignRecord).businessId || record.id;
+  }
+}
+
+function recordMetaForCollection(collection: RegisterCollectionName, record: PersistedRegisterRecord) {
+  switch (collection) {
+    case "locations":
+      return (record as LocationRecord).type;
+    case "processes":
+      return (record as ProcessRecord).category;
+    case "equipment":
+      return (record as EquipmentRecord).type;
+    case "chemicals":
+      return (record as ChemicalRecord).hazardClass;
+    case "hazards":
+      return (record as HazardRecord).category;
+    case "controls":
+      return (record as ControlRecord).type;
+    case "riskAssessments":
+      return (record as RiskAssessmentRecord).reviewStatus;
+    case "segs":
+      return (record as SegRecord).type;
+    case "findings":
+      return (record as FindingRecord).type;
+    case "incidents":
+      return (record as IncidentRecord).type;
+    case "complianceItems":
+      return (record as ComplianceItemRecord).itemType;
+    case "correctiveActions":
+      return (record as CorrectiveActionRecord).status;
+    case "exposureMonitoring":
+      return (record as ExposureMonitoringRecord).status;
+    default:
+      return `${(record as CampaignRecord).businessId} - ${(record as CampaignRecord).status}`;
+  }
+}
+
+function relationKindForCollection(collection: RegisterCollectionName): MvpRegisterKind | null {
+  const coreMap: Partial<Record<RegisterCollectionName, MvpRegisterKind>> = {
+    locations: "locations",
+    processes: "processes",
+    equipment: "equipment",
+    exposureMonitoring: "exposure-monitoring",
+    chemicals: "chemicals",
+    complianceItems: "compliance-items",
+    hazards: "hazards",
+    controls: "controls",
+    riskAssessments: "risk-assessments",
+    segs: "segs",
+    findings: "findings",
+    incidents: "incidents",
+    correctiveActions: "corrective-actions",
+  };
+
+  if (coreMap[collection]) {
+    return coreMap[collection] ?? null;
+  }
+
+  return CAMPAIGN_COLLECTION_NAMES.includes(collection as CampaignCollectionName)
+    ? campaignKindForCollection(collection as CampaignCollectionName)
+    : null;
+}
+
+function optionsForRelation(
+  collection: RegisterCollectionName,
+  context: RegisterContext,
+): RecordFormFieldOption[] {
+  return recordsForCollection(collection, context).map((record) =>
+    option(record.id, recordTitleForCollection(collection, record)),
+  );
+}
+
+function campaignFieldConfig(
+  field: CampaignFieldDefinition,
+  context: RegisterContext,
+): RecordFormFieldConfig {
+  const type = field.type ?? "text";
+  const options = field.relation
+    ? [
+        option("", `No related ${field.label.toLowerCase()}`),
+        ...optionsForRelation(field.relation as RegisterCollectionName, context),
+      ]
+    : field.options?.map((value) => option(value));
+
+  return {
+    name: field.name,
+    label: field.label,
+    type,
+    required: field.required,
+    helperText: field.helperText,
+    placeholder: field.placeholder,
+    rows: field.rows,
+    options,
+  };
+}
+
+function campaignInitialValues(
+  definition: CampaignRegisterDefinition,
+  record: CampaignRecord | null,
+) {
+  return Object.fromEntries(
+    definition.fields.map((field) => {
+      const value = record?.[field.name] ?? field.defaultValue ?? "";
+
+      if (Array.isArray(value)) {
+        return [field.name, value.join("|")];
+      }
+
+      if (typeof value === "boolean") {
+        return [field.name, value ? "true" : "false"];
+      }
+
+      return [field.name, value == null ? "" : String(value)];
+    }),
+  ) as FormValues;
+}
+
+function campaignInputFromValues(
+  definition: CampaignRegisterDefinition,
+  values: FormValues,
+) {
+  return Object.fromEntries(
+    definition.fields.map((field) => {
+      if (field.type === "multiselect") {
+        return [field.name, parseMultiValue(values[field.name])];
+      }
+
+      if (field.type === "checkbox") {
+        return [field.name, values[field.name] === "true"];
+      }
+
+      return [field.name, values[field.name] ?? ""];
+    }),
+  );
+}
+
+function validateCampaignValues(
+  definition: CampaignRegisterDefinition,
+  values: FormValues,
+) {
+  const errors: Record<string, string | undefined> = {};
+  const context = getActiveContext();
+
+  for (const field of definition.fields) {
+    const value = values[field.name] ?? "";
+
+    if (field.required && !value.trim()) {
+      errors[field.name] = `${field.label} is required.`;
+      continue;
+    }
+
+    if (field.options && value && !field.options.includes(value)) {
+      errors[field.name] = `${field.label} must use a controlled value.`;
+    }
+
+    if (field.relation && value) {
+      const ids = field.type === "multiselect" ? parseMultiValue(value) : [value];
+      const knownIds = new Set(
+        recordsForCollection(field.relation as RegisterCollectionName, context).map(
+          (record) => record.id,
+        ),
+      );
+      const missingId = ids.find((id) => id && !knownIds.has(id));
+
+      if (missingId) {
+        errors[field.name] = `${field.label} contains an unavailable related record.`;
+      }
+    }
+  }
+
+  if (
+    definition.collection === "segMemberships" &&
+    values.effectiveFrom &&
+    values.effectiveTo &&
+    values.effectiveTo < values.effectiveFrom
+  ) {
+    errors.effectiveTo = "Effective To cannot be before Effective From.";
+  }
+
+  if (
+    definition.collection === "pssrs" &&
+    ["Ready With Approved Conditions", "Ready for Startup", "Startup Authorized", "Closed"].includes(
+      values.status ?? "",
+    ) &&
+    values.startupBlockers?.trim() &&
+    !values.blockerDisposition?.trim()
+  ) {
+    errors.blockerDisposition =
+      "Startup blockers require an approved disposition before readiness or authorization.";
+  }
+
+  return errors;
+}
+
+function campaignDetailSections(definition: CampaignRegisterDefinition, record: CampaignRecord) {
+  return [
+    {
+      title: `${definition.recordLabel.charAt(0).toUpperCase()}${definition.recordLabel.slice(1)} fields`,
+      fields: definition.fields.map((field) => {
+        const value = record[field.name];
+        return {
+          label: field.label,
+          value: Array.isArray(value) ? value.join(", ") : typeof value === "boolean" ? (value ? "Yes" : "No") : value,
+        };
+      }),
+    },
+  ];
+}
+
+function campaignRelationshipSections(
+  definition: CampaignRegisterDefinition,
+  record: CampaignRecord,
+  context: RegisterContext,
+): RelationshipSection[] {
+  return definition.fields
+    .filter((field) => field.relation)
+    .map((field) => {
+      const collection = field.relation as RegisterCollectionName;
+      const kind = relationKindForCollection(collection);
+      const recordsById = new Map(
+        recordsForCollection(collection, context).map((relatedRecord) => [
+          relatedRecord.id,
+          relatedRecord,
+        ]),
+      );
+      const value = record[field.name];
+      const ids = Array.isArray(value) ? value : typeof value === "string" && value ? [value] : [];
+
+      return {
+        title: field.label,
+        items: kind
+          ? ids.map((id) => {
+              const relatedRecord = recordsById.get(id);
+              return relatedRecord
+                ? relatedItem(
+                    kind,
+                    relatedRecord,
+                    recordTitleForCollection(collection, relatedRecord),
+                    recordMetaForCollection(collection, relatedRecord),
+                  )
+                : missingRelatedItem(id, "Missing related record");
+            })
+          : [],
+      };
+    });
+}
+
+function campaignSiteFilterLocationIds(record: CampaignRecord) {
+  return uniqueValues([
+    record.locationId,
+    typeof record.primarySiteId === "string" ? record.primarySiteId : "",
+    typeof record.accumulationLocationId === "string" ? record.accumulationLocationId : "",
+  ]);
+}
+
+function loadCampaignContext() {
+  olusoApplication.listLocations();
+  olusoApplication.listProcesses();
+  olusoApplication.listEquipment();
+  olusoApplication.listChemicals();
+  olusoApplication.listHazards();
+  olusoApplication.listControls();
+  olusoApplication.listRiskAssessments();
+  olusoApplication.listSegs();
+  olusoApplication.listFindings();
+  olusoApplication.listIncidents();
+  olusoApplication.listComplianceItems();
+  olusoApplication.listCorrectiveActions();
+
+  for (const collection of CAMPAIGN_COLLECTION_NAMES) {
+    olusoApplication.listRegisterRecords(collection);
+  }
+}
+
+function makeCampaignConfig(definition: CampaignRegisterDefinition): RegisterConfig {
+  const collection = definition.collection as CampaignCollectionName;
+
+  return {
+    kind: definition.kind as MvpRegisterKind,
+    collection,
+    basePath: definition.basePath,
+    breadcrumbs: definition.breadcrumbs,
+    title: definition.title,
+    recordLabel: definition.recordLabel,
+    pluralRecordLabel: definition.pluralRecordLabel,
+    summary: definition.summary,
+    store: campaignRecordStores[collection],
+    load: loadCampaignContext,
+    create: (values) =>
+      olusoApplication.createRegisterRecord(
+        collection,
+        campaignInputFromValues(definition, values),
+      ) as PersistedRegisterRecord,
+    update: (id, values) =>
+      olusoApplication.updateRegisterRecord(
+        collection,
+        id,
+        campaignInputFromValues(definition, values),
+      ) as PersistedRegisterRecord,
+    validate: (values) => validateCampaignValues(definition, values),
+    getInitialValues: (record) => campaignInitialValues(definition, record as CampaignRecord | null),
+    fields: (context) => definition.fields.map((field) => campaignFieldConfig(field, context)),
+    columns: () => [
+      {
+        key: "businessId",
+        label: "ID",
+        accessor: (record) => (record as CampaignRecord).businessId,
+        sortable: true,
+      },
+      {
+        key: "title",
+        label: "Title",
+        accessor: (record) => (record as CampaignRecord).title,
+        descriptionAccessor: (record) => (record as CampaignRecord).summary,
+        primary: true,
+        sortable: true,
+      },
+      {
+        key: "type",
+        label: "Type",
+        accessor: (record) => (record as CampaignRecord).type,
+        sortable: true,
+      },
+      {
+        key: "status",
+        label: "Status",
+        accessor: (record) => (record as CampaignRecord).status,
+        toneAccessor: (record) => campaignStatusTone((record as CampaignRecord).status),
+        cellKind: "status",
+        sortable: true,
+      },
+      commonUpdatedColumn(),
+    ],
+    detailSections: (record) => campaignDetailSections(definition, record as CampaignRecord),
+    relationshipSections: (record, context) =>
+      campaignRelationshipSections(definition, record as CampaignRecord, context),
+    siteFilterLocationIds: (record) => campaignSiteFilterLocationIds(record as CampaignRecord),
+    getRecordTitle: (record) => (record as CampaignRecord).title,
+    getStatusLabel: (record) => (record as CampaignRecord).status,
+    getStatusTone: (record) => campaignStatusTone((record as CampaignRecord).status),
+    statusOptions: definition.statusOptions.map((status) => option(status)),
+    getStatusFilterValue: (record) => (record as CampaignRecord).status,
+    emptyMessage: `Add the first ${definition.recordLabel} to begin the ${definition.title} workflow.`,
+    newActionLabel: `New ${definition.recordLabel}`,
+    saveLabel: `Save ${definition.recordLabel}`,
+  };
+}
+
+const CAMPAIGN_REGISTER_CONFIGS = Object.fromEntries(
+  CAMPAIGN_REGISTER_DEFINITIONS.map((definition) => [
+    definition.kind,
+    makeCampaignConfig(definition),
+  ]),
+) as Record<CampaignRegisterKind, RegisterConfig>;
+
 export const REGISTER_CONFIGS: Record<MvpRegisterKind, RegisterConfig> = {
   locations: {
     kind: "locations",
@@ -496,11 +1021,13 @@ export const REGISTER_CONFIGS: Record<MvpRegisterKind, RegisterConfig> = {
       name: (record as LocationRecord | null)?.name ?? "",
       type: (record as LocationRecord | null)?.type ?? "",
       parentLocationId: (record as LocationRecord | null)?.parentLocationId ?? "",
+      country: (record as LocationRecord | null)?.country ?? "",
+      stateProvince: (record as LocationRecord | null)?.stateProvince ?? "",
       status: (record as LocationRecord | null)?.status ?? "active",
       description: (record as LocationRecord | null)?.description ?? "",
     }),
     fields: (context) => [
-      { name: "name", label: "Name", type: "text", required: true },
+      { name: "name", label: "Name", type: "text", required: true, placeholder: "Main Facility" },
       {
         name: "type",
         label: "Type",
@@ -510,11 +1037,27 @@ export const REGISTER_CONFIGS: Record<MvpRegisterKind, RegisterConfig> = {
       },
       {
         name: "parentLocationId",
-        label: "Parent Location",
+        label: "Parent Location / Site",
         type: "select",
+        helperText: "Use this to place areas, rooms, warehouses, and yards under a site or parent area.",
         options: [
           option("", "Top level / Plant"),
-          ...context.locations.map((location) => option(location.id, location.name)),
+          ...locationParentOptions(context),
+        ],
+      },
+      {
+        name: "country",
+        label: "Country",
+        type: "select",
+        options: [option("", "Select country"), ...LOCATION_COUNTRIES.map((country) => option(country))],
+      },
+      {
+        name: "stateProvince",
+        label: "State / Province",
+        type: "select",
+        options: [
+          option("", "Select state / province"),
+          ...LOCATION_STATE_PROVINCES.map((stateProvince) => option(stateProvince)),
         ],
       },
       {
@@ -545,7 +1088,13 @@ export const REGISTER_CONFIGS: Record<MvpRegisterKind, RegisterConfig> = {
         key: "parent",
         label: "Parent",
         accessor: (record) =>
-          locationsById(context).get((record as LocationRecord).parentLocationId)?.name ?? "—",
+          getLocationPath((record as LocationRecord).parentLocationId, context.locations) || "—",
+        sortable: true,
+      },
+      {
+        key: "geography",
+        label: "Geography",
+        accessor: (record) => formatLocationGeography(record as LocationRecord),
         sortable: true,
       },
       {
@@ -565,10 +1114,13 @@ export const REGISTER_CONFIGS: Record<MvpRegisterKind, RegisterConfig> = {
           { label: "Name", value: (record as LocationRecord).name },
           { label: "Type", value: (record as LocationRecord).type },
           {
+            label: "Hierarchy path",
+            value: getLocationPath((record as LocationRecord).id, context.locations) || "—",
+          },
+          {
             label: "Parent location",
             value:
-              locationsById(context).get((record as LocationRecord).parentLocationId)?.name ??
-              "—",
+              getLocationPath((record as LocationRecord).parentLocationId, context.locations) || "—",
           },
           {
             label: "Child locations",
@@ -578,6 +1130,8 @@ export const REGISTER_CONFIGS: Record<MvpRegisterKind, RegisterConfig> = {
                 .map((location) => location.name)
                 .join(", ") || "—",
           },
+          { label: "Country", value: (record as LocationRecord).country },
+          { label: "State / province", value: (record as LocationRecord).stateProvince },
           { label: "Domain status", value: (record as LocationRecord).status },
           { label: "Description", value: (record as LocationRecord).description },
         ],
@@ -798,6 +1352,7 @@ export const REGISTER_CONFIGS: Record<MvpRegisterKind, RegisterConfig> = {
   segs: makeSegConfig(),
   incidents: makeIncidentConfig(),
   "corrective-actions": makeCorrectiveActionConfig(),
+  ...CAMPAIGN_REGISTER_CONFIGS,
 };
 
 function makeProcessConfig(): RegisterConfig {
@@ -2419,6 +2974,8 @@ function valuesToLocationInput(values: FormValues): LocationInput {
     name: values.name ?? "",
     type: (values.type ?? "") as LocationType,
     parentLocationId: values.parentLocationId ?? "",
+    country: values.country ?? "",
+    stateProvince: values.stateProvince ?? "",
     description: values.description ?? "",
     status: (values.status ?? "active") as LocationStatus,
   };
@@ -2680,5 +3237,11 @@ export function getActiveContext(): RegisterContext {
     correctiveActions: get(correctiveActionRecords),
     incidents: get(incidentRecords),
     complianceItems: get(complianceItemRecords),
+    campaignRecords: Object.fromEntries(
+      CAMPAIGN_COLLECTION_NAMES.map((collection) => [
+        collection,
+        get(campaignRecordStores[collection]),
+      ]),
+    ) as Record<CampaignCollectionName, CampaignRecord[]>,
   };
 }

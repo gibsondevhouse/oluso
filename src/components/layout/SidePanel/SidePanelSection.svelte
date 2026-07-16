@@ -70,17 +70,18 @@
   .side-panel-section {
     display: flex;
     flex-direction: column;
-    margin-bottom: 12px;
+    margin-bottom: 10px;
   }
 
   .section-header {
     display: flex;
     align-items: center;
+    min-height: 30px;
     padding: 6px 16px;
     font-size: 0.75rem;
-    font-weight: 600;
+    font-weight: 760;
     text-transform: uppercase;
-    letter-spacing: 0.05em;
+    letter-spacing: 0;
     color: var(--color-nav-section-title);
     background: none;
     border: none;
@@ -95,13 +96,13 @@
   }
 
   .section-header.interactive:hover {
-    color: var(--color-nav-text);
+    color: var(--color-nav-hover-text);
   }
 
   .section-header.interactive:focus {
-    outline: 2px solid var(--color-accent);
+    border-radius: var(--radius-control);
+    outline: 2px solid var(--color-focus);
     outline-offset: -2px;
-    border-radius: 4px;
   }
 
   .icon {
@@ -128,7 +129,7 @@
 
   .section-divider {
     height: 1px;
-    background-color: var(--color-border);
+    background-color: var(--glass-border-subtle);
     margin: 8px 12px;
   }
 

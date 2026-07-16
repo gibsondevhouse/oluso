@@ -2,6 +2,12 @@ import type {
   PersistedRegisterRecord,
   RegisterCollectionName,
 } from "$lib/persistence/local-persistence";
+import {
+  CAMPAIGN_RECORD_EXPORT_COLUMNS,
+  CAMPAIGN_REGISTER_DEFINITIONS,
+} from "$lib/persistence/campaign-register.types";
+
+const CAMPAIGN_BASE_EXPORT_COLUMNS = CAMPAIGN_RECORD_EXPORT_COLUMNS as readonly string[];
 
 export type ExportFormat = "csv" | "json";
 export type ExportLifecycleScope = "active" | "all";
@@ -372,6 +378,17 @@ export const EXPORT_REGISTERS: ExportRegisterDefinition[] = [
       "archivedReason",
     ],
   },
+  ...CAMPAIGN_REGISTER_DEFINITIONS.map((definition) => ({
+    collection: definition.collection,
+    label: definition.title,
+    filenameStem: definition.kind,
+    columns: [
+      ...CAMPAIGN_RECORD_EXPORT_COLUMNS,
+      ...definition.fields
+        .map((field) => field.name)
+        .filter((field) => !CAMPAIGN_BASE_EXPORT_COLUMNS.includes(field)),
+    ],
+  })),
 ];
 
 export function getExportRegisterDefinition(

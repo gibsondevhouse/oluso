@@ -29,19 +29,7 @@ export interface GlobalSearchResult {
 }
 
 export const GLOBAL_SEARCH_REGISTER_KINDS: MvpRegisterKind[] = [
-  "locations",
-  "processes",
-  "equipment",
-  "chemicals",
-  "hazards",
-  "controls",
-  "risk-assessments",
-  "segs",
-  "exposure-monitoring",
-  "findings",
-  "incidents",
-  "compliance-items",
-  "corrective-actions",
+  ...(Object.keys(REGISTER_CONFIGS) as MvpRegisterKind[]),
 ];
 
 function normalizeSearchText(value: string) {

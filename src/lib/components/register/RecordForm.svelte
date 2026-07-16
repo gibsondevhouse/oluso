@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { Save, X } from "lucide-svelte";
   import ConfirmDialog from "$lib/components/ui/ConfirmDialog.svelte";
 
   type FieldType = "text" | "textarea" | "select" | "multiselect" | "checkbox";
@@ -261,7 +262,10 @@
   }}
 >
   <div class="form-header">
-    <h2>{title}</h2>
+    <div>
+      <span class="form-eyebrow">Validated workflow</span>
+      <h2>{title}</h2>
+    </div>
     {#if context}
       <span class="form-context">{context}</span>
     {/if}
@@ -273,13 +277,13 @@
 
   {#each fields as field (field.name)}
     {@const fieldId = getFieldId(field)}
-    <div class="record-form-field">
+    <div class="record-form-field" class:errorState={Boolean(fieldErrors[field.name])}>
       {#if field.type !== "checkbox"}
-        <label for={fieldId}>
+        <label class="field-label" for={fieldId}>
           <span>
             {field.label}
             {#if field.required}
-              <span aria-hidden="true">*</span>
+              <span class="required-mark" aria-hidden="true">*</span>
             {/if}
           </span>
         </label>
@@ -377,9 +381,11 @@
 
   <div class="action-row">
     <button class="button-link" type="submit" disabled={isSaving}>
+      <Save size={16} aria-hidden="true" />
       {isSaving ? "Saving..." : submitLabel}
     </button>
     <button class="secondary-button" type="button" disabled={isSaving} onclick={requestCancel}>
+      <X size={16} aria-hidden="true" />
       {cancelLabel}
     </button>
     <span class="save-state" role="status" aria-live="polite">
@@ -401,20 +407,55 @@
 {/if}
 
 <style>
-  .record-form-field {
-    display: grid;
-    gap: 6px;
+  .form-header {
+    align-items: flex-start;
+    border-bottom: 1px solid var(--glass-border-subtle);
+    padding-bottom: 14px;
   }
 
-  .record-form-field label {
+  .form-eyebrow {
+    display: block;
+    margin-bottom: 4px;
+    color: var(--color-accent-strong);
+    font-size: 0.6875rem;
+    font-weight: 760;
+    line-height: 1.2;
+    text-transform: uppercase;
+  }
+
+  .record-form-field {
+    display: grid;
+    gap: 7px;
+    min-width: 0;
+    border-bottom: 1px solid rgba(176, 198, 197, 0.08);
+    padding-bottom: 14px;
+  }
+
+  .record-form-field:last-of-type {
+    border-bottom: 0;
+    padding-bottom: 0;
+  }
+
+  .record-form-field.errorState {
+    border-bottom-color: rgba(249, 112, 102, 0.2);
+  }
+
+  .record-form-field label,
+  .field-label {
     color: var(--color-text);
     font-size: 0.875rem;
-    font-weight: 650;
+    font-weight: 720;
+  }
+
+  .required-mark {
+    color: var(--color-warning-text);
+    margin-left: 3px;
   }
 
   .field-helper {
     color: var(--color-muted);
     font-size: 0.75rem;
+    line-height: 1.45;
   }
 
   button:disabled,
@@ -426,26 +467,41 @@
   }
 
   select[multiple] {
-    min-height: 104px;
+    min-height: 116px;
   }
 
   .save-state {
     align-self: center;
     color: var(--color-muted);
     font-size: 0.8125rem;
+    font-weight: 650;
   }
 
   .checkbox-control {
     display: inline-flex;
-    align-items: center;
-    gap: 8px;
+    align-items: flex-start;
+    gap: 10px;
+    width: fit-content;
+    min-height: 38px;
+    border: 1px solid var(--color-field-border);
+    border-radius: var(--radius-control);
+    background: var(--color-field-bg);
     color: var(--color-text);
     font-size: 0.875rem;
-    font-weight: 650;
+    font-weight: 720;
+    padding: 9px 11px;
   }
 
   .checkbox-control input {
-    width: 16px;
-    height: 16px;
+    width: 17px;
+    height: 17px;
+    margin: 0;
+    accent-color: var(--color-accent);
+  }
+
+  .action-row {
+    align-items: center;
+    border-top: 1px solid var(--glass-border-subtle);
+    padding-top: 14px;
   }
 </style>

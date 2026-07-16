@@ -5,6 +5,10 @@ import {
   persistenceDiagnostics,
   resetPersistenceStoresForTest,
 } from "$lib/persistence/local-persistence";
+import {
+  CAMPAIGN_COLLECTION_NAMES,
+  CAMPAIGN_REGISTER_DEFINITIONS,
+} from "$lib/persistence/campaign-register.types";
 import SettingsPage from "./SettingsPage.svelte";
 
 describe("SettingsPage", () => {
@@ -71,6 +75,7 @@ describe("SettingsPage", () => {
       "Incidents & Near Misses",
       "Compliance Support",
       "Corrective Actions",
+      ...CAMPAIGN_REGISTER_DEFINITIONS.map((definition) => definition.title),
     ];
 
     await waitFor(() => {
@@ -82,7 +87,7 @@ describe("SettingsPage", () => {
     });
 
     const emptySnapshot = localPersistenceRepository.exportDatabase();
-    expect(emptySnapshot.schemaVersion).toBe(13);
+    expect(emptySnapshot.schemaVersion).toBe(14);
     expect(emptySnapshot.initializedAt).toBeTruthy();
     expect(emptySnapshot.updatedAt).toBeTruthy();
     expect([
@@ -100,6 +105,9 @@ describe("SettingsPage", () => {
       emptySnapshot.incidents,
       emptySnapshot.correctiveActions,
     ]).toEqual(Array.from({ length: 13 }, () => []));
+    for (const collection of CAMPAIGN_COLLECTION_NAMES) {
+      expect(emptySnapshot[collection]).toEqual([]);
+    }
 
     await localPersistenceRepository.initialize();
     expect(localPersistenceRepository.exportDatabase()).toMatchObject(emptySnapshot);

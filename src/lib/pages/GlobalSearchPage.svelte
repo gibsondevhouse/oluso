@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { Archive, RefreshCw, Search, SlidersHorizontal } from "lucide-svelte";
   import RegisterState from "$lib/components/register/RegisterState.svelte";
   import { REGISTER_CONFIGS, type MvpRegisterKind } from "$lib/components/register/register-config";
   import StatusPill from "$lib/components/ui/StatusPill.svelte";
@@ -96,13 +97,14 @@
     <div class="search-panel-header">
       <h2 id="global-search-controls-title">Search registers</h2>
       <button class="secondary-button" type="button" onclick={initializeSearch} disabled={loading}>
+        <RefreshCw size={16} aria-hidden="true" />
         {loading ? "Refreshing..." : "Refresh"}
       </button>
     </div>
 
     <div class="search-controls">
       <label class="toolbar-control global-search-input">
-        <span>Search</span>
+        <span><Search size={14} aria-hidden="true" /> Search</span>
         <input
           class="toolbar-input"
           placeholder="Search all registers"
@@ -112,7 +114,7 @@
       </label>
 
       <label class="toolbar-control">
-        <span>Register</span>
+        <span><SlidersHorizontal size={14} aria-hidden="true" /> Register</span>
         <select class="toolbar-input" bind:value={registerFilter} disabled={loading}>
           <option value="all">All registers</option>
           {#each registerOptions as option}
@@ -123,7 +125,7 @@
 
       <label class="checkbox-control">
         <input type="checkbox" bind:checked={includeArchived} disabled={loading} />
-        <span>Include archived records</span>
+        <span><Archive size={14} aria-hidden="true" /> Include archived records</span>
       </label>
     </div>
   </section>
@@ -201,9 +203,10 @@
     gap: 16px;
     max-width: 980px;
     margin-bottom: 20px;
-    border: 1px solid var(--color-border);
-    border-radius: 8px;
-    background: var(--color-surface);
+    border: 1px solid var(--glass-border-subtle);
+    border-radius: var(--radius-surface);
+    background: linear-gradient(180deg, rgba(22, 33, 36, 0.86), rgba(14, 23, 25, 0.84));
+    box-shadow: var(--surface-shadow);
     padding: 18px;
   }
 
@@ -218,7 +221,9 @@
   .search-panel-header h2,
   .results-header h2 {
     margin: 0;
-    font-size: 1rem;
+    color: var(--color-text);
+    font-size: 1.0625rem;
+    font-weight: 760;
     line-height: 1.25;
   }
 
@@ -235,7 +240,14 @@
     gap: 6px;
     color: var(--color-muted);
     font-size: 0.75rem;
-    font-weight: 700;
+    font-weight: 760;
+  }
+
+  .toolbar-control > span,
+  .checkbox-control span {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
   }
 
   .global-search-input {
@@ -247,14 +259,20 @@
     align-items: center;
     min-height: 36px;
     gap: 8px;
+    border: 1px solid var(--color-field-border);
+    border-radius: var(--radius-control);
+    background: var(--color-field-bg);
     color: var(--color-text);
     font-size: 0.875rem;
-    font-weight: 650;
+    font-weight: 720;
+    padding: 9px 11px;
   }
 
   .checkbox-control input {
-    width: 16px;
-    height: 16px;
+    width: 17px;
+    height: 17px;
+    margin: 0;
+    accent-color: var(--color-accent);
   }
 
   .search-results {
@@ -269,8 +287,8 @@
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
     gap: 16px;
-    border-top: 1px solid var(--color-border);
-    padding: 14px 0;
+    border-top: 1px solid var(--glass-border-subtle);
+    padding: 16px 0;
   }
 
   .search-result:first-child {
@@ -290,13 +308,13 @@
 
   .result-title {
     color: var(--color-text);
-    font-weight: 700;
+    font-weight: 760;
     text-decoration: none;
     overflow-wrap: anywhere;
   }
 
   .result-title:hover {
-    color: var(--color-accent);
+    color: var(--color-accent-strong);
     text-decoration: underline;
   }
 

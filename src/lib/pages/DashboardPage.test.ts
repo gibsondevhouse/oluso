@@ -17,7 +17,7 @@ describe("DashboardPage", () => {
     resetPersistenceStoresForTest();
   });
 
-  it("renders the dashboard route content", () => {
+  it("renders the focused priority-signal dashboard", () => {
     persistenceDiagnostics.set({
       status: "ready",
       dataPath: "localStorage://oluso.persistence.v1",
@@ -32,6 +32,8 @@ describe("DashboardPage", () => {
         name: "Test Facility",
         type: "Facility" as const,
         parentLocationId: "",
+        country: "United States",
+        stateProvince: "Michigan",
         description: "",
         status: "active" as const,
         createdAt: "2026-07-09T12:00:00.000Z",
@@ -71,25 +73,26 @@ describe("DashboardPage", () => {
 
     render(DashboardPage);
 
-    expect(screen.getByRole("heading", { level: 1, name: "Dashboard" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: "OLUSO Dashboard" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 2, name: "Priority Signals" })).toBeInTheDocument();
     expect(screen.getByText("Persistence ready")).toBeInTheDocument();
     expect(screen.getByText("localStorage://oluso.persistence.v1")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /Open Findings\s+1\s+of 1 total/ })).toHaveAttribute(
       "href",
       "/field/findings",
     );
-    expect(screen.getByRole("link", { name: /Locations\s+1\s+registered/ })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: /Open Actions\s+0\s+of 0 total/ })).toHaveAttribute(
       "href",
-      "/operations/locations",
+      "/actions/corrective-actions",
     );
-    expect(screen.getByRole("link", { name: /Processes\s+0\s+documented/ })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: /Active Hazards\s+0\s+of 0 total/ })).toHaveAttribute(
       "href",
-      "/operations/processes",
+      "/hse/hazards",
     );
-    expect(screen.getByRole("link", { name: /Equipment\s+1\s+tracked/ })).toHaveAttribute(
-      "href",
-      "/operations/equipment",
-    );
+    expect(screen.queryByRole("link", { name: /Locations/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("tab")).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /Exposure Agents/ })).not.toBeInTheDocument();
+    expect(localStorage.getItem("oluso.dashboard.activeTab")).toBeNull();
   });
 
   it("excludes archived records from dashboard counts", async () => {
@@ -102,10 +105,6 @@ describe("DashboardPage", () => {
     expect(screen.getByRole("link", { name: /Open Findings\s+0\s+of 1 total/ })).toHaveAttribute(
       "href",
       "/field/findings",
-    );
-    expect(screen.getByRole("link", { name: /Locations\s+4\s+registered/ })).toHaveAttribute(
-      "href",
-      "/operations/locations",
     );
   });
 });

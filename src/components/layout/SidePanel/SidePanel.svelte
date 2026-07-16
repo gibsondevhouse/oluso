@@ -36,7 +36,7 @@
     {#if !collapsed}
       <div class="app-identity">
         <span class="app-title">{SIDEBAR_CONFIG.appTitle}</span>
-        <span class="app-subtitle">HSE workspace</span>
+        <span class="app-subtitle">Operational Risk Suite</span>
       </div>
     {/if}
   </div>
@@ -54,7 +54,10 @@
   </nav>
 
   {#if !collapsed}
-    <footer class="side-panel-footer">Local desktop shell</footer>
+    <footer class="side-panel-footer">
+      <span>Local-first data layer</span>
+      <strong>Enterprise controls active</strong>
+    </footer>
   {/if}
 </aside>
 
@@ -67,9 +70,13 @@
     min-width: var(--side-panel-width);
     height: 100vh;
     overflow: hidden;
-    border-right: 1px solid var(--color-border);
-    background: var(--color-surface-raised);
+    border-right: 1px solid var(--glass-border-subtle);
+    background:
+      linear-gradient(180deg, rgba(12, 20, 22, 0.96), rgba(8, 14, 16, 0.95)),
+      linear-gradient(115deg, rgba(45, 212, 191, 0.08), transparent 46%, rgba(96, 165, 250, 0.06));
     color: var(--color-nav-text);
+    box-shadow: 18px 0 44px rgba(0, 0, 0, 0.28);
+    backdrop-filter: blur(var(--glass-blur-lg)) saturate(var(--glass-saturate));
   }
 
   .side-panel.collapsed {
@@ -83,8 +90,9 @@
     align-items: center;
     min-height: var(--header-height);
     padding: 0 14px;
-    border-bottom: 1px solid var(--color-border);
+    border-bottom: 1px solid var(--glass-border-subtle);
     gap: 10px;
+    background: rgba(255, 255, 255, 0.018);
   }
 
   .side-panel.collapsed .side-panel-header {
@@ -99,10 +107,11 @@
     width: 32px;
     height: 32px;
     flex: 0 0 32px;
-    border: 1px solid var(--color-border-strong);
+    border: 1px solid var(--glass-border);
     border-radius: 8px;
-    background: var(--color-accent-soft);
-    color: var(--color-accent);
+    background: linear-gradient(145deg, rgba(45, 212, 191, 0.22), rgba(96, 165, 250, 0.12));
+    color: var(--color-accent-strong);
+    box-shadow: var(--elevation-z0);
   }
 
   .app-identity {
@@ -115,13 +124,14 @@
   .app-title {
     color: var(--color-text);
     font-size: 0.875rem;
-    font-weight: 700;
+    font-weight: 780;
     line-height: 1.1;
   }
 
   .app-subtitle {
     color: var(--color-muted);
     font-size: 0.75rem;
+    font-weight: 650;
     line-height: 1.1;
   }
 
@@ -132,10 +142,18 @@
   }
 
   .side-panel-footer {
-    border-top: 1px solid var(--color-border);
+    display: grid;
+    gap: 4px;
+    border-top: 1px solid var(--glass-border-subtle);
     color: var(--color-muted);
     font-size: 0.75rem;
     line-height: 1.2;
     padding: 12px 16px;
+  }
+
+  .side-panel-footer strong {
+    color: var(--color-accent-strong);
+    font-size: 0.75rem;
+    font-weight: 760;
   }
 </style>

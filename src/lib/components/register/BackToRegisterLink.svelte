@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { ArrowLeft } from "lucide-svelte";
+
   interface Props {
     href: string;
     label?: string;
@@ -17,4 +19,7 @@
   }
 </script>
 
-<a class="secondary-button" {href} onclick={handleClick}>{label}</a>
+<a class="secondary-button" {href} onclick={handleClick}>
+  <ArrowLeft size={16} aria-hidden="true" />
+  {label}
+</a>

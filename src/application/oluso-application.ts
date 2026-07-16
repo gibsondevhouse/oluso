@@ -13,6 +13,10 @@ import {
   type PersistenceRepositoryAdapter,
   type RegisterCollectionName,
 } from "$lib/persistence/local-persistence";
+import {
+  isCampaignCollectionName,
+  type CampaignCollectionName,
+} from "$lib/persistence/campaign-register.types";
 import type { LocationInput } from "$lib/persistence/location.types";
 import type { ProcessInput } from "$lib/persistence/process.types";
 import type { RiskAssessmentInput } from "$lib/persistence/risk-assessment.types";
@@ -49,7 +53,19 @@ function getService(collection: RegisterCollectionName, services: DomainServices
       return services.incidents;
     case "correctiveActions":
       return services.correctiveActions;
+    default:
+      throw new Error(`Unsupported typed register collection: ${collection}`);
   }
+}
+
+function campaignSearchText(record: PersistedRegisterRecord) {
+  return Object.values(record as Record<string, unknown>)
+    .flatMap((value) => (Array.isArray(value) ? value : [value]))
+    .filter((value): value is string | number | boolean => {
+      return typeof value === "string" || typeof value === "number" || typeof value === "boolean";
+    })
+    .join(" ")
+    .toLowerCase();
 }
 
 export function createOlusoApplication(persistenceRepository: PersistenceRepositoryAdapter) {
@@ -142,7 +158,19 @@ export function createOlusoApplication(persistenceRepository: PersistenceReposit
     validateCorrectiveAction: (input: CorrectiveActionInput) =>
       services.correctiveActions.validate(input),
 
+    createRegisterRecord: (collection: CampaignCollectionName, input: Record<string, unknown>) =>
+      persistenceRepository.createRegisterRecord(collection, input),
+    updateRegisterRecord: (
+      collection: CampaignCollectionName,
+      id: string,
+      input: Record<string, unknown>,
+    ) => persistenceRepository.updateRegisterRecord(collection, id, input),
+
     getRecord(collection: RegisterCollectionName, id: string): PersistedRegisterRecord | null {
+      if (isCampaignCollectionName(collection)) {
+        return persistenceRepository.getRecord(collection, id);
+      }
+
       try {
         return getService(collection, services).getById(id) as PersistedRegisterRecord;
       } catch (error) {
@@ -158,6 +186,10 @@ export function createOlusoApplication(persistenceRepository: PersistenceReposit
       collection: RegisterCollectionName,
       options: { includeArchived?: boolean } = {},
     ): PersistedRegisterRecord[] {
+      if (isCampaignCollectionName(collection)) {
+        return persistenceRepository.listRegisterRecords(collection, options);
+      }
+
       return getService(collection, services).list(options) as PersistedRegisterRecord[];
     },
 
@@ -166,14 +198,33 @@ export function createOlusoApplication(persistenceRepository: PersistenceReposit
       query: string,
       options: { includeArchived?: boolean } = {},
     ): PersistedRegisterRecord[] {
+      if (isCampaignCollectionName(collection)) {
+        const normalizedQuery = query.trim().toLowerCase();
+        const records = persistenceRepository.listRegisterRecords(collection, options);
+
+        if (!normalizedQuery) {
+          return records;
+        }
+
+        return records.filter((record) => campaignSearchText(record).includes(normalizedQuery));
+      }
+
       return getService(collection, services).search(query, options) as PersistedRegisterRecord[];
     },
 
     archiveRecord(collection: RegisterCollectionName, id: string, reason?: string) {
+      if (isCampaignCollectionName(collection)) {
+        return persistenceRepository.archiveRecord(collection, id, reason);
+      }
+
       return getService(collection, services).archive(id, reason);
     },
 
     restoreRecord(collection: RegisterCollectionName, id: string) {
+      if (isCampaignCollectionName(collection)) {
+        return persistenceRepository.restoreRecord(collection, id);
+      }
+
       return getService(collection, services).restore(id);
     },
   };

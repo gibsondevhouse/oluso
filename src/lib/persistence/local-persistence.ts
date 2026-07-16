@@ -1,4 +1,4 @@
-import { writable } from "svelte/store";
+import { writable, type Writable } from "svelte/store";
 import type { FindingInput, FindingRecord } from "./finding.types";
 import { FINDING_STATUSES, FINDING_TYPES } from "./finding.types";
 import type { LocationInput, LocationRecord } from "./location.types";
@@ -47,6 +47,14 @@ import {
   CORRECTIVE_ACTION_STATUSES,
   CORRECTIVE_ACTION_TYPES,
 } from "./corrective-action.types";
+import {
+  CAMPAIGN_COLLECTION_NAMES,
+  CAMPAIGN_REGISTER_DEFINITIONS,
+  getCampaignRegisterDefinitionByCollection,
+  isCampaignCollectionName,
+  type CampaignCollectionName,
+  type CampaignRecord,
+} from "./campaign-register.types";
 import type { LifecycleMetadata } from "./lifecycle.types";
 import { ensureLifecycle, isActiveLifecycle, withActiveLifecycle } from "./lifecycle.types";
 
@@ -63,7 +71,8 @@ export type RegisterCollectionName =
   | "controls"
   | "riskAssessments"
   | "segs"
-  | "correctiveActions";
+  | "correctiveActions"
+  | CampaignCollectionName;
 
 export type PersistedRegisterRecord =
   | LocationRecord
@@ -78,7 +87,8 @@ export type PersistedRegisterRecord =
   | ControlRecord
   | RiskAssessmentRecord
   | SegRecord
-  | CorrectiveActionRecord;
+  | CorrectiveActionRecord
+  | CampaignRecord;
 
 export const REGISTER_COLLECTION_NAMES: RegisterCollectionName[] = [
   "locations",
@@ -94,6 +104,7 @@ export const REGISTER_COLLECTION_NAMES: RegisterCollectionName[] = [
   "incidents",
   "complianceItems",
   "correctiveActions",
+  ...CAMPAIGN_COLLECTION_NAMES,
 ];
 
 export type PersistenceStatus = "not_configured" | "loading" | "ready" | "error";
@@ -113,7 +124,7 @@ export interface PersistenceDiagnostics {
   lastError: string | null;
 }
 
-export interface PersistedDatabase {
+export interface PersistedDatabaseBase {
   schemaVersion: number;
   locations: LocationRecord[];
   findings: FindingRecord[];
@@ -131,6 +142,9 @@ export interface PersistedDatabase {
   initializedAt: string;
   updatedAt: string;
 }
+
+export type PersistedDatabase = PersistedDatabaseBase &
+  Record<CampaignCollectionName, CampaignRecord[]>;
 
 interface PersistedDatabaseV3 {
   schemaVersion: 3;
@@ -207,7 +221,7 @@ interface RepositoryOptions {
   createId?: () => string;
 }
 
-const SCHEMA_VERSION = 13;
+const SCHEMA_VERSION = 14;
 const DEFAULT_STORAGE_KEY = "oluso.persistence.v1";
 const DEFAULT_DATA_PATH = `localStorage://${DEFAULT_STORAGE_KEY}`;
 const SEED_TIMESTAMP = "2026-07-09T00:00:00.000Z";
@@ -245,6 +259,9 @@ export const riskAssessmentRecords = writable<RiskAssessmentRecord[]>([]);
 export const segRecords = writable<SegRecord[]>([]);
 export const incidentRecords = writable<IncidentRecord[]>([]);
 export const correctiveActionRecords = writable<CorrectiveActionRecord[]>([]);
+export const campaignRecordStores = Object.fromEntries(
+  CAMPAIGN_COLLECTION_NAMES.map((collection) => [collection, writable<CampaignRecord[]>([])]),
+) as Record<CampaignCollectionName, Writable<CampaignRecord[]>>;
 
 function defaultNow() {
   return new Date();
@@ -266,6 +283,7 @@ function createEmptyDatabase(timestamp: string): PersistedDatabase {
     segs: [],
     incidents: [],
     correctiveActions: [],
+    ...emptyCampaignCollections(),
     initializedAt: timestamp,
     updatedAt: timestamp,
   };
@@ -345,6 +363,8 @@ function normalizeLocationRecord(record: object): LocationRecord {
       Workshop: "Production Area",
     }),
     parentLocationId: raw.parentLocationId ?? "",
+    country: raw.country ?? "",
+    stateProvince: raw.stateProvince ?? "",
     description: raw.description ?? "",
     status: raw.status === "inactive" ? "inactive" : "active",
     createdAt: raw.createdAt ?? SEED_TIMESTAMP,
@@ -711,6 +731,212 @@ function normalizeBoolean(value: unknown, fallback: boolean) {
   return fallback;
 }
 
+function emptyCampaignCollections(): Record<CampaignCollectionName, CampaignRecord[]> {
+  return Object.fromEntries(
+    CAMPAIGN_COLLECTION_NAMES.map((collection) => [collection, []]),
+  ) as unknown as Record<CampaignCollectionName, CampaignRecord[]>;
+}
+
+function normalizeCampaignArray(value: unknown): string[] {
+  return normalizeStringArray(value);
+}
+
+function defaultCampaignRecordFields(
+  collection: CampaignCollectionName,
+  timestamp: string,
+): CampaignRecord {
+  const definition = getCampaignRegisterDefinitionByCollection(collection);
+
+  return {
+    id: "",
+    businessId: "",
+    title: "",
+    type: definition.defaultType,
+    status: definition.defaultStatus,
+    summary: "",
+    owner: "",
+    locationId: "",
+    processId: "",
+    personId: "",
+    organizationId: "",
+    taskId: "",
+    segId: "",
+    chemicalId: "",
+    equipmentId: "",
+    hazardIds: [],
+    controlIds: [],
+    relatedRecordIds: [],
+    effectiveFrom: "",
+    effectiveTo: "",
+    dueDate: "",
+    reviewDate: "",
+    evidenceReference: "",
+    notes: "",
+    createdAt: timestamp,
+    updatedAt: timestamp,
+    archivedAt: null,
+    archivedReason: null,
+    lifecycleStatus: "active",
+  };
+}
+
+function normalizeCampaignRecord(
+  collection: CampaignCollectionName,
+  record: object,
+): CampaignRecord {
+  const raw = record as Partial<CampaignRecord>;
+  const defaults = defaultCampaignRecordFields(
+    collection,
+    raw.createdAt ?? SEED_TIMESTAMP,
+  );
+  const definition = getCampaignRegisterDefinitionByCollection(collection);
+  const normalized = ensureLifecycle({
+    ...defaults,
+    ...raw,
+    id: raw.id ?? "",
+    businessId: raw.businessId ?? "",
+    title: raw.title ?? "",
+    type:
+      typeof raw.type === "string" && definition.typeOptions.includes(raw.type)
+        ? raw.type
+        : definition.defaultType,
+    status:
+      typeof raw.status === "string" && definition.statusOptions.includes(raw.status)
+        ? raw.status
+        : definition.defaultStatus,
+    summary: raw.summary ?? "",
+    owner: raw.owner ?? "",
+    locationId: raw.locationId ?? "",
+    processId: raw.processId ?? "",
+    personId: raw.personId ?? "",
+    organizationId: raw.organizationId ?? "",
+    taskId: raw.taskId ?? "",
+    segId: raw.segId ?? "",
+    chemicalId: raw.chemicalId ?? "",
+    equipmentId: raw.equipmentId ?? "",
+    hazardIds: normalizeCampaignArray(raw.hazardIds),
+    controlIds: normalizeCampaignArray(raw.controlIds),
+    relatedRecordIds: normalizeCampaignArray(raw.relatedRecordIds),
+    effectiveFrom: raw.effectiveFrom ?? "",
+    effectiveTo: raw.effectiveTo ?? "",
+    dueDate: raw.dueDate ?? "",
+    reviewDate: raw.reviewDate ?? "",
+    evidenceReference: raw.evidenceReference ?? "",
+    notes: raw.notes ?? "",
+    createdAt: raw.createdAt ?? SEED_TIMESTAMP,
+    updatedAt: raw.updatedAt ?? raw.createdAt ?? SEED_TIMESTAMP,
+  }) as CampaignRecord;
+
+  for (const field of definition.fields) {
+    const value = (raw as Record<string, unknown>)[field.name];
+
+    if (field.type === "checkbox") {
+      normalized[field.name] = normalizeBoolean(value, field.defaultValue === true);
+    } else if (field.type === "multiselect") {
+      normalized[field.name] = normalizeCampaignArray(value);
+    } else if (value === undefined || value === null) {
+      const defaultValue = field.defaultValue;
+      normalized[field.name] = Array.isArray(defaultValue)
+        ? defaultValue
+        : typeof defaultValue === "boolean"
+          ? defaultValue
+          : defaultValue ?? "";
+    } else if (Array.isArray(value)) {
+      normalized[field.name] = normalizeCampaignArray(value);
+    } else if (typeof value === "boolean") {
+      normalized[field.name] = value;
+    } else {
+      normalized[field.name] = String(value);
+    }
+  }
+
+  return normalized;
+}
+
+function normalizeCampaignCollections(
+  source: Partial<Record<CampaignCollectionName, unknown>>,
+) {
+  return Object.fromEntries(
+    CAMPAIGN_COLLECTION_NAMES.map((collection) => [
+      collection,
+      Array.isArray(source[collection])
+        ? (source[collection] as object[]).map((record) =>
+            normalizeCampaignRecord(collection, record),
+          )
+        : [],
+    ]),
+  ) as Record<CampaignCollectionName, CampaignRecord[]>;
+}
+
+function createSeedCampaignRecords(): Record<CampaignCollectionName, CampaignRecord[]> {
+  return Object.fromEntries(
+    CAMPAIGN_REGISTER_DEFINITIONS.map((definition) => [
+      definition.collection,
+      definition.seed
+        ? [
+            withActiveLifecycle({
+              ...defaultCampaignRecordFields(definition.collection, SEED_TIMESTAMP),
+              ...definition.seed,
+              createdAt: SEED_TIMESTAMP,
+              updatedAt: SEED_TIMESTAMP,
+            }) as CampaignRecord,
+          ]
+        : [],
+    ]),
+  ) as Record<CampaignCollectionName, CampaignRecord[]>;
+}
+
+function generateBusinessId(
+  collection: CampaignCollectionName,
+  records: CampaignRecord[],
+) {
+  const definition = getCampaignRegisterDefinitionByCollection(collection);
+  const nextNumber = records.length + 1;
+  return `${definition.businessPrefix}-${String(nextNumber).padStart(4, "0")}`;
+}
+
+function valuesToCampaignRecordInput(
+  collection: CampaignCollectionName,
+  input: Record<string, unknown>,
+  existing: CampaignRecord | null,
+  timestamp: string,
+  records: CampaignRecord[],
+): CampaignRecord {
+  const raw = input as Partial<CampaignRecord>;
+  const base = existing ?? defaultCampaignRecordFields(collection, timestamp);
+  const normalized = normalizeCampaignRecord(collection, {
+    ...base,
+    ...raw,
+    businessId: raw.businessId?.trim() || base.businessId || generateBusinessId(collection, records),
+    title: raw.title?.trim() ?? base.title,
+    type: raw.type ?? base.type,
+    status: raw.status ?? base.status,
+    summary: raw.summary?.trim() ?? base.summary,
+    owner: raw.owner?.trim() ?? base.owner,
+    locationId: raw.locationId ?? base.locationId,
+    processId: raw.processId ?? base.processId,
+    personId: raw.personId ?? base.personId,
+    organizationId: raw.organizationId ?? base.organizationId,
+    taskId: raw.taskId ?? base.taskId,
+    segId: raw.segId ?? base.segId,
+    chemicalId: raw.chemicalId ?? base.chemicalId,
+    equipmentId: raw.equipmentId ?? base.equipmentId,
+    hazardIds: raw.hazardIds ?? base.hazardIds,
+    controlIds: raw.controlIds ?? base.controlIds,
+    relatedRecordIds: raw.relatedRecordIds ?? base.relatedRecordIds,
+    effectiveFrom: raw.effectiveFrom ?? base.effectiveFrom,
+    effectiveTo: raw.effectiveTo ?? base.effectiveTo,
+    dueDate: raw.dueDate ?? base.dueDate,
+    reviewDate: raw.reviewDate ?? base.reviewDate,
+    evidenceReference: raw.evidenceReference?.trim() ?? base.evidenceReference,
+    notes: raw.notes?.trim() ?? base.notes,
+    createdAt: existing?.createdAt ?? timestamp,
+    updatedAt: timestamp,
+  });
+
+  return normalized;
+}
+
 function normalizeCorrectiveActionRecord(record: object): CorrectiveActionRecord {
   const raw = record as Partial<CorrectiveActionRecord>;
   const status = normalizeCorrectiveActionStatus(raw.status);
@@ -756,10 +982,18 @@ function normalizeCorrectiveActionRecord(record: object): CorrectiveActionRecord
 }
 
 function getRegisterCollection(database: PersistedDatabase, collection: RegisterCollectionName) {
+  if (isCampaignCollectionName(collection)) {
+    return database[collection];
+  }
+
   return database[collection] as PersistedRegisterRecord[];
 }
 
 function getRegisterStore(collection: RegisterCollectionName) {
+  if (isCampaignCollectionName(collection)) {
+    return campaignRecordStores[collection];
+  }
+
   switch (collection) {
     case "locations":
       return locationRecords;
@@ -810,6 +1044,8 @@ export function createSeedLocations(): LocationRecord[] {
       name: "Main Facility",
       type: "Facility",
       parentLocationId: "",
+      country: "United States",
+      stateProvince: "Michigan",
       description: "Primary operating location seeded for the MVP Locations workflow.",
       status: "active",
       createdAt: SEED_TIMESTAMP,
@@ -820,6 +1056,8 @@ export function createSeedLocations(): LocationRecord[] {
       name: "Chemical Storage Room",
       type: "Storage",
       parentLocationId: "loc-demo-main-facility",
+      country: "United States",
+      stateProvince: "Michigan",
       description: "Controlled storage area seeded so persistence can be verified immediately.",
       status: "active",
       createdAt: SEED_TIMESTAMP,
@@ -830,6 +1068,8 @@ export function createSeedLocations(): LocationRecord[] {
       name: "Workshop",
       type: "Production Area",
       parentLocationId: "loc-demo-main-facility",
+      country: "United States",
+      stateProvince: "Michigan",
       description: "Maintenance and fabrication workshop area.",
       status: "active",
       createdAt: SEED_TIMESTAMP,
@@ -840,6 +1080,8 @@ export function createSeedLocations(): LocationRecord[] {
       name: "Secondary Site",
       type: "Facility",
       parentLocationId: "",
+      country: "United States",
+      stateProvince: "Ohio",
       description: "Secondary plant seeded to demonstrate multi-plant filtering.",
       status: "active",
       createdAt: SEED_TIMESTAMP,
@@ -850,6 +1092,8 @@ export function createSeedLocations(): LocationRecord[] {
       name: "Secondary Warehouse",
       type: "Storage",
       parentLocationId: "loc-demo-secondary-site",
+      country: "United States",
+      stateProvince: "Ohio",
       description: "Storage area under the secondary plant.",
       status: "active",
       createdAt: SEED_TIMESTAMP,
@@ -1447,6 +1691,7 @@ export function createLocalPersistenceRepository(options: RepositoryOptions = {}
       parsed.schemaVersion !== 10 &&
       parsed.schemaVersion !== 11 &&
       parsed.schemaVersion !== 12 &&
+      parsed.schemaVersion !== 13 &&
       parsed.schemaVersion !== SCHEMA_VERSION
     ) {
       throw new Error(`Unsupported persistence schema version: ${String(parsed.schemaVersion)}.`);
@@ -1473,6 +1718,7 @@ export function createLocalPersistenceRepository(options: RepositoryOptions = {}
         segs: [],
         incidents: [],
         correctiveActions: [],
+        ...emptyCampaignCollections(),
         initializedAt: parsed.initializedAt ?? now().toISOString(),
         updatedAt: now().toISOString(),
       };
@@ -1496,6 +1742,7 @@ export function createLocalPersistenceRepository(options: RepositoryOptions = {}
         segs: [],
         incidents: [],
         correctiveActions: [],
+        ...emptyCampaignCollections(),
         initializedAt: v2.initializedAt ?? now().toISOString(),
         updatedAt: now().toISOString(),
       };
@@ -1526,6 +1773,7 @@ export function createLocalPersistenceRepository(options: RepositoryOptions = {}
       correctiveActions: (parsedV3.correctiveActions ?? []).map((record) =>
         normalizeCorrectiveActionRecord(record),
       ),
+      ...normalizeCampaignCollections(parsedV3 as Partial<Record<CampaignCollectionName, unknown>>),
       initializedAt: parsedV3.initializedAt ?? now().toISOString(),
       updatedAt: parsedV3.updatedAt ?? now().toISOString(),
     };
@@ -1586,6 +1834,7 @@ export function createLocalPersistenceRepository(options: RepositoryOptions = {}
       segs,
       incidents: createSeedIncidents(),
       correctiveActions: createSeedCorrectiveActions(findings),
+      ...createSeedCampaignRecords(),
       initializedAt: timestamp,
       updatedAt: timestamp,
     };
@@ -1605,6 +1854,9 @@ export function createLocalPersistenceRepository(options: RepositoryOptions = {}
     segRecords.set(activeRecords(database.segs));
     incidentRecords.set(activeRecords(database.incidents));
     correctiveActionRecords.set(activeRecords(database.correctiveActions));
+    for (const collection of CAMPAIGN_COLLECTION_NAMES) {
+      campaignRecordStores[collection].set(activeRecords(database[collection]));
+    }
     setDiagnostics({
       status: "ready",
       dataPath: getDataPath(),
@@ -1691,6 +1943,15 @@ export function createLocalPersistenceRepository(options: RepositoryOptions = {}
         shouldSeedEmptyCollection("correctiveActions")
           ? createSeedCorrectiveActions(nextFindings)
           : existingDatabase.correctiveActions;
+      const campaignSeeds = createSeedCampaignRecords();
+      const nextCampaignCollections = Object.fromEntries(
+        CAMPAIGN_COLLECTION_NAMES.map((collection) => [
+          collection,
+          existingDatabase[collection].length === 0 && shouldSeedEmptyCollection(collection)
+            ? campaignSeeds[collection]
+            : existingDatabase[collection],
+        ]),
+      ) as Record<CampaignCollectionName, CampaignRecord[]>;
 
       const needsWrite =
         sourceSchemaVersion !== SCHEMA_VERSION || missingCollections.size > 0;
@@ -1711,6 +1972,7 @@ export function createLocalPersistenceRepository(options: RepositoryOptions = {}
           segs: nextSegs,
           incidents: nextIncidents,
           correctiveActions: nextCorrectiveActions,
+          ...nextCampaignCollections,
           initializedAt: existingDatabase.initializedAt,
           updatedAt: timestamp,
         };
@@ -1736,6 +1998,9 @@ export function createLocalPersistenceRepository(options: RepositoryOptions = {}
       segRecords.set([]);
       incidentRecords.set([]);
       correctiveActionRecords.set([]);
+      for (const collection of CAMPAIGN_COLLECTION_NAMES) {
+        campaignRecordStores[collection].set([]);
+      }
       setErrorStatus(error);
       throw error;
     }
@@ -1766,6 +2031,8 @@ export function createLocalPersistenceRepository(options: RepositoryOptions = {}
         name: input.name.trim(),
         type: input.type,
         parentLocationId: input.parentLocationId?.trim() ?? "",
+        country: input.country?.trim() ?? "",
+        stateProvince: input.stateProvince?.trim() ?? "",
         description: input.description.trim(),
         status: input.status,
         createdAt: timestamp,
@@ -1795,6 +2062,8 @@ export function createLocalPersistenceRepository(options: RepositoryOptions = {}
         name: input.name.trim(),
         type: input.type,
         parentLocationId: input.parentLocationId?.trim() ?? "",
+        country: input.country?.trim() ?? "",
+        stateProvince: input.stateProvince?.trim() ?? "",
         description: input.description.trim(),
         status: input.status,
         updatedAt: timestamp,
@@ -2938,6 +3207,72 @@ export function createLocalPersistenceRepository(options: RepositoryOptions = {}
     }
   }
 
+  function createRegisterRecord(
+    collection: CampaignCollectionName,
+    input: Record<string, unknown>,
+  ): CampaignRecord {
+    try {
+      const database = readDatabase();
+      if (!database) throw new Error("Persistence is not initialized.");
+      const timestamp = now().toISOString();
+      const records = database[collection];
+      const record = withActiveLifecycle({
+        ...valuesToCampaignRecordInput(collection, input, null, timestamp, records),
+        id: createId(),
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      }) as CampaignRecord;
+      const nextDatabase = {
+        ...database,
+        [collection]: [...records, record],
+        updatedAt: timestamp,
+      } as PersistedDatabase;
+
+      writeDatabase(nextDatabase);
+      publishReady(nextDatabase, `Schema v${SCHEMA_VERSION} is ready.`);
+      return record;
+    } catch (error) {
+      setErrorStatus(error);
+      throw error;
+    }
+  }
+
+  function updateRegisterRecord(
+    collection: CampaignCollectionName,
+    id: string,
+    input: Record<string, unknown>,
+  ): CampaignRecord {
+    if (!id.trim()) throw new Error("Record ID is required.");
+
+    try {
+      const database = readDatabase();
+      if (!database) throw new Error("Persistence is not initialized.");
+      const records = database[collection];
+      const existing = records.find((record) => record.id === id);
+      if (!existing) throw new Error("Record was not found.");
+      const timestamp = now().toISOString();
+      const updatedRecord = valuesToCampaignRecordInput(
+        collection,
+        input,
+        existing,
+        timestamp,
+        records,
+      );
+      const nextDatabase = {
+        ...database,
+        [collection]: records.map((record) => (record.id === id ? updatedRecord : record)),
+        updatedAt: timestamp,
+      } as PersistedDatabase;
+
+      writeDatabase(nextDatabase);
+      publishReady(nextDatabase, `Schema v${SCHEMA_VERSION} is ready.`);
+      return updatedRecord;
+    } catch (error) {
+      setErrorStatus(error);
+      throw error;
+    }
+  }
+
   function getRecord(collection: RegisterCollectionName, id: string): PersistedRegisterRecord | null {
     try {
       if (!id.trim()) {
@@ -3077,6 +3412,15 @@ export function createLocalPersistenceRepository(options: RepositoryOptions = {}
       current.correctiveActions,
       imported.correctiveActions,
     );
+    const campaignMerges = Object.fromEntries(
+      CAMPAIGN_COLLECTION_NAMES.map((collection) => [
+        collection,
+        mergeCollection(current[collection], imported[collection]),
+      ]),
+    ) as Record<
+      CampaignCollectionName,
+      { records: CampaignRecord[]; importedCount: number }
+    >;
     const database: PersistedDatabase = {
       ...current,
       schemaVersion: SCHEMA_VERSION,
@@ -3093,6 +3437,12 @@ export function createLocalPersistenceRepository(options: RepositoryOptions = {}
       riskAssessments: riskAssessments.records,
       segs: segs.records,
       correctiveActions: correctiveActions.records,
+      ...(Object.fromEntries(
+        CAMPAIGN_COLLECTION_NAMES.map((collection) => [
+          collection,
+          campaignMerges[collection].records,
+        ]),
+      ) as Record<CampaignCollectionName, CampaignRecord[]>),
       updatedAt: now().toISOString(),
     };
     const importedCount = [
@@ -3109,6 +3459,7 @@ export function createLocalPersistenceRepository(options: RepositoryOptions = {}
       riskAssessments,
       segs,
       correctiveActions,
+      ...CAMPAIGN_COLLECTION_NAMES.map((collection) => campaignMerges[collection]),
     ].reduce((total, collection) => total + collection.importedCount, 0);
 
     writeDatabase(database);
@@ -3141,6 +3492,9 @@ export function createLocalPersistenceRepository(options: RepositoryOptions = {}
       riskAssessmentRecords.set([]);
       segRecords.set([]);
       correctiveActionRecords.set([]);
+      for (const collection of CAMPAIGN_COLLECTION_NAMES) {
+        campaignRecordStores[collection].set([]);
+      }
       setDiagnostics({
         status: "not_configured",
         dataPath: getDataPath(),
@@ -3209,6 +3563,8 @@ export function createLocalPersistenceRepository(options: RepositoryOptions = {}
     listCorrectiveActions,
     createCorrectiveAction,
     updateCorrectiveAction,
+    createRegisterRecord,
+    updateRegisterRecord,
     getRecord,
     listRegisterRecords,
     archiveRecord,
@@ -3263,6 +3619,9 @@ function publishSqliteSnapshot(snapshot: SqlitePersistenceSnapshot) {
   segRecords.set(activeRecords(database.segs));
   incidentRecords.set(activeRecords(database.incidents));
   correctiveActionRecords.set(activeRecords(database.correctiveActions));
+  for (const collection of CAMPAIGN_COLLECTION_NAMES) {
+    campaignRecordStores[collection].set(activeRecords(database[collection]));
+  }
   persistenceDiagnostics.set({
     ...snapshot.diagnostics,
     backend: "sqlite",
@@ -3277,7 +3636,7 @@ function setSqliteLoadingStatus() {
     backend: "sqlite",
     connectionState: "not_connected",
     dataPath: null,
-    schemaVersion: 1,
+    schemaVersion: SCHEMA_VERSION,
     databaseSizeBytes: undefined,
     recordCounts: undefined,
     initializedAt: null,
@@ -3295,7 +3654,7 @@ function setSqliteErrorStatus(error: unknown) {
     backend: "sqlite",
     connectionState: "error",
     dataPath: null,
-    schemaVersion: 1,
+    schemaVersion: SCHEMA_VERSION,
     databaseSizeBytes: undefined,
     recordCounts: undefined,
     initializedAt: null,
@@ -3545,6 +3904,21 @@ function createSqlitePersistenceRepository(): LocalPersistenceRepository {
         getRegisterCollection(snapshot.database, "correctiveActions").find((record) => record.id === id),
       ) as unknown as CorrectiveActionRecord;
     },
+    createRegisterRecord(collection: CampaignCollectionName, input: Record<string, unknown>) {
+      const before = database;
+      return invokeSnapshot("oluso_create_record", { collection, input }).then((snapshot) =>
+        getCreatedRecord<CampaignRecord>(before, snapshot.database, collection),
+      ) as unknown as CampaignRecord;
+    },
+    updateRegisterRecord(
+      collection: CampaignCollectionName,
+      id: string,
+      input: Record<string, unknown>,
+    ) {
+      return invokeSnapshot("oluso_update_record", { collection, id, input }).then((snapshot) =>
+        getRegisterCollection(snapshot.database, collection).find((record) => record.id === id),
+      ) as unknown as CampaignRecord;
+    },
     getRecord(collection: RegisterCollectionName, id: string) {
       if (!id.trim()) {
         throw new Error("Record ID is required.");
@@ -3683,6 +4057,10 @@ function createHybridPersistenceRepository(): LocalPersistenceRepository {
     listCorrectiveActions: () => getRepository().listCorrectiveActions(),
     createCorrectiveAction: (input) => getRepository().createCorrectiveAction(input),
     updateCorrectiveAction: (id, input) => getRepository().updateCorrectiveAction(id, input),
+    createRegisterRecord: (collection, input) =>
+      getRepository().createRegisterRecord(collection, input),
+    updateRegisterRecord: (collection, id, input) =>
+      getRepository().updateRegisterRecord(collection, id, input),
     getRecord: (collection, id) => getRepository().getRecord(collection, id),
     listRegisterRecords: (collection, options) => getRepository().listRegisterRecords(collection, options),
     archiveRecord: (collection, id, reason) => getRepository().archiveRecord(collection, id, reason),
@@ -3713,4 +4091,7 @@ export function resetPersistenceStoresForTest() {
   segRecords.set([]);
   incidentRecords.set([]);
   correctiveActionRecords.set([]);
+  for (const collection of CAMPAIGN_COLLECTION_NAMES) {
+    campaignRecordStores[collection].set([]);
+  }
 }

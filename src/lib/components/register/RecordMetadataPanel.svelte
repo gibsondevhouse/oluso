@@ -55,9 +55,10 @@
   .detail-panel {
     display: grid;
     gap: 12px;
-    border: 1px solid var(--color-border);
-    border-radius: 8px;
-    background: var(--color-surface);
+    border: 1px solid var(--glass-border-subtle);
+    border-radius: var(--radius-surface);
+    background: linear-gradient(180deg, rgba(22, 33, 36, 0.86), rgba(14, 23, 25, 0.84));
+    box-shadow: var(--surface-shadow);
     padding: 18px;
   }
 
@@ -70,7 +71,9 @@
 
   .detail-header h2 {
     margin: 0;
-    font-size: 1rem;
+    color: var(--color-text);
+    font-size: 1.0625rem;
+    font-weight: 760;
     line-height: 1.25;
   }
 
@@ -78,21 +81,21 @@
     display: grid;
     gap: 0;
     margin: 0;
-    border-top: 1px solid var(--color-border);
+    border-top: 1px solid var(--glass-border-subtle);
   }
 
   .detail-list div {
     display: grid;
     grid-template-columns: minmax(140px, 0.3fr) 1fr;
     gap: 16px;
-    border-bottom: 1px solid var(--color-border);
-    padding: 10px 0;
+    border-bottom: 1px solid var(--glass-border-subtle);
+    padding: 11px 0;
   }
 
   dt {
     color: var(--color-muted);
     font-size: 0.8125rem;
-    font-weight: 700;
+    font-weight: 760;
   }
 
   dd {

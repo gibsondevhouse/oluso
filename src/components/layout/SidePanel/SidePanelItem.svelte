@@ -26,7 +26,7 @@
       <IconComponent size={18} />
     </span>
   {/if}
-  
+
   {#if !collapsed}
     <span class="title">{item.title}</span>
     {#if item.badge !== undefined && item.badge > 0}
@@ -37,29 +37,47 @@
 
 <style>
   .side-panel-item {
+    position: relative;
     display: flex;
     align-items: center;
-    padding: 6px 12px;
+    min-height: 34px;
+    padding: 7px 12px;
     margin: 2px 8px;
-    border-radius: 6px;
+    border: 1px solid transparent;
+    border-radius: var(--radius-control);
     color: var(--color-nav-text);
     text-decoration: none;
     font-size: 0.875rem;
     line-height: 1.25rem;
-    font-weight: 500;
-    transition: background-color 0.15s, color 0.15s;
+    font-weight: 600;
+    transition:
+      background-color var(--motion-duration-fast),
+      border-color var(--motion-duration-fast),
+      color var(--motion-duration-fast);
     user-select: none;
   }
 
   .side-panel-item:hover {
+    border-color: var(--glass-border-subtle);
     background-color: var(--color-nav-hover-bg);
     color: var(--color-nav-hover-text);
   }
 
   .side-panel-item.active {
+    border-color: rgba(45, 212, 191, 0.28);
     background-color: var(--color-nav-active-bg);
     color: var(--color-nav-active-text);
-    font-weight: 600;
+    font-weight: 720;
+  }
+
+  .side-panel-item.active::before {
+    position: absolute;
+    left: -8px;
+    width: 3px;
+    height: 20px;
+    border-radius: 999px;
+    background: var(--color-accent);
+    content: "";
   }
 
   .side-panel-item.collapsed {
@@ -91,7 +109,7 @@
     color: var(--color-badge-text);
     font-size: 0.75rem;
     padding: 1px 6px;
-    border-radius: 10px;
+    border-radius: 999px;
     font-weight: 600;
   }
 </style>

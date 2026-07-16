@@ -1,0 +1,3 @@
+ALTER TABLE locations ADD COLUMN country TEXT NOT NULL DEFAULT '';
+ALTER TABLE locations ADD COLUMN stateProvince TEXT NOT NULL DEFAULT '';
+

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { dev } from "$app/environment";
+  import { LayoutDashboard, RefreshCw } from "lucide-svelte";
 
   interface ErrorDetails {
     message?: string;
@@ -29,8 +30,14 @@
   </header>
 
   <div class="action-row">
-    <button class="button-link" type="button" onclick={reloadApp}>Reload App</button>
-    <a class="secondary-button" href="/dashboard">Go to Dashboard</a>
+    <button class="button-link" type="button" onclick={reloadApp}>
+      <RefreshCw size={16} aria-hidden="true" />
+      Reload App
+    </button>
+    <a class="secondary-button" href="/dashboard">
+      <LayoutDashboard size={16} aria-hidden="true" />
+      Go to Dashboard
+    </a>
   </div>
 
   {#if dev && details?.message}
@@ -54,9 +61,10 @@
 
   .error-details {
     margin-top: 20px;
-    border: 1px solid var(--color-border);
-    border-radius: 8px;
-    background: var(--color-surface);
+    border: 1px solid var(--glass-border-subtle);
+    border-radius: var(--radius-surface);
+    background: var(--color-surface-solid);
+    box-shadow: var(--surface-shadow);
     padding: 12px 14px;
   }
 

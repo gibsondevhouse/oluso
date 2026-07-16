@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { ArrowLeft, LayoutDashboard } from "lucide-svelte";
+
   function goBack() {
     history.back();
   }
@@ -14,8 +16,14 @@
   </header>
 
   <div class="action-row">
-    <a class="button-link" href="/dashboard">Go to Dashboard</a>
-    <button class="secondary-button" type="button" onclick={goBack}>Go Back</button>
+    <a class="button-link" href="/dashboard">
+      <LayoutDashboard size={16} aria-hidden="true" />
+      Go to Dashboard
+    </a>
+    <button class="secondary-button" type="button" onclick={goBack}>
+      <ArrowLeft size={16} aria-hidden="true" />
+      Go Back
+    </button>
   </div>
 </section>
 

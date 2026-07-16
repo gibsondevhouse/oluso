@@ -118,6 +118,8 @@ const locationRecord: LocationRecord = {
   name: "Main Plant",
   type: "Facility",
   parentLocationId: "",
+  country: "United States",
+  stateProvince: "Michigan",
   description: "",
   status: "active",
   createdAt: "2026-07-09T12:00:00.000Z",

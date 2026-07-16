@@ -18,7 +18,7 @@ describe("AppShell", () => {
     expect(screen.getByRole("navigation", { name: "Main sections" })).toBeInTheDocument();
     expect(screen.getByRole("banner")).toBeInTheDocument();
     expect(screen.getByRole("main")).toBeInTheDocument();
-    expect(screen.getByText("Desktop Workspace")).toBeInTheDocument();
+    expect(screen.getByText("HSE Assurance Console")).toBeInTheDocument();
     expect(screen.getByLabelText("Persistence status")).toHaveTextContent(
       "Persistence not configured",
     );

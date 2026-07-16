@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { Plus } from "lucide-svelte";
   import StatusPill from "$lib/components/ui/StatusPill.svelte";
 
   interface Props {
@@ -36,7 +37,10 @@
       <StatusPill label={statusLabel} tone={statusTone} />
     {/if}
     {#if primaryActionLabel && onPrimaryAction}
-      <button class="button-link" type="button" onclick={onPrimaryAction}>{primaryActionLabel}</button>
+      <button class="button-link" type="button" onclick={onPrimaryAction}>
+        <Plus size={16} aria-hidden="true" />
+        {primaryActionLabel}
+      </button>
     {/if}
   </div>
 </header>
@@ -47,6 +51,7 @@
     align-items: flex-start;
     justify-content: space-between;
     gap: 20px;
+    max-width: 1180px;
   }
 
   .register-header-actions {

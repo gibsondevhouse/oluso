@@ -1,3 +1,9 @@
+import {
+  CAMPAIGN_REGISTER_DEFINITIONS,
+  isCampaignRegisterKind,
+  type CampaignRegisterKind,
+} from "$lib/persistence/campaign-register.types";
+
 export type RouteKind =
   | "dashboard"
   | "global-search"
@@ -18,7 +24,8 @@ export type RouteKind =
   | "settings"
   | "placeholder"
   | "not-found"
-  | "error";
+  | "error"
+  | CampaignRegisterKind;
 
 export type RegisterRouteKind = Extract<
   RouteKind,
@@ -35,6 +42,7 @@ export type RegisterRouteKind = Extract<
   | "incidents"
   | "compliance-items"
   | "corrective-actions"
+  | CampaignRegisterKind
 >;
 
 export type RouteMode = "list" | "new" | "detail" | "edit";
@@ -187,6 +195,15 @@ export const APP_ROUTES: AppRoute[] = [
     mode: "list",
     basePath: "/compliance/items",
   },
+  ...CAMPAIGN_REGISTER_DEFINITIONS.map((definition) => ({
+    path: definition.basePath,
+    title: definition.title,
+    summary: definition.summary,
+    section: definition.sidebarTitle,
+    kind: definition.kind as CampaignRegisterKind,
+    mode: "list" as const,
+    basePath: definition.basePath,
+  })),
   {
     path: "/reports/exports",
     title: "Reports & Exports",
@@ -224,6 +241,11 @@ export const PARENT_REDIRECTS: ParentRedirect[] = [
   { path: "/actions", redirectTo: "/actions/corrective-actions" },
   { path: "/incidents", redirectTo: "/incidents/log" },
   { path: "/compliance", redirectTo: "/compliance/items" },
+  { path: "/people", redirectTo: "/people/organizations" },
+  { path: "/training", redirectTo: "/training/courses" },
+  { path: "/change", redirectTo: "/change/moc" },
+  { path: "/environment", redirectTo: "/environment/requirements" },
+  { path: "/ih", redirectTo: "/ih/exposure-agents" },
   { path: "/reports", redirectTo: "/reports/exports" },
   { path: "/system", redirectTo: "/system/settings" },
 ];
@@ -251,7 +273,7 @@ export function isRegisterRouteKind(kind: RouteKind): kind is RegisterRouteKind 
     "incidents",
     "compliance-items",
     "corrective-actions",
-  ].includes(kind);
+  ].includes(kind) || isCampaignRegisterKind(kind);
 }
 
 function getRegisterRoutes(): Array<AppRoute & { kind: RegisterRouteKind; basePath: string }> {

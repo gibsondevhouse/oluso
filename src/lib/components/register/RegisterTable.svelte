@@ -1,4 +1,5 @@
 <script lang="ts" generics="TRecord extends RegisterRecord">
+  import { ChevronLeft, ChevronRight, Search, SlidersHorizontal } from "lucide-svelte";
   import RegisterState from "$lib/components/register/RegisterState.svelte";
   import StatusPill from "$lib/components/ui/StatusPill.svelte";
   import type {
@@ -235,7 +236,7 @@
 
     <div class="register-table-controls">
       <label class="toolbar-control">
-        <span>Search</span>
+        <span><Search size={14} aria-hidden="true" /> Search</span>
         <input
           id={getControlId("search")}
           name={getControlId("search")}
@@ -248,7 +249,7 @@
 
       {#if statusFilterOptions.length > 0}
         <label class="toolbar-control">
-          <span>{statusFilterLabel}</span>
+          <span><SlidersHorizontal size={14} aria-hidden="true" /> {statusFilterLabel}</span>
           <select
             id={getControlId("status-filter")}
             name={getControlId("status-filter")}
@@ -267,7 +268,7 @@
 
       {#if extraFilterOptions.length > 0}
         <label class="toolbar-control">
-          <span>{extraFilterLabel}</span>
+          <span><SlidersHorizontal size={14} aria-hidden="true" /> {extraFilterLabel}</span>
           <select
             id={getControlId("extra-filter")}
             name={getControlId("extra-filter")}
@@ -396,6 +397,7 @@
           disabled={page.currentPage === 1}
           onclick={() => (currentPage = page.currentPage - 1)}
         >
+          <ChevronLeft size={16} aria-hidden="true" />
           Previous
         </button>
         <span>Page {page.currentPage} of {page.totalPages}</span>
@@ -406,6 +408,7 @@
           onclick={() => (currentPage = page.currentPage + 1)}
         >
           Next
+          <ChevronRight size={16} aria-hidden="true" />
         </button>
         <label class="page-size-control">
           <span>Rows per page</span>
@@ -429,6 +432,8 @@
 <style>
   .register-table-toolbar {
     align-items: flex-start;
+    border-bottom: 1px solid var(--glass-border-subtle);
+    padding-bottom: 14px;
   }
 
   .register-table-controls {
@@ -444,7 +449,15 @@
     gap: 6px;
     color: var(--color-muted);
     font-size: 0.75rem;
-    font-weight: 700;
+    font-weight: 760;
+  }
+
+  .toolbar-control > span {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    line-height: 1.2;
+    text-transform: uppercase;
   }
 
   .row-actions {
@@ -455,10 +468,16 @@
 
   .clickable-row {
     cursor: pointer;
+    transition: background-color var(--motion-duration-fast) var(--motion-ease-standard);
   }
 
   .clickable-row:hover {
-    background: var(--color-hover);
+    background: rgba(255, 255, 255, 0.045);
+  }
+
+  .clickable-row:focus-visible {
+    outline: 2px solid var(--color-focus);
+    outline-offset: -2px;
   }
 
   .pagination-controls {
@@ -466,8 +485,11 @@
     align-items: center;
     flex-wrap: wrap;
     gap: 10px;
+    border-top: 1px solid var(--glass-border-subtle);
     color: var(--color-muted);
     font-size: 0.8125rem;
+    font-weight: 650;
+    padding-top: 14px;
   }
 
   .pagination-controls button:disabled {
@@ -483,9 +505,10 @@
   }
 
   .page-size-control select {
-    border: 1px solid var(--color-border-strong);
-    border-radius: 6px;
-    background: var(--color-surface);
+    min-height: 34px;
+    border: 1px solid var(--color-field-border);
+    border-radius: var(--radius-control);
+    background: var(--color-field-bg);
     color: var(--color-text);
     padding: 6px 8px;
   }

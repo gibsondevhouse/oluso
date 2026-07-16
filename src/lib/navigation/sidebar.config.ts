@@ -1,4 +1,17 @@
 import type { SidebarConfig } from "./sidebar.types";
+import { CAMPAIGN_REGISTER_DEFINITIONS } from "$lib/persistence/campaign-register.types";
+
+function campaignChildrenFor(sectionId: string, routeType: "register" | "report" = "register") {
+  return CAMPAIGN_REGISTER_DEFINITIONS.filter(
+    (definition) => definition.sidebarSection === sectionId,
+  ).map((definition) => ({
+    id: definition.kind,
+    title: definition.title,
+    route: definition.basePath,
+    icon: routeType === "report" ? "FileBarChart" : "ClipboardList",
+    routeType,
+  }));
+}
 
 export const SIDEBAR_CONFIG: SidebarConfig = {
   appTitle: "OLUSO",
@@ -54,7 +67,16 @@ export const SIDEBAR_CONFIG: SidebarConfig = {
           icon: "Wrench",
           routeType: "register",
         },
+        ...campaignChildrenFor("operations"),
       ],
+    },
+    {
+      id: "people-work",
+      title: "People & Work",
+      icon: "UsersRound",
+      collapsible: true,
+      defaultExpanded: true,
+      children: campaignChildrenFor("people-work"),
     },
     {
       id: "hse-registers",
@@ -94,6 +116,22 @@ export const SIDEBAR_CONFIG: SidebarConfig = {
       ],
     },
     {
+      id: "industrial-hygiene",
+      title: "Industrial Hygiene",
+      icon: "FileBarChart",
+      collapsible: true,
+      defaultExpanded: false,
+      children: campaignChildrenFor("industrial-hygiene"),
+    },
+    {
+      id: "training",
+      title: "Training",
+      icon: "ClipboardCheck",
+      collapsible: true,
+      defaultExpanded: false,
+      children: campaignChildrenFor("training"),
+    },
+    {
       id: "risk-management",
       title: "Risk Management",
       icon: "ShieldCheck",
@@ -130,7 +168,16 @@ export const SIDEBAR_CONFIG: SidebarConfig = {
           icon: "ClipboardList",
           routeType: "register",
         },
+        ...campaignChildrenFor("field-work"),
       ],
+    },
+    {
+      id: "change-control",
+      title: "Change Control",
+      icon: "Workflow",
+      collapsible: true,
+      defaultExpanded: false,
+      children: campaignChildrenFor("change-control"),
     },
     {
       id: "actions",
@@ -181,6 +228,14 @@ export const SIDEBAR_CONFIG: SidebarConfig = {
       ],
     },
     {
+      id: "environmental",
+      title: "Environmental",
+      icon: "ShieldAlert",
+      collapsible: true,
+      defaultExpanded: false,
+      children: campaignChildrenFor("environmental"),
+    },
+    {
       id: "reports",
       title: "Reports",
       icon: "FileBarChart",
@@ -194,6 +249,7 @@ export const SIDEBAR_CONFIG: SidebarConfig = {
           icon: "FileOutput",
           routeType: "report",
         },
+        ...campaignChildrenFor("reports", "report"),
       ],
     },
     {

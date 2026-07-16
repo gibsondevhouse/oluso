@@ -9,10 +9,11 @@ use std::path::{Path, PathBuf};
 use tauri::{AppHandle, Manager};
 use uuid::Uuid;
 
-const SCHEMA_VERSION: i64 = 8;
+const SCHEMA_VERSION: i64 = 10;
 const DB_FILE_NAME: &str = "oluso.db";
 const LOCAL_STORAGE_MIGRATION_KEY: &str = "local_storage_migration_complete";
 const ALLOW_EMPTY_DATABASE_KEY: &str = "allow_empty_database";
+const CAMPAIGN_RECORD_TABLE: &str = "campaign_records";
 
 type Result<T> = std::result::Result<T, PersistenceError>;
 
@@ -135,6 +136,16 @@ const LOCATION_FIELDS: &[FieldSpec] = &[
     FieldSpec {
         key: "parentLocationId",
         column: "parentLocationId",
+        kind: FieldKind::Text,
+    },
+    FieldSpec {
+        key: "country",
+        column: "country",
+        kind: FieldKind::Text,
+    },
+    FieldSpec {
+        key: "stateProvince",
+        column: "stateProvince",
         kind: FieldKind::Text,
     },
     FieldSpec {
@@ -1155,6 +1166,50 @@ const CORRECTIVE_ACTION_FIELDS: &[FieldSpec] = &[
     COMMON_FIELDS[4],
 ];
 
+const CAMPAIGN_RECORD_FIELDS: &[FieldSpec] = &[
+    FieldSpec { key: "id", column: "id", kind: FieldKind::Text },
+    FieldSpec { key: "businessId", column: "businessId", kind: FieldKind::Text },
+    FieldSpec { key: "title", column: "title", kind: FieldKind::Text },
+    FieldSpec { key: "type", column: "type", kind: FieldKind::Text },
+    FieldSpec { key: "status", column: "status", kind: FieldKind::Text },
+    FieldSpec { key: "summary", column: "summary", kind: FieldKind::Text },
+    FieldSpec { key: "owner", column: "owner", kind: FieldKind::Text },
+    FieldSpec { key: "locationId", column: "locationId", kind: FieldKind::Text },
+    FieldSpec { key: "processId", column: "processId", kind: FieldKind::Text },
+    FieldSpec { key: "personId", column: "personId", kind: FieldKind::Text },
+    FieldSpec { key: "organizationId", column: "organizationId", kind: FieldKind::Text },
+    FieldSpec { key: "taskId", column: "taskId", kind: FieldKind::Text },
+    FieldSpec { key: "segId", column: "segId", kind: FieldKind::Text },
+    FieldSpec { key: "chemicalId", column: "chemicalId", kind: FieldKind::Text },
+    FieldSpec { key: "equipmentId", column: "equipmentId", kind: FieldKind::Text },
+    FieldSpec { key: "hazardIds", column: "hazardIds", kind: FieldKind::JsonArray },
+    FieldSpec { key: "controlIds", column: "controlIds", kind: FieldKind::JsonArray },
+    FieldSpec { key: "relatedRecordIds", column: "relatedRecordIds", kind: FieldKind::JsonArray },
+    FieldSpec { key: "effectiveFrom", column: "effectiveFrom", kind: FieldKind::Text },
+    FieldSpec { key: "effectiveTo", column: "effectiveTo", kind: FieldKind::Text },
+    FieldSpec { key: "dueDate", column: "dueDate", kind: FieldKind::Text },
+    FieldSpec { key: "reviewDate", column: "reviewDate", kind: FieldKind::Text },
+    FieldSpec { key: "evidenceReference", column: "evidenceReference", kind: FieldKind::Text },
+    FieldSpec { key: "notes", column: "notes", kind: FieldKind::Text },
+    COMMON_FIELDS[0],
+    COMMON_FIELDS[1],
+    COMMON_FIELDS[2],
+    COMMON_FIELDS[3],
+    COMMON_FIELDS[4],
+];
+
+macro_rules! campaign_collection {
+    ($api_name:literal, $snapshot_key:literal) => {
+        Collection {
+            api_name: $api_name,
+            table: CAMPAIGN_RECORD_TABLE,
+            snapshot_key: $snapshot_key,
+            primary_label: "title",
+            fields: CAMPAIGN_RECORD_FIELDS,
+        }
+    };
+}
+
 const COLLECTIONS: &[Collection] = &[
     Collection {
         api_name: "locations",
@@ -1247,6 +1302,39 @@ const COLLECTIONS: &[Collection] = &[
         primary_label: "title",
         fields: CORRECTIVE_ACTION_FIELDS,
     },
+    campaign_collection!("organizations", "organizations"),
+    campaign_collection!("people", "people"),
+    campaign_collection!("segMemberships", "segMemberships"),
+    campaign_collection!("tasks", "tasks"),
+    campaign_collection!("contractorScopes", "contractorScopes"),
+    campaign_collection!("inspections", "inspections"),
+    campaign_collection!("exposureAgents", "exposureAgents"),
+    campaign_collection!("exposureLimits", "exposureLimits"),
+    campaign_collection!("exposureAssessments", "exposureAssessments"),
+    campaign_collection!("exposureDeterminations", "exposureDeterminations"),
+    campaign_collection!("samplingCampaigns", "samplingCampaigns"),
+    campaign_collection!("controlVerifications", "controlVerifications"),
+    campaign_collection!("hsePrograms", "hsePrograms"),
+    campaign_collection!("programApplicabilities", "programApplicabilities"),
+    campaign_collection!("medicalSurveillance", "medicalSurveillance"),
+    campaign_collection!("trainingCourses", "trainingCourses"),
+    campaign_collection!("trainingRequirements", "trainingRequirements"),
+    campaign_collection!("trainingRecords", "trainingRecords"),
+    campaign_collection!("managementChanges", "managementChanges"),
+    campaign_collection!("changeReviews", "changeReviews"),
+    campaign_collection!("pssrs", "pssrs"),
+    campaign_collection!("regulatoryRequirements", "regulatoryRequirements"),
+    campaign_collection!("permits", "permits"),
+    campaign_collection!("wasteStreams", "wasteStreams"),
+    campaign_collection!("wasteShipments", "wasteShipments"),
+    campaign_collection!("environmentalSources", "environmentalSources"),
+    campaign_collection!("environmentalInspections", "environmentalInspections"),
+    campaign_collection!("environmentalEvents", "environmentalEvents"),
+    campaign_collection!("documentReferences", "documentReferences"),
+    campaign_collection!("dataQualityFindings", "dataQualityFindings"),
+    campaign_collection!("migrationMappings", "migrationMappings"),
+    campaign_collection!("importRuns", "importRuns"),
+    campaign_collection!("migrationBundles", "migrationBundles"),
 ];
 
 pub struct ConnectionManager {
@@ -1363,6 +1451,16 @@ impl MigrationRunner {
                     version: 8,
                     name: "008_location_hierarchy",
                     sql: include_str!("../migrations/008_location_hierarchy.sql"),
+                },
+                Migration {
+                    version: 9,
+                    name: "009_campaign_registers",
+                    sql: include_str!("../migrations/009_campaign_registers.sql"),
+                },
+                Migration {
+                    version: 10,
+                    name: "010_location_geography",
+                    sql: include_str!("../migrations/010_location_geography.sql"),
                 },
             ],
         }
@@ -1764,6 +1862,30 @@ impl<'a> SqliteRepository<'a> {
     }
 
     fn list(&self, collection: Collection, include_archived: bool) -> Result<Vec<Value>> {
+        if is_campaign_collection(collection) {
+            let mut sql = format!(
+                "SELECT payload FROM {} WHERE collection = ?1",
+                CAMPAIGN_RECORD_TABLE
+            );
+            if !include_archived {
+                sql.push_str(" AND lifecycleStatus != 'archived'");
+            }
+            let mut stmt = self.conn.prepare(&sql)?;
+            let rows = stmt.query_map(params![collection.api_name], |row| {
+                let payload: String = row.get(0)?;
+                serde_json::from_str::<Value>(&payload).map_err(|error| {
+                    rusqlite::Error::FromSqlConversionFailure(
+                        0,
+                        rusqlite::types::Type::Text,
+                        Box::new(error),
+                    )
+                })
+            })?;
+            return rows
+                .collect::<std::result::Result<Vec<_>, _>>()
+                .map_err(Into::into);
+        }
+
         let mut sql = format!(
             "SELECT {} FROM {}",
             select_columns(collection),
@@ -1779,6 +1901,30 @@ impl<'a> SqliteRepository<'a> {
     }
 
     fn get(&self, collection: Collection, id: &str) -> Result<Option<Value>> {
+        if is_campaign_collection(collection) {
+            return self
+                .conn
+                .query_row(
+                    &format!(
+                        "SELECT payload FROM {} WHERE collection = ?1 AND id = ?2",
+                        CAMPAIGN_RECORD_TABLE
+                    ),
+                    params![collection.api_name, id],
+                    |row| {
+                        let payload: String = row.get(0)?;
+                        serde_json::from_str::<Value>(&payload).map_err(|error| {
+                            rusqlite::Error::FromSqlConversionFailure(
+                                0,
+                                rusqlite::types::Type::Text,
+                                Box::new(error),
+                            )
+                        })
+                    },
+                )
+                .optional()
+                .map_err(Into::into);
+        }
+
         let sql = format!(
             "SELECT {} FROM {} WHERE id = ?1",
             select_columns(collection),
@@ -1822,6 +1968,10 @@ fn collection_by_name(name: &str) -> Result<Collection> {
         .ok_or_else(|| PersistenceError::Message(format!("Unknown register collection: {name}.")))
 }
 
+fn is_campaign_collection(collection: Collection) -> bool {
+    collection.table == CAMPAIGN_RECORD_TABLE
+}
+
 fn select_columns(collection: Collection) -> String {
     collection
         .fields
@@ -1863,6 +2013,26 @@ fn row_to_record(collection: Collection, row: &rusqlite::Row<'_>) -> rusqlite::R
 }
 
 fn insert_record(conn: &Connection, collection: Collection, record: &Value) -> Result<()> {
+    if is_campaign_collection(collection) {
+        let payload = serde_json::to_string(record)?;
+        conn.execute(
+            &format!(
+                "INSERT INTO {} (collection, id, businessId, payload, lifecycleStatus, updatedAt)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+                CAMPAIGN_RECORD_TABLE
+            ),
+            params![
+                collection.api_name,
+                string_field(record, "id")?,
+                string_field(record, "businessId")?,
+                payload,
+                string_field(record, "lifecycleStatus")?,
+                string_field(record, "updatedAt")?,
+            ],
+        )?;
+        return Ok(());
+    }
+
     let columns = collection
         .fields
         .iter()
@@ -1888,6 +2058,30 @@ fn update_record(
     id: &str,
     record: &Value,
 ) -> Result<()> {
+    if is_campaign_collection(collection) {
+        let payload = serde_json::to_string(record)?;
+        let changed = conn.execute(
+            &format!(
+                "UPDATE {}
+                 SET businessId = ?1, payload = ?2, lifecycleStatus = ?3, updatedAt = ?4
+                 WHERE collection = ?5 AND id = ?6",
+                CAMPAIGN_RECORD_TABLE
+            ),
+            params![
+                string_field(record, "businessId")?,
+                payload,
+                string_field(record, "lifecycleStatus")?,
+                string_field(record, "updatedAt")?,
+                collection.api_name,
+                id,
+            ],
+        )?;
+        if changed == 0 {
+            return Err(PersistenceError::Message("Record was not found.".into()));
+        }
+        return Ok(());
+    }
+
     let assignments = collection
         .fields
         .iter()
@@ -1947,6 +2141,19 @@ fn build_created_record(collection: Collection, input: Value) -> Result<Value> {
     let mut record = object_from_value(input)?;
     let timestamp = now_iso();
     record.insert("id".into(), Value::String(Uuid::new_v4().to_string()));
+    if is_campaign_collection(collection)
+        && record
+            .get("businessId")
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .unwrap_or("")
+            .is_empty()
+    {
+        record.insert(
+            "businessId".into(),
+            Value::String(generate_campaign_business_id(collection)),
+        );
+    }
     record.insert("createdAt".into(), Value::String(timestamp.clone()));
     record.insert("updatedAt".into(), Value::String(timestamp));
     record.insert("lifecycleStatus".into(), Value::String("active".into()));
@@ -2118,6 +2325,27 @@ fn normalize_corrective_action_status(status: &str) -> String {
     }
 }
 
+fn generate_campaign_business_id(collection: Collection) -> String {
+    let uppercase = collection
+        .api_name
+        .chars()
+        .filter(|character| character.is_ascii_uppercase())
+        .collect::<String>();
+    let prefix = if uppercase.len() >= 2 {
+        uppercase
+    } else {
+        collection
+            .api_name
+            .chars()
+            .filter(|character| character.is_ascii_alphanumeric())
+            .take(5)
+            .collect::<String>()
+            .to_ascii_uppercase()
+    };
+    let suffix = Uuid::new_v4().simple().to_string();
+    format!("{prefix}-{}", &suffix[..8])
+}
+
 fn action_has_completion(status: &str) -> bool {
     matches!(status, "Completed" | "Verified" | "Closed")
 }
@@ -2232,6 +2460,29 @@ fn validate_record(
         return Err(PersistenceError::Message(format!(
             "Record ID {id} already exists."
         )));
+    }
+
+    if is_campaign_collection(collection) {
+        require_text(record, "businessId", "Business ID is required.")?;
+        require_text(record, "title", "Title is required.")?;
+        require_text(record, "type", "Type is required.")?;
+        require_text(record, "status", "Status is required.")?;
+
+        if collection.api_name == "pssrs"
+            && matches!(
+                string_field(record, "status")?.as_str(),
+                "Ready With Approved Conditions" | "Ready for Startup" | "Startup Authorized" | "Closed"
+            )
+            && !string_field(record, "startupBlockers")?.is_empty()
+            && string_field(record, "blockerDisposition")?.is_empty()
+        {
+            return Err(PersistenceError::Message(
+                "Startup blockers require an approved disposition before readiness or authorization."
+                    .into(),
+            ));
+        }
+
+        return Ok(());
     }
 
     match collection.api_name {
@@ -3090,6 +3341,17 @@ fn validate_record(
 }
 
 fn record_exists(conn: &Connection, collection: Collection, id: &str) -> Result<bool> {
+    if is_campaign_collection(collection) {
+        return Ok(conn.query_row(
+            &format!(
+                "SELECT EXISTS(SELECT 1 FROM {} WHERE collection = ?1 AND id = ?2)",
+                CAMPAIGN_RECORD_TABLE
+            ),
+            params![collection.api_name, id],
+            |row| row.get::<_, bool>(0),
+        )?);
+    }
+
     let sql = format!(
         "SELECT EXISTS(SELECT 1 FROM {} WHERE id = ?1)",
         collection.table
@@ -3352,11 +3614,7 @@ fn diagnostics_for(
 fn record_counts(conn: &Connection) -> Result<Value> {
     let mut counts = Map::new();
     for collection in COLLECTIONS {
-        let sql = format!(
-            "SELECT COUNT(*) FROM {} WHERE lifecycleStatus != 'archived'",
-            collection.table
-        );
-        let count: i64 = conn.query_row(&sql, [], |row| row.get(0))?;
+        let count = count_collection_records(conn, *collection, false)?;
         counts.insert(
             collection.snapshot_key.to_string(),
             Value::Number(count.into()),
@@ -3368,10 +3626,32 @@ fn record_counts(conn: &Connection) -> Result<Value> {
 fn count_all_records(conn: &Connection) -> Result<i64> {
     let mut total = 0;
     for collection in COLLECTIONS {
-        let sql = format!("SELECT COUNT(*) FROM {}", collection.table);
-        total += conn.query_row(&sql, [], |row| row.get::<_, i64>(0))?;
+        total += count_collection_records(conn, *collection, true)?;
     }
     Ok(total)
+}
+
+fn count_collection_records(
+    conn: &Connection,
+    collection: Collection,
+    include_archived: bool,
+) -> Result<i64> {
+    if is_campaign_collection(collection) {
+        let mut sql = format!(
+            "SELECT COUNT(*) FROM {} WHERE collection = ?1",
+            CAMPAIGN_RECORD_TABLE
+        );
+        if !include_archived {
+            sql.push_str(" AND lifecycleStatus != 'archived'");
+        }
+        return Ok(conn.query_row(&sql, params![collection.api_name], |row| row.get(0))?);
+    }
+
+    let mut sql = format!("SELECT COUNT(*) FROM {}", collection.table);
+    if !include_archived {
+        sql.push_str(" WHERE lifecycleStatus != 'archived'");
+    }
+    Ok(conn.query_row(&sql, [], |row| row.get(0))?)
 }
 
 fn count_records_in_database(database: &Value) -> usize {
@@ -3396,20 +3676,14 @@ fn clear_domain_tables(conn: &Connection) -> Result<()> {
 }
 
 fn recreate_schema(conn: &Connection) -> Result<()> {
+    let mut dropped_tables = BTreeSet::new();
+    for collection in COLLECTIONS.iter().rev() {
+        if dropped_tables.insert(collection.table) {
+            conn.execute(&format!("DROP TABLE IF EXISTS {}", collection.table), [])?;
+        }
+    }
+
     for table in [
-        "corrective_actions",
-        "compliance_items",
-        "incidents",
-        "exposure_monitoring",
-        "findings",
-        "segs",
-        "risk_assessments",
-        "controls",
-        "hazards",
-        "chemicals",
-        "equipment",
-        "processes",
-        "locations",
         "persistence_meta",
         "migration_log",
         "schema_version",
@@ -3433,6 +3707,8 @@ fn recreate_schema(conn: &Connection) -> Result<()> {
     ))?;
     conn.execute_batch(include_str!("../migrations/007_p1_product_gaps.sql"))?;
     conn.execute_batch(include_str!("../migrations/008_location_hierarchy.sql"))?;
+    conn.execute_batch(include_str!("../migrations/009_campaign_registers.sql"))?;
+    conn.execute_batch(include_str!("../migrations/010_location_geography.sql"))?;
     conn.execute(
         "INSERT INTO schema_version (version, applied_at) VALUES (?1, ?2)",
         params![SCHEMA_VERSION, now_iso()],
@@ -3481,6 +3757,10 @@ fn validate_database_snapshot(database: &Value) -> Result<()> {
         ));
     }
     for collection in COLLECTIONS {
+        if is_campaign_collection(*collection) && object.get(collection.snapshot_key).is_none() {
+            continue;
+        }
+
         if !object
             .get(collection.snapshot_key)
             .map(Value::is_array)
@@ -3587,19 +3867,19 @@ fn seed_records_for(collection: Collection) -> Result<Vec<Value>> {
     let records = match collection.api_name {
         "locations" => vec![
             lifecycle(
-                json!({"id":"loc-demo-main-facility","name":"Main Facility","type":"Facility","parentLocationId":"","description":"Primary operating location seeded for the MVP Locations workflow.","status":"active"}),
+                json!({"id":"loc-demo-main-facility","name":"Main Facility","type":"Facility","parentLocationId":"","country":"United States","stateProvince":"Michigan","description":"Primary operating location seeded for the MVP Locations workflow.","status":"active"}),
             ),
             lifecycle(
-                json!({"id":"loc-demo-chemical-storage","name":"Chemical Storage Room","type":"Storage","parentLocationId":"loc-demo-main-facility","description":"Controlled storage area seeded so persistence can be verified immediately.","status":"active"}),
+                json!({"id":"loc-demo-chemical-storage","name":"Chemical Storage Room","type":"Storage","parentLocationId":"loc-demo-main-facility","country":"United States","stateProvince":"Michigan","description":"Controlled storage area seeded so persistence can be verified immediately.","status":"active"}),
             ),
             lifecycle(
-                json!({"id":"loc-demo-workshop","name":"Workshop","type":"Production Area","parentLocationId":"loc-demo-main-facility","description":"Maintenance and fabrication workshop area.","status":"active"}),
+                json!({"id":"loc-demo-workshop","name":"Workshop","type":"Production Area","parentLocationId":"loc-demo-main-facility","country":"United States","stateProvince":"Michigan","description":"Maintenance and fabrication workshop area.","status":"active"}),
             ),
             lifecycle(
-                json!({"id":"loc-demo-secondary-site","name":"Secondary Site","type":"Facility","parentLocationId":"","description":"Secondary plant seeded to demonstrate multi-plant filtering.","status":"active"}),
+                json!({"id":"loc-demo-secondary-site","name":"Secondary Site","type":"Facility","parentLocationId":"","country":"United States","stateProvince":"Ohio","description":"Secondary plant seeded to demonstrate multi-plant filtering.","status":"active"}),
             ),
             lifecycle(
-                json!({"id":"loc-demo-secondary-warehouse","name":"Secondary Warehouse","type":"Storage","parentLocationId":"loc-demo-secondary-site","description":"Storage area under the secondary plant.","status":"active"}),
+                json!({"id":"loc-demo-secondary-warehouse","name":"Secondary Warehouse","type":"Storage","parentLocationId":"loc-demo-secondary-site","country":"United States","stateProvince":"Ohio","description":"Storage area under the secondary plant.","status":"active"}),
             ),
         ],
         "processes" => vec![
@@ -3861,7 +4141,7 @@ mod tests {
         let (_dir, manager) = test_manager();
         let snapshot = manager.initialize(None).expect("initialize");
 
-        assert_eq!(snapshot.diagnostics["schemaVersion"], json!(8));
+        assert_eq!(snapshot.diagnostics["schemaVersion"], json!(10));
         assert_eq!(snapshot.diagnostics["recordCounts"]["locations"], json!(5));
         assert_eq!(snapshot.diagnostics["recordCounts"]["equipment"], json!(2));
         assert_eq!(snapshot.diagnostics["recordCounts"]["controls"], json!(2));

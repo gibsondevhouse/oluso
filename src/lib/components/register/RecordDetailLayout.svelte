@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { Archive, Edit3 } from "lucide-svelte";
   import BackToRegisterLink from "$lib/components/register/BackToRegisterLink.svelte";
   import RecordMetadataPanel from "$lib/components/register/RecordMetadataPanel.svelte";
   import RelationshipPanel, {
@@ -169,11 +170,17 @@
         {#each additionalActions as action (action.href)}
           <a class="button-link" href={action.href}>{action.label}</a>
         {/each}
-        <button class="button-link" type="button" onclick={onEdit}>Edit</button>
+        <button class="button-link" type="button" onclick={onEdit}>
+          <Edit3 size={16} aria-hidden="true" />
+          Edit
+        </button>
         {#if isArchived}
           <RestoreAction {onRestore} />
         {:else}
-          <button class="danger-button" type="button" onclick={onArchive}>Archive</button>
+          <button class="danger-button" type="button" onclick={onArchive}>
+            <Archive size={16} aria-hidden="true" />
+            Archive
+          </button>
         {/if}
         <BackToRegisterLink href={backHref} onNavigate={onBack} />
       </div>
@@ -189,9 +196,10 @@
     max-width: 1180px;
     margin-bottom: 16px;
     overflow: hidden;
-    border: 1px solid var(--color-border);
-    border-radius: 8px;
-    background: var(--color-border);
+    border: 1px solid var(--glass-border-subtle);
+    border-radius: var(--radius-surface);
+    background: var(--glass-border-subtle);
+    box-shadow: var(--surface-shadow);
   }
 
   .traceability-strip > div {
@@ -199,12 +207,21 @@
     align-content: start;
     gap: 5px;
     min-width: 0;
-    background: var(--color-surface);
+    background: rgba(16, 24, 26, 0.9);
     padding: 12px;
   }
 
-  .traceability-strip span { color: var(--color-muted); font-size: 0.75rem; font-weight: 700; }
-  .traceability-strip strong { font-size: 0.8125rem; overflow-wrap: anywhere; }
+  .traceability-strip span {
+    color: var(--color-muted);
+    font-size: 0.75rem;
+    font-weight: 760;
+    text-transform: uppercase;
+  }
+
+  .traceability-strip strong {
+    font-size: 0.8125rem;
+    overflow-wrap: anywhere;
+  }
 
   .detail-layout {
     display: grid;
@@ -215,9 +232,10 @@
   .detail-panel {
     display: grid;
     gap: 12px;
-    border: 1px solid var(--color-border);
-    border-radius: 8px;
-    background: var(--color-surface);
+    border: 1px solid var(--glass-border-subtle);
+    border-radius: var(--radius-surface);
+    background: linear-gradient(180deg, rgba(22, 33, 36, 0.86), rgba(14, 23, 25, 0.84));
+    box-shadow: var(--surface-shadow);
     padding: 18px;
   }
 
@@ -230,7 +248,9 @@
 
   .detail-header h2 {
     margin: 0;
-    font-size: 1rem;
+    color: var(--color-text);
+    font-size: 1.0625rem;
+    font-weight: 760;
     line-height: 1.25;
   }
 
@@ -238,21 +258,21 @@
     display: grid;
     gap: 0;
     margin: 0;
-    border-top: 1px solid var(--color-border);
+    border-top: 1px solid var(--glass-border-subtle);
   }
 
   .detail-list div {
     display: grid;
     grid-template-columns: minmax(140px, 0.3fr) 1fr;
     gap: 16px;
-    border-bottom: 1px solid var(--color-border);
-    padding: 10px 0;
+    border-bottom: 1px solid var(--glass-border-subtle);
+    padding: 11px 0;
   }
 
   dt {
     color: var(--color-muted);
     font-size: 0.8125rem;
-    font-weight: 700;
+    font-weight: 760;
   }
 
   dd {
@@ -261,11 +281,34 @@
     overflow-wrap: anywhere;
   }
 
-  .activity-list { display: grid; gap: 0; margin: 0; padding: 0; list-style: none; }
-  .activity-list li { border-top: 1px solid var(--color-border); padding: 10px 0; }
-  .activity-list li > div { display: flex; justify-content: space-between; gap: 12px; }
-  .activity-list time, .activity-list p { color: var(--color-muted); font-size: 0.8125rem; }
-  .activity-list p { margin: 4px 0 0; }
+  .activity-list {
+    display: grid;
+    gap: 0;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .activity-list li {
+    border-top: 1px solid var(--glass-border-subtle);
+    padding: 11px 0;
+  }
+
+  .activity-list li > div {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .activity-list time,
+  .activity-list p {
+    color: var(--color-muted);
+    font-size: 0.8125rem;
+  }
+
+  .activity-list p {
+    margin: 4px 0 0;
+  }
 
   @media (max-width: 720px) {
     .traceability-strip { grid-template-columns: 1fr 1fr; }

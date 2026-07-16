@@ -346,6 +346,10 @@ describe("RouteOutlet", () => {
 
     expect(await screen.findByRole("form", { name: "Edit Workshop" })).toBeInTheDocument();
     expect(screen.getByLabelText("Name")).toHaveValue("Workshop");
+    const parentSelect = screen.getByLabelText("Parent Location / Site") as HTMLSelectElement;
+    expect(Array.from(parentSelect.options).some((option) => option.value === "loc-demo-workshop")).toBe(
+      false,
+    );
   });
 
   it("saves register edit routes without reloading in a reactive loop", async () => {

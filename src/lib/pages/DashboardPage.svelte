@@ -1,21 +1,22 @@
 <script lang="ts">
-  import { APP_ROUTES, isRegisterRouteKind } from "$lib/navigation/route-registry";
+  import { AlertTriangle, CheckCircle2, Database } from "lucide-svelte";
   import {
     findingRecords,
     getPersistenceStatusLabel,
-    locationRecords,
-    processRecords,
-    equipmentRecords,
-    chemicalRecords,
-    controlRecords,
-    hazardRecords,
-    riskAssessmentRecords,
-    segRecords,
     correctiveActionRecords,
+    hazardRecords,
     persistenceDiagnostics,
   } from "$lib/persistence/local-persistence";
 
-  const liveRoutes = APP_ROUTES.filter((route) => isRegisterRouteKind(route.kind));
+  interface PrioritySignal {
+    id: string;
+    title: string;
+    value: number;
+    sub: string;
+    href: string;
+    state: "attention" | "steady";
+  }
+
   const statusLabel = $derived(getPersistenceStatusLabel($persistenceDiagnostics.status));
   const openActions = $derived(
     $correctiveActionRecords.filter(
@@ -23,289 +24,276 @@
     ).length,
   );
   const openFindings = $derived(
-    $findingRecords.filter((f) => f.status === "Open").length,
+    $findingRecords.filter((finding) => finding.status === "Open").length,
   );
   const activeHazards = $derived(
-    $hazardRecords.filter((h) => h.status === "active").length,
+    $hazardRecords.filter((hazard) => hazard.status === "active").length,
   );
-  const chemicalsNeedingSds = $derived(
-    $chemicalRecords.filter((chemical) => ["Missing", "Needs Review"].includes(chemical.sdsStatus)).length,
-  );
-  const controlsNeedingReview = $derived(
-    $controlRecords.filter((control) => ["needs-review", "ineffective"].includes(control.status)).length,
-  );
-  const riskAssessmentsNeedingReview = $derived(
-    $riskAssessmentRecords.filter((assessment) => assessment.reviewStatus === "Needs Review").length,
+  const prioritySignals = $derived(
+    [
+      {
+        id: "open-findings",
+        title: "Open Findings",
+        value: openFindings,
+        sub: `of ${$findingRecords.length} total`,
+        href: "/field/findings",
+        state: openFindings > 0 ? "attention" : "steady",
+      },
+      {
+        id: "open-actions",
+        title: "Open Actions",
+        value: openActions,
+        sub: `of ${$correctiveActionRecords.length} total`,
+        href: "/actions/corrective-actions",
+        state: openActions > 0 ? "attention" : "steady",
+      },
+      {
+        id: "active-hazards",
+        title: "Active Hazards",
+        value: activeHazards,
+        sub: `of ${$hazardRecords.length} total`,
+        href: "/hse/hazards",
+        state: activeHazards > 0 ? "attention" : "steady",
+      },
+    ] satisfies PrioritySignal[],
   );
 </script>
 
-<section class="page" aria-labelledby="dashboard-title">
-  <header class="page-header">
-    <div class="breadcrumbs">Dashboard</div>
-    <h1 class="page-title" id="dashboard-title">Dashboard</h1>
-    <p class="page-summary">
-      Resume field work, review open actions, and jump back into core HSE registers.
-    </p>
-  </header>
-
-  <div class="dashboard-layout">
-    <!-- Status strip -->
-    <div class="status-strip">
+<section class="page dashboard-page" aria-labelledby="dashboard-title">
+  <header class="page-header dashboard-header">
+    <div class="dashboard-title-block">
+      <div class="breadcrumbs">Dashboard</div>
+      <h1 class="page-title" id="dashboard-title">OLUSO Dashboard</h1>
+      <p class="page-summary">
+        Review the highest-priority HSE signals. Use the sidepanel to open workflows and registers.
+      </p>
+    </div>
+    <div class="status-strip" aria-label="Persistence status">
+      <Database size={16} aria-hidden="true" />
       <span class="status-pill {$persistenceDiagnostics.status}">{statusLabel}</span>
       {#if $persistenceDiagnostics.dataPath}
         <span class="status-path">{$persistenceDiagnostics.dataPath}</span>
       {/if}
     </div>
+  </header>
 
-    <!-- Key metrics -->
-    <section class="panel-grid" aria-labelledby="metrics-title">
-      <h2 class="sr-only" id="metrics-title">Key metrics</h2>
+  <section class="dashboard-panel" aria-labelledby="priority-signals-title">
+    <div class="panel-heading">
+      <div>
+        <h2 id="priority-signals-title">Priority Signals</h2>
+        <p>Only the critical health-check metrics stay on the dashboard; the sidepanel owns workflow navigation.</p>
+      </div>
+    </div>
 
-      <div class="metric-panel metric-alert" class:has-data={openFindings > 0}>
-        <a href="/field/findings" class="metric-link">
-          <span class="metric-label">Open Findings</span>
-          <span class="metric-value">{openFindings}</span>
-          <span class="metric-sub">of {$findingRecords.length} total</span>
+    <div class="priority-list" aria-label="Priority Signals">
+      {#each prioritySignals as signal (signal.id)}
+        <a class="priority-row {signal.state}" href={signal.href}>
+          <span class="priority-icon" aria-hidden="true">
+            {#if signal.state === "attention"}
+              <AlertTriangle size={18} />
+            {:else}
+              <CheckCircle2 size={18} />
+            {/if}
+          </span>
+          <span class="priority-title">{signal.title}</span>
+          <strong>{signal.value}</strong>
+          <span>{signal.sub}</span>
         </a>
-      </div>
-
-      <div class="metric-panel metric-alert" class:has-data={openActions > 0}>
-        <a href="/actions/corrective-actions" class="metric-link">
-          <span class="metric-label">Open Actions</span>
-          <span class="metric-value">{openActions}</span>
-          <span class="metric-sub">of {$correctiveActionRecords.length} total</span>
-        </a>
-      </div>
-
-      <div class="metric-panel metric-warn" class:has-data={activeHazards > 0}>
-        <a href="/hse/hazards" class="metric-link">
-          <span class="metric-label">Active Hazards</span>
-          <span class="metric-value">{activeHazards}</span>
-          <span class="metric-sub">of {$hazardRecords.length} total</span>
-        </a>
-      </div>
-
-      <div class="metric-panel metric-warn" class:has-data={controlsNeedingReview > 0}>
-        <a href="/risk/controls" class="metric-link">
-          <span class="metric-label">Control Review</span>
-          <span class="metric-value">{controlsNeedingReview}</span>
-          <span class="metric-sub">needs attention</span>
-        </a>
-      </div>
-
-      <div class="metric-panel metric-warn" class:has-data={riskAssessmentsNeedingReview > 0}>
-        <a href="/risk/assessments" class="metric-link">
-          <span class="metric-label">Risk Reviews</span>
-          <span class="metric-value">{riskAssessmentsNeedingReview}</span>
-          <span class="metric-sub">needs review</span>
-        </a>
-      </div>
-
-      <div class="metric-panel">
-        <a href="/operations/locations" class="metric-link">
-          <span class="metric-label">Locations</span>
-          <span class="metric-value">{$locationRecords.length}</span>
-          <span class="metric-sub">registered</span>
-        </a>
-      </div>
-
-      <div class="metric-panel">
-        <a href="/operations/processes" class="metric-link">
-          <span class="metric-label">Processes</span>
-          <span class="metric-value">{$processRecords.length}</span>
-          <span class="metric-sub">documented</span>
-        </a>
-      </div>
-
-      <div class="metric-panel">
-        <a href="/operations/equipment" class="metric-link">
-          <span class="metric-label">Equipment</span>
-          <span class="metric-value">{$equipmentRecords.length}</span>
-          <span class="metric-sub">tracked</span>
-        </a>
-      </div>
-
-      <div class="metric-panel">
-        <a href="/hse/chemicals" class="metric-link">
-          <span class="metric-label">Chemicals</span>
-          <span class="metric-value">{$chemicalRecords.length}</span>
-          <span class="metric-sub">in inventory</span>
-        </a>
-      </div>
-
-      <div class="metric-panel metric-warn" class:has-data={chemicalsNeedingSds > 0}>
-        <a href="/hse/chemicals" class="metric-link">
-          <span class="metric-label">SDS Needs</span>
-          <span class="metric-value">{chemicalsNeedingSds}</span>
-          <span class="metric-sub">missing or review</span>
-        </a>
-      </div>
-
-      <div class="metric-panel">
-        <a href="/hse/segs" class="metric-link">
-          <span class="metric-label">SEGs</span>
-          <span class="metric-value">{$segRecords.length}</span>
-          <span class="metric-sub">defined</span>
-        </a>
-      </div>
-    </section>
-
-    <!-- Quick navigation -->
-    <section aria-labelledby="quick-links-title">
-      <h2 class="section-title" id="quick-links-title">Registers</h2>
-      <div class="quick-link-grid">
-        {#each liveRoutes as route (route.path)}
-          <a class="quick-link" href={route.path}>
-            <span class="quick-link-section">{route.section}</span>
-            <span class="quick-link-title">{route.title}</span>
-            <span class="quick-link-summary">{route.summary}</span>
-          </a>
-        {/each}
-      </div>
-    </section>
-  </div>
+      {/each}
+    </div>
+  </section>
 </section>
 
 <style>
-  .sr-only {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    padding: 0;
-    margin: -1px;
-    overflow: hidden;
-    clip: rect(0, 0, 0, 0);
-    white-space: nowrap;
-    border: 0;
+  .dashboard-page {
+    max-width: 1180px;
+    padding-block: 34px;
   }
 
-  .dashboard-layout {
-    display: grid;
+  .dashboard-header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
     gap: 28px;
+    margin-bottom: 28px;
+  }
+
+  .dashboard-title-block {
+    display: grid;
+    gap: 8px;
+    min-width: 0;
   }
 
   .status-strip {
     display: flex;
     align-items: center;
+    justify-content: flex-end;
     gap: 10px;
+    min-width: 240px;
+    border: 1px solid var(--glass-border-subtle);
+    border-radius: var(--radius-surface);
+    background: var(--glass-bg-subtle);
+    box-shadow: var(--elevation-z0);
+    padding: 10px 12px;
+    color: var(--color-muted);
   }
 
   .status-path {
-    color: var(--color-muted);
-    font-size: 0.75rem;
-  }
-
-  .section-title {
-    margin: 0 0 12px;
-    color: var(--color-text);
-    font-size: 1rem;
-    font-weight: 700;
-    line-height: 1.25;
-  }
-
-  .panel-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-    gap: 10px;
-  }
-
-  .metric-panel {
-    border: 1px solid var(--color-border);
-    border-radius: 8px;
-    background: var(--color-surface);
+    max-width: 320px;
     overflow: hidden;
-  }
-
-  .metric-link {
-    display: grid;
-    gap: 2px;
-    padding: 16px;
-    text-decoration: none;
-    color: inherit;
-  }
-
-  .metric-link:hover {
-    background: var(--color-hover);
-  }
-
-  .metric-label {
     color: var(--color-muted);
     font-size: 0.75rem;
-    font-weight: 700;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .dashboard-panel {
+    display: grid;
+    gap: 20px;
+    border: 1px solid var(--glass-border-subtle);
+    border-radius: var(--radius-surface);
+    background: linear-gradient(180deg, rgba(22, 33, 36, 0.84), rgba(14, 23, 25, 0.82));
+    box-shadow: var(--surface-shadow);
+    padding: 20px;
+  }
+
+  .panel-heading {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 20px;
+    padding-bottom: 18px;
+    border-bottom: 1px solid var(--glass-border-subtle);
+  }
+
+  .panel-heading h2 {
+    margin: 0;
+    color: var(--color-text);
+    font-size: 1.125rem;
+    font-weight: 760;
+    letter-spacing: 0;
     line-height: 1.2;
   }
 
-  .metric-value {
+  .panel-heading p {
+    max-width: 680px;
+    margin: 6px 0 0;
+    color: var(--color-muted);
+    font-size: 0.9375rem;
+  }
+
+  .panel-heading > span {
+    color: var(--color-muted);
+    font-size: 0.75rem;
+    font-weight: 680;
+    white-space: nowrap;
+  }
+
+  .priority-list {
+    display: grid;
+    gap: 0;
+    overflow: hidden;
+    border: 1px solid var(--glass-border-subtle);
+    border-radius: var(--radius-surface);
+    background: rgba(7, 12, 14, 0.34);
+  }
+
+  .priority-row {
+    display: grid;
+    grid-template-columns: auto minmax(180px, 1fr) auto minmax(130px, 0.6fr);
+    align-items: center;
+    gap: 14px;
+    border-bottom: 1px solid var(--glass-border-subtle);
+    color: var(--color-text);
+    padding: 18px;
+    text-decoration: none;
+    transition:
+      background-color var(--motion-duration-fast) var(--motion-ease-standard),
+      border-color var(--motion-duration-fast) var(--motion-ease-standard);
+  }
+
+  .priority-row:hover,
+  .workflow-row:hover {
+    border-color: var(--glass-border);
+    background: rgba(255, 255, 255, 0.045);
+  }
+
+  .priority-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    border: 1px solid var(--glass-border-subtle);
+    border-radius: var(--radius-control);
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--color-success-text);
+  }
+
+  .priority-row strong {
     color: var(--color-text);
     font-size: 2rem;
+    font-weight: 760;
+    line-height: 1;
+  }
+
+  .priority-row > span:last-child {
+    color: var(--color-muted);
+    font-size: 0.875rem;
+    text-align: right;
+  }
+
+  .priority-title {
+    font-size: 1rem;
     font-weight: 720;
-    line-height: 1.1;
   }
 
-  .metric-sub {
-    color: var(--color-subtle);
-    font-size: 0.75rem;
-    line-height: 1.2;
-  }
-
-  .metric-alert.has-data {
-    border-color: var(--color-danger-border);
-    background: var(--color-danger-soft);
-  }
-
-  .metric-alert.has-data .metric-value {
-    color: var(--color-danger);
-  }
-
-  .metric-warn.has-data {
-    border-color: var(--color-warning-border);
-    background: var(--color-warning-soft);
-  }
-
-  .metric-warn.has-data .metric-value {
+  .priority-row.attention strong {
     color: var(--color-warning-text);
   }
 
-  .quick-link-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 10px;
+  .priority-row.attention .priority-icon {
+    border-color: var(--color-warning-border);
+    background: var(--color-warning-soft);
+    color: var(--color-warning-text);
   }
 
-  .quick-link {
-    display: grid;
-    align-content: start;
-    gap: 4px;
-    border: 1px solid var(--color-border);
-    border-radius: 8px;
-    background: var(--color-surface);
-    color: var(--color-text);
-    padding: 14px;
-    text-decoration: none;
+  @media (max-width: 860px) {
+    .dashboard-header,
+    .panel-heading {
+      align-items: flex-start;
+      flex-direction: column;
+    }
+
+    .status-strip {
+      justify-content: flex-start;
+      min-width: 0;
+      width: 100%;
+    }
+
+    .status-path {
+      max-width: 100%;
+    }
   }
 
-  .quick-link:hover {
-    border-color: var(--color-border-strong);
-    background: var(--color-hover);
-  }
+  @media (max-width: 640px) {
+    .dashboard-page {
+      padding-block: 28px;
+    }
 
-  .quick-link-section {
-    color: var(--color-muted);
-    font-size: 0.75rem;
-    font-weight: 650;
-    line-height: 1.2;
-  }
+    .priority-row {
+      grid-template-columns: 1fr;
+      gap: 8px;
+      padding: 18px 0;
+    }
 
-  .quick-link-title {
-    font-size: 0.9375rem;
-    font-weight: 700;
-    line-height: 1.25;
-  }
+    .priority-icon {
+      display: none;
+    }
 
-  .quick-link-summary {
-    color: var(--color-muted);
-    font-size: 0.8125rem;
-    line-height: 1.4;
-    margin-top: 2px;
+    .priority-row > span:last-child {
+      text-align: left;
+    }
+
   }
 </style>

@@ -52,8 +52,8 @@
         <ToggleIcon size={18} />
       </button>
       <div class="workspace-title">
-        <span class="workspace-kicker">OLUSO</span>
-        <span class="workspace-name">Desktop Workspace</span>
+        <span class="workspace-kicker">OLUSO Enterprise</span>
+        <span class="workspace-name">HSE Assurance Console</span>
       </div>
       <div
         class="workspace-status"
@@ -91,7 +91,7 @@
     width: 100vw;
     height: 100vh;
     overflow: hidden;
-    background: var(--color-bg);
+    background: var(--app-background);
     color: var(--color-text);
   }
 
@@ -102,7 +102,7 @@
     height: 100vh;
     flex-direction: column;
     overflow: hidden;
-    background: var(--color-bg);
+    background: transparent;
   }
 
   .workspace-header {
@@ -111,8 +111,12 @@
     gap: 12px;
     min-height: var(--header-height);
     padding: 0 20px;
-    border-bottom: 1px solid var(--color-border);
-    background: var(--color-surface);
+    border-bottom: 1px solid var(--glass-border-subtle);
+    background:
+      linear-gradient(180deg, rgba(15, 23, 25, 0.92), rgba(10, 17, 19, 0.88)),
+      linear-gradient(90deg, rgba(45, 212, 191, 0.08), transparent 42%, rgba(96, 165, 250, 0.07));
+    box-shadow: var(--elevation-z0);
+    backdrop-filter: blur(var(--glass-blur-md)) saturate(var(--glass-saturate));
   }
 
   .icon-button {
@@ -121,15 +125,18 @@
     justify-content: center;
     width: 34px;
     height: 34px;
-    border: 1px solid var(--color-border-strong);
-    border-radius: 6px;
-    background: var(--color-surface);
+    border: 1px solid var(--glass-border-subtle);
+    border-radius: var(--radius-control);
+    background: linear-gradient(180deg, rgba(31, 46, 49, 0.92), rgba(17, 27, 29, 0.92));
     color: var(--color-text);
     cursor: pointer;
+    box-shadow: var(--elevation-z0);
+    backdrop-filter: blur(var(--glass-blur-sm)) saturate(var(--glass-saturate));
   }
 
   .icon-button:hover {
-    background: var(--color-hover);
+    border-color: var(--glass-border-strong);
+    background: linear-gradient(180deg, rgba(38, 55, 59, 0.96), rgba(22, 34, 36, 0.96));
   }
 
   .icon-button:focus-visible {
@@ -146,9 +153,9 @@
   }
 
   .workspace-kicker {
-    color: var(--color-muted);
+    color: var(--color-accent-strong);
     font-size: 0.6875rem;
-    font-weight: 700;
+    font-weight: 760;
     letter-spacing: 0;
     line-height: 1.2;
     text-transform: uppercase;
@@ -157,18 +164,31 @@
   .workspace-name {
     color: var(--color-text);
     font-size: 0.9375rem;
-    font-weight: 650;
+    font-weight: 720;
     line-height: 1.2;
   }
 
   .workspace-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
     border: 1px solid var(--color-border);
     border-radius: 999px;
+    background: rgba(255, 255, 255, 0.035);
     color: var(--color-muted);
     font-size: 0.75rem;
+    font-weight: 720;
     line-height: 1;
     padding: 6px 10px;
     white-space: nowrap;
+  }
+
+  .workspace-status::before {
+    content: "";
+    width: 6px;
+    height: 6px;
+    border-radius: 999px;
+    background: currentColor;
   }
 
   .workspace-status.status-loading {
@@ -204,12 +224,13 @@
     align-items: center;
     justify-content: space-between;
     min-height: 28px;
-    border-top: 1px solid var(--color-border);
-    background: var(--color-surface);
+    border-top: 1px solid var(--glass-border-subtle);
+    background: rgba(9, 15, 17, 0.82);
     color: var(--color-muted);
     font-size: 0.75rem;
     line-height: 1;
     padding: 0 20px;
+    backdrop-filter: blur(var(--glass-blur-md)) saturate(var(--glass-saturate));
   }
 
   @media (max-width: 800px) {

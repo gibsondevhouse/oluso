@@ -26,7 +26,11 @@ describe("GlobalSearchPage", () => {
     }
 
     expect(within(resultItem).getByText("Findings")).toBeInTheDocument();
-    expect(screen.getByText("2 records found")).toBeInTheDocument();
+    expect(screen.getByText("3 records found")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Emergency Egress Walkthrough" })).toHaveAttribute(
+      "href",
+      "/field/inspections/insp-demo-egress-walkthrough",
+    );
   });
 
   it("filters global results by register", async () => {

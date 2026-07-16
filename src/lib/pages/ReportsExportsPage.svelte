@@ -402,7 +402,7 @@
   .exports-layout {
     display: grid;
     grid-template-columns: minmax(0, 1.1fr) minmax(280px, 0.9fr);
-    gap: 16px;
+    gap: 18px;
     align-items: start;
   }
 
@@ -410,14 +410,24 @@
   .export-result {
     display: grid;
     gap: 16px;
-    border: 1px solid var(--color-border);
-    border-radius: 8px;
-    background: var(--color-surface);
+    border: 1px solid var(--glass-border-subtle);
+    border-radius: var(--radius-surface);
+    background: linear-gradient(180deg, rgba(22, 33, 36, 0.86), rgba(14, 23, 25, 0.84));
+    box-shadow: var(--surface-shadow);
     padding: 18px;
   }
 
-  .review-package-panel { max-width: 980px; margin-top: 16px; }
-  .projection-note { margin: 0; color: var(--color-muted); font-size: 0.8125rem; line-height: 1.45; }
+  .review-package-panel {
+    max-width: 980px;
+    margin-top: 16px;
+  }
+
+  .projection-note {
+    margin: 0;
+    color: var(--color-muted);
+    font-size: 0.8125rem;
+    line-height: 1.45;
+  }
 
   .export-result {
     margin-top: 16px;
@@ -435,7 +445,9 @@
   .result-header h2,
   .export-panel h2 {
     margin: 0;
-    font-size: 1rem;
+    color: var(--color-text);
+    font-size: 1.0625rem;
+    font-weight: 760;
     line-height: 1.25;
   }
 
@@ -456,17 +468,18 @@
     gap: 6px;
     color: var(--color-muted);
     font-size: 0.8125rem;
-    font-weight: 700;
+    font-weight: 760;
   }
 
   select,
   textarea {
     width: 100%;
-    border: 1px solid var(--color-border-strong);
-    border-radius: 6px;
-    background: #ffffff;
+    border: 1px solid var(--color-field-border);
+    border-radius: var(--radius-control);
+    background: var(--color-field-bg);
     color: var(--color-text);
     font-size: 0.875rem;
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.03) inset;
   }
 
   select {
@@ -484,6 +497,14 @@
     line-height: 1.45;
   }
 
+  select:focus,
+  textarea:focus {
+    border-color: rgba(103, 232, 249, 0.72);
+    background: var(--color-field-bg-focus);
+    box-shadow: 0 0 0 3px rgba(103, 232, 249, 0.12);
+    outline: none;
+  }
+
   .icon-button {
     gap: 8px;
   }
@@ -497,6 +518,13 @@
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
+  }
+
+  .selection-summary span {
+    border: 1px solid var(--glass-border-subtle);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.035);
+    padding: 5px 8px;
   }
 
   .selection-summary span,
@@ -515,8 +543,8 @@
     grid-template-columns: minmax(140px, 1fr) auto auto;
     gap: 12px;
     align-items: center;
-    border-top: 1px solid var(--color-border);
-    padding-top: 8px;
+    border-top: 1px solid var(--glass-border-subtle);
+    padding-top: 10px;
   }
 
   .summary-row:first-child {

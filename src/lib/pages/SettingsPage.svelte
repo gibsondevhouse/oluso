@@ -1,8 +1,11 @@
 <script lang="ts">
+  import { onDestroy } from "svelte";
+  import { RefreshCw, Trash2 } from "lucide-svelte";
   import { olusoApplication } from "../../application/oluso-application";
   import ConfirmDialog from "$lib/components/ui/ConfirmDialog.svelte";
   import BackupRestoreControls from "$lib/components/system/BackupRestoreControls.svelte";
   import {
+    campaignRecordStores,
     getPersistenceStatusLabel,
     persistenceDiagnostics,
     locationRecords,
@@ -19,12 +22,35 @@
     incidentRecords,
     correctiveActionRecords,
   } from "$lib/persistence/local-persistence";
+  import {
+    CAMPAIGN_REGISTER_DEFINITIONS,
+    type CampaignCollectionName,
+  } from "$lib/persistence/campaign-register.types";
 
   let retryMessage = $state<string | null>(null);
   let showClearConfirm = $state(false);
   let showEmptyClearConfirm = $state(false);
+  let campaignRecordCounts = $state(
+    Object.fromEntries(
+      CAMPAIGN_REGISTER_DEFINITIONS.map((definition) => [definition.collection, 0]),
+    ) as Record<CampaignCollectionName, number>,
+  );
 
   const statusLabel = $derived(getPersistenceStatusLabel($persistenceDiagnostics.status));
+  const campaignCountUnsubscribers = CAMPAIGN_REGISTER_DEFINITIONS.map((definition) =>
+    campaignRecordStores[definition.collection].subscribe((records) => {
+      campaignRecordCounts = {
+        ...campaignRecordCounts,
+        [definition.collection]: records.length,
+      };
+    }),
+  );
+
+  onDestroy(() => {
+    for (const unsubscribe of campaignCountUnsubscribers) {
+      unsubscribe();
+    }
+  });
 
   async function retryInitialization() {
     retryMessage = null;
@@ -149,6 +175,7 @@
 
       <div class="action-row">
         <button class="secondary-button" type="button" onclick={retryInitialization}>
+          <RefreshCw size={16} aria-hidden="true" />
           Retry initialization
         </button>
       </div>
@@ -213,6 +240,12 @@
           <dt>Corrective Actions</dt>
           <dd>{$correctiveActionRecords.length} records</dd>
         </div>
+        {#each CAMPAIGN_REGISTER_DEFINITIONS as definition}
+          <div>
+            <dt>{definition.title}</dt>
+            <dd>{campaignRecordCounts[definition.collection]} records</dd>
+          </div>
+        {/each}
       </dl>
     </section>
 
@@ -236,9 +269,11 @@
 
       <div class="action-row">
         <button class="danger-button" type="button" onclick={confirmClearData}>
+          <Trash2 size={16} aria-hidden="true" />
           Clear all data and re-seed
         </button>
         <button class="danger-button" type="button" onclick={confirmClearDataWithoutSeed}>
+          <Trash2 size={16} aria-hidden="true" />
           Clear all data (start empty)
         </button>
       </div>
@@ -271,22 +306,25 @@
 <style>
   .settings-layout {
     display: grid;
-    gap: 20px;
-    max-width: 840px;
+    gap: 18px;
+    max-width: 980px;
   }
 
   .diagnostics-panel {
     display: grid;
     gap: 16px;
-    border: 1px solid var(--color-border);
-    border-radius: 8px;
-    background: var(--color-surface);
+    border: 1px solid var(--glass-border-subtle);
+    border-radius: var(--radius-surface);
+    background: linear-gradient(180deg, rgba(22, 33, 36, 0.86), rgba(14, 23, 25, 0.84));
+    box-shadow: var(--surface-shadow);
     padding: 18px;
   }
 
   .danger-panel {
     border-color: var(--color-danger-border);
-    background: var(--color-danger-soft);
+    background:
+      linear-gradient(180deg, rgba(249, 112, 102, 0.1), rgba(14, 23, 25, 0.84)),
+      var(--color-danger-soft);
   }
 
   .diagnostics-header {
@@ -298,7 +336,9 @@
 
   .diagnostics-header h2 {
     margin: 0;
-    font-size: 1rem;
+    color: var(--color-text);
+    font-size: 1.0625rem;
+    font-weight: 760;
     line-height: 1.25;
   }
 
@@ -306,21 +346,21 @@
     display: grid;
     gap: 0;
     margin: 0;
-    border-top: 1px solid var(--color-border);
+    border-top: 1px solid var(--glass-border-subtle);
   }
 
   .diagnostics-list div {
     display: grid;
     grid-template-columns: minmax(160px, 0.35fr) 1fr;
     gap: 16px;
-    border-bottom: 1px solid var(--color-border);
+    border-bottom: 1px solid var(--glass-border-subtle);
     padding: 12px 0;
   }
 
   dt {
     color: var(--color-muted);
     font-size: 0.8125rem;
-    font-weight: 700;
+    font-weight: 760;
   }
 
   dd {

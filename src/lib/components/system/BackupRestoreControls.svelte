@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount, tick } from "svelte";
+  import { Download, RefreshCw, RotateCcw, Upload } from "lucide-svelte";
   import { olusoApplication } from "../../../application/oluso-application";
   import {
     buildDatabaseBackup,
@@ -195,6 +196,7 @@
     <div class="unavailable-state">
       <p>Data tools could not initialize.</p>
       <button class="secondary-button" type="button" onclick={initializeControls}>
+        <RefreshCw size={16} aria-hidden="true" />
         Retry initialization
       </button>
     </div>
@@ -209,6 +211,7 @@
           disabled={!ready || busy}
           onclick={createBackup}
         >
+          <Download size={16} aria-hidden="true" />
           {activeOperation === "backup" ? "Creating backup…" : "Create backup"}
         </button>
       </section>
@@ -231,6 +234,7 @@
           disabled={!ready || busy || !importFile}
           onclick={importMissingRecords}
         >
+          <Upload size={16} aria-hidden="true" />
           {activeOperation === "import" ? "Importing…" : "Import missing records"}
         </button>
       </section>
@@ -253,6 +257,7 @@
           disabled={!ready || busy || !restoreFile}
           onclick={openRestoreConfirmation}
         >
+          <RotateCcw size={16} aria-hidden="true" />
           Restore and replace
         </button>
       </section>
@@ -298,6 +303,7 @@
           disabled={!backupAcknowledged || activeOperation === "restore"}
           onclick={restoreDatabase}
         >
+          <RotateCcw size={16} aria-hidden="true" />
           {activeOperation === "restore" ? "Replacing data…" : "Replace current data"}
         </button>
         <button
@@ -321,9 +327,10 @@
   }
 
   .backup-controls {
-    border: 1px solid var(--color-border);
-    border-radius: 8px;
-    background: var(--color-surface);
+    border: 1px solid var(--glass-border-subtle);
+    border-radius: var(--radius-surface);
+    background: linear-gradient(180deg, rgba(22, 33, 36, 0.86), rgba(14, 23, 25, 0.84));
+    box-shadow: var(--surface-shadow);
     padding: 18px;
   }
 
@@ -341,11 +348,15 @@
   }
 
   h2 {
-    font-size: 1rem;
+    color: var(--color-text);
+    font-size: 1.0625rem;
+    font-weight: 760;
   }
 
   h3 {
+    color: var(--color-text);
     font-size: 0.9375rem;
+    font-weight: 760;
   }
 
   .section-heading p,
@@ -359,7 +370,8 @@
 
   .success-message {
     border: 1px solid var(--color-success-border);
-    border-radius: 8px;
+    border-left: 3px solid var(--color-success-text);
+    border-radius: var(--radius-surface);
     background: var(--color-success-soft);
     color: var(--color-success-text);
     padding: 12px 14px;
@@ -381,8 +393,9 @@
   .control-card {
     align-content: start;
     justify-items: start;
-    border: 1px solid var(--color-border);
-    border-radius: 8px;
+    border: 1px solid var(--glass-border-subtle);
+    border-radius: var(--radius-surface);
+    background: rgba(7, 12, 14, 0.28);
     padding: 16px;
   }
 
@@ -394,14 +407,30 @@
   label {
     color: var(--color-text);
     font-size: 0.8125rem;
-    font-weight: 700;
+    font-weight: 760;
   }
 
   input[type="file"] {
     width: 100%;
     min-width: 0;
+    border: 1px solid var(--color-field-border);
+    border-radius: var(--radius-control);
+    background: var(--color-field-bg);
     color: var(--color-muted);
     font-size: 0.8125rem;
+    padding: 8px;
+  }
+
+  input[type="file"]::file-selector-button {
+    min-height: 30px;
+    margin-right: 10px;
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-control);
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--color-text);
+    font: inherit;
+    font-weight: 720;
+    padding: 0 10px;
   }
 
   .dialog-backdrop {
@@ -420,10 +449,10 @@
     gap: 16px;
     width: min(100%, 480px);
     border: 1px solid var(--color-danger-border);
-    border-radius: 10px;
-    background: var(--color-surface);
+    border-radius: var(--radius-surface);
+    background: var(--color-surface-solid);
     padding: 22px;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18);
+    box-shadow: var(--elevation-z3);
   }
 
   .restore-dialog h2 {

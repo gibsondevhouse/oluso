@@ -21,6 +21,7 @@
     persistenceDiagnostics,
     type PersistedRegisterRecord,
   } from "$lib/persistence/local-persistence";
+  import { CAMPAIGN_COLLECTION_NAMES } from "$lib/persistence/campaign-register.types";
   import RegisterRecordNotFound from "./RegisterRecordNotFound.svelte";
 
   interface Props {
@@ -181,6 +182,9 @@
       correctiveActions: [],
       incidents: [],
       complianceItems: [],
+      campaignRecords: Object.fromEntries(
+        CAMPAIGN_COLLECTION_NAMES.map((collection) => [collection, []]),
+      ) as unknown as RegisterContext["campaignRecords"],
     };
   }
 
@@ -189,6 +193,7 @@
       records.filter((record) => record.lifecycleStatus !== "archived");
 
     return {
+      currentRecordId: currentRecord?.id ?? "",
       locations: active(nextContext.locations),
       processes: active(nextContext.processes),
       equipment: active(nextContext.equipment),
@@ -202,6 +207,12 @@
       correctiveActions: active(nextContext.correctiveActions),
       incidents: active(nextContext.incidents),
       complianceItems: active(nextContext.complianceItems),
+      campaignRecords: Object.fromEntries(
+        CAMPAIGN_COLLECTION_NAMES.map((collection) => [
+          collection,
+          active(nextContext.campaignRecords[collection]),
+        ]),
+      ) as RegisterContext["campaignRecords"],
     };
   }
 
@@ -232,6 +243,12 @@
       correctiveActions: olusoApplication.listRegisterRecords("correctiveActions", { includeArchived: true }) as RegisterContext["correctiveActions"],
       incidents: olusoApplication.listRegisterRecords("incidents", { includeArchived: true }) as RegisterContext["incidents"],
       complianceItems: olusoApplication.listRegisterRecords("complianceItems", { includeArchived: true }) as RegisterContext["complianceItems"],
+      campaignRecords: Object.fromEntries(
+        CAMPAIGN_COLLECTION_NAMES.map((collection) => [
+          collection,
+          olusoApplication.listRegisterRecords(collection, { includeArchived: true }),
+        ]),
+      ) as RegisterContext["campaignRecords"],
     };
   }
 

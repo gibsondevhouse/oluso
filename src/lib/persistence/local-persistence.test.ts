@@ -19,6 +19,7 @@ import {
   exposureMonitoringRecords,
   findingRecords,
   getPersistenceStatusLabel,
+  campaignRecordStores,
   hazardRecords,
   incidentRecords,
   locationRecords,
@@ -120,6 +121,91 @@ describe("local persistence", () => {
         expect.objectContaining({ id: "compliance-demo-air-permit-review" }),
         expect.objectContaining({ id: "compliance-demo-chemical-training" }),
       ]),
+    );
+  });
+
+  it("creates, updates, archives, restores, exports, and imports campaign records", async () => {
+    const repository = createLocalPersistenceRepository({
+      storage: createMemoryStorage(),
+      now: () => new Date("2026-07-09T12:00:00.000Z"),
+      createId: () => "permit-test-1",
+    });
+
+    await repository.initialize();
+
+    expect(repository.listRegisterRecords("inspections")).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: "insp-demo-egress-walkthrough" }),
+      ]),
+    );
+
+    const created = repository.createRegisterRecord("permits", {
+      title: "Main facility air permit renewal",
+      type: "Air Permit",
+      status: "Draft",
+      owner: "Environmental Coordinator",
+      locationId: "loc-demo-main-facility",
+      renewalDate: "2026-11-30",
+      summary: "Track renewal readiness for the main facility air permit.",
+    });
+
+    expect(created).toMatchObject({
+      id: "permit-test-1",
+      businessId: "PERMIT-0001",
+      title: "Main facility air permit renewal",
+      lifecycleStatus: "active",
+    });
+    expect(get(campaignRecordStores.permits)).toContainEqual(
+      expect.objectContaining({ id: "permit-test-1" }),
+    );
+
+    const updated = repository.updateRegisterRecord("permits", created.id, {
+      businessId: created.businessId,
+      title: "Main facility air permit renewal package",
+      type: "Air Permit",
+      status: "Active",
+      owner: "Environmental Coordinator",
+      locationId: "loc-demo-main-facility",
+      renewalDate: "2026-11-30",
+      summary: "Renewal package assembled with open evidence gaps.",
+    });
+
+    expect(repository.getRecord("permits", created.id)).toMatchObject({
+      title: "Main facility air permit renewal package",
+      status: "Active",
+      summary: "Renewal package assembled with open evidence gaps.",
+    });
+    expect(updated.updatedAt).toBe("2026-07-09T12:00:00.000Z");
+
+    const snapshot = repository.exportDatabase();
+    snapshot.permits.push({
+      ...updated,
+      id: "permit-imported-1",
+      businessId: "PERMIT-IMPORT-1",
+      title: "Imported stormwater permit",
+    });
+
+    const importResult = repository.importDatabase(snapshot);
+    expect(importResult.importedCount).toBe(1);
+    expect(repository.getRecord("permits", "permit-imported-1")).toMatchObject({
+      title: "Imported stormwater permit",
+    });
+
+    repository.archiveRecord("permits", created.id, "Renewal moved into imported package.");
+    expect(repository.listRegisterRecords("permits")).not.toContainEqual(
+      expect.objectContaining({ id: created.id }),
+    );
+    expect(repository.listRegisterRecords("permits", { includeArchived: true })).toContainEqual(
+      expect.objectContaining({
+        id: created.id,
+        lifecycleStatus: "archived",
+        archivedReason: "Renewal moved into imported package.",
+      }),
+    );
+
+    repository.restoreRecord("permits", created.id);
+    expect(repository.listRegisterRecords("permits")).toContainEqual(
+      expect.objectContaining({ id: created.id, lifecycleStatus: "active" }),
     );
   });
 
@@ -260,22 +346,38 @@ describe("local persistence", () => {
     const created = repository.createLocation({
       name: "North Yard",
       type: "Outdoor Area",
+      parentLocationId: "loc-demo-main-facility",
+      country: "United States",
+      stateProvince: "Michigan",
       description: "Outdoor staging area.",
       status: "active",
     });
 
     expect(created.id).toBe("loc-test-1");
+    expect(created).toMatchObject({
+      parentLocationId: "loc-demo-main-facility",
+      country: "United States",
+      stateProvince: "Michigan",
+    });
     expect(repository.listLocations()).toContainEqual(created);
 
     const updated = repository.updateLocation(created.id, {
       name: "North Yard Updated",
       type: "Outdoor Area",
+      parentLocationId: "loc-demo-secondary-site",
+      country: "Canada",
+      stateProvince: "Ontario",
       description: "Updated description.",
       status: "inactive",
     });
 
     expect(updated.name).toBe("North Yard Updated");
     expect(updated.status).toBe("inactive");
+    expect(updated).toMatchObject({
+      parentLocationId: "loc-demo-secondary-site",
+      country: "Canada",
+      stateProvince: "Ontario",
+    });
     expect(get(locationRecords).find((location) => location.id === created.id)?.name).toBe(
       "North Yard Updated",
     );
@@ -400,6 +502,17 @@ describe("local persistence", () => {
         status: "active",
       }),
     ).toThrow("Type must be one of:");
+
+    expect(() =>
+      application.createLocation({
+        name: "Invalid geography lab",
+        type: "Lab",
+        country: "Atlantis",
+        stateProvince: "Nowhere",
+        description: "",
+        status: "active",
+      }),
+    ).toThrow("Country must be one of:");
 
     expect(() =>
       application.createFinding({
