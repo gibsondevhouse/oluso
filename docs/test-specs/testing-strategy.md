@@ -1,49 +1,69 @@
-# Testing Strategy Specification
+# Testing strategy
 
-## Purpose
+Status: Governing target
+Last updated: 2026-07-18
 
-Define the overall approach to testing OLUSO.  A comprehensive testing strategy ensures that unit, integration, UI and end‑to‑end tests work together to provide confidence in the application’s correctness, performance and accessibility.
+## Quality gate
 
-## Test Types
+```text
+npm run verify
+  ├─ formatting check
+  ├─ lint
+  ├─ Svelte/TypeScript check
+  ├─ unit/component tests
+  ├─ repository-contract tests
+  ├─ migration matrix
+  ├─ backup/exchange round-trip and security tests
+  ├─ production build
+  └─ end-to-end/accessibility tests
+```
 
-1. **Unit Tests** — Verify individual functions, modules and components in isolation.  Examples: data validation functions, utility libraries, component rendering with basic props.  Use a testing framework like Jest for JavaScript/TypeScript and `cargo test` for Rust.
+Until implemented, change reports list exact commands and unavailable checks. A component-test count is not a readiness claim.
 
-2. **Integration Tests** — Test how modules work together.  Examples: persistence module interactions with SQLite, data access functions returning expected results, multi‑component interactions.  Use Jest with an in‑memory database or a temporary file.
+## Test layers
 
-3. **End‑to‑End (E2E) Tests** — Simulate real user interactions in the application UI.  Examples: create a new record, edit it, archive it, and verify that it appears in the correct lists.  Use a framework like Playwright or Cypress.  E2E tests run against the packaged app or a development build with the UI and persistence layer fully functional.
+### Domain unit tests
 
-4. **Accessibility Tests** — Automated checks using tools like axe‑core to detect common accessibility issues (missing labels, colour contrast, focus traps).  Supplement with manual testing.
+Location ancestry, chemical normalization, SEG membership, scenario promotion, assessment/determination relationships, unit/duration compatibility, comparison math, lifecycle, completeness rules, and exchange classification.
 
-5. **Performance Tests** — Ensure that queries and UI renderings remain performant with realistic data volumes.  Use profiling tools and benchmarking for database queries.  Not required for MVP but should be considered.
+### Repository-contract tests
 
-## Test Pyramid
+Run against the production IndexedDB adapter. Cover current state plus immutable revision writes, expected revision, transaction rollback, archived dependencies, indexed queries, idempotency, and semantic errors.
 
-Prioritise unit tests at the base, integration tests in the middle and a smaller number of E2E tests at the top.  Unit tests are fast and pinpoint bugs; integration tests ensure modules work together; E2E tests validate critical user flows.
+### Migration tests
 
-## Testing Tools
+Every supported browser/native source schema plus every target IndexedDB schema upgrade. Verify field mappings, counts, relationships, history, findings, rollback, retry, and representative real-data fixtures.
 
-* **JavaScript/TypeScript:** Jest for unit/integration tests, React Testing Library for component testing, Playwright for E2E.
-* **Rust:** `cargo test` for unit tests in Tauri commands and migration logic.
-* **Accessibility:** axe‑core via the Playwright or React Testing Library integrations.
+### Backup/exchange tests
 
-## Test Data
+Exact snapshot round-trip; two-installation divergent edits; same/different field conflicts; tombstones; dependencies; stale/out-of-order packages; duplicate import; review notes; atomic failure; rollback; dataset/schema mismatch; truncated/oversized/deep/duplicate-ID/hash-invalid inputs.
 
-* Use in‑memory SQLite databases for unit/integration tests; seed them with minimal data required for each test.
-* E2E tests can run against a temporary file database.  Tests should clean up after themselves.
-* Avoid using production seed data in tests; use specific fixtures defined in test code.
+### End-to-end tests
 
-## Continuous Integration
+- First load, offline reload, and PWA update compatibility.
+- Unit baseline through scenario/assessment.
+- Sampling result through interpretation/determination.
+- Manager export/import/review/conflict/apply.
+- Action completion/verification/reassessment.
+- Backup/restore and failed-write recovery.
 
-* Configure a CI pipeline (e.g. GitHub Actions) to run all tests on every pull request.  Fail the build if any test fails or if code coverage drops below the target threshold.
-* E2E tests may run in a headless mode to reduce infrastructure requirements.
+### Accessibility and print
 
-## Manual Testing
+Automated and manual keyboard/screen-reader checks for forms, hierarchy tree, data tables, diff/conflict resolution, status semantics, and review packets.
 
-* Complement automated tests with manual spot checks, particularly for accessibility, layout and user experience.  Use the `manual-acceptance-checklist.md` as a guide.
+### Performance/reliability
 
-## Acceptance Criteria
+Use realistic Site/Unit, record, sample, revision, and package counts. Test IndexedDB open/upgrade, query latency, large history, quota pressure, multiple-tab version changes, and interrupted update/import behavior.
 
-* Automated tests cover at least the critical paths for each register, form and workflow.  Code coverage is measured and reported.
-* CI runs all tests and prevents merging code that breaks existing functionality.
-* Accessibility checks are integrated into the testing pipeline and reported.
-* Manual acceptance criteria are documented and verified before release.
+## Highest-risk release gates
+
+- No silent data loss or false save success.
+- No unverified/partial migration.
+- No package apply without preview/resolution.
+- No partial exchange apply.
+- Revision reconstruction works.
+- Required relationships are not orphaned.
+- Incompatible OEL comparison is never treated as valid.
+- Professional determination is not generated from a numeric threshold alone.
+- Backup recreates exact state.
+- Supported browsers work offline after first load.

@@ -1,6 +1,6 @@
 # Search & Filter Component Specification
 
-This document describes the search and filter component used throughout **Olùṣọ́** to locate records within registers.  The component must provide a consistent experience across all pages while remaining accessible and performant.
+This document describes the search and filter component used throughout **ADAMA HSE** to locate records within registers. The component must provide a consistent experience across all pages while remaining accessible and performant.
 
 ## Purpose
 
@@ -61,7 +61,7 @@ The component comprises three elements:
 | Filtering      | User has opened the filter drawer and selected criteria.   |
 | Loading        | Awaiting response from repository; show spinner in table.   |
 | No Results     | No records match the search and filter combination.         |
-| Error          | Repository or network error; display a toast message.       |
+| Error          | Repository/query/storage error; display an actionable message. |
 
 ## Visual Style
 

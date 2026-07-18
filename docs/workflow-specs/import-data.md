@@ -1,56 +1,40 @@
-# Data Import Workflow Specification
+# Bulk baseline import workflow
 
-This specification details the workflow for importing bulk data into **Olùṣọ́** registers.  The import workflow supports one‑time migrations and regular updates from external systems while enforcing data integrity and validation.
+Status: Deferred until canonical master-data schemas exist
+Last updated: 2026-07-18
 
-## Scope
+## Purpose
 
-Imports apply to individual registers (e.g., chemicals, hazards, processes) and must be initiated from the corresponding page’s header.  Each register defines a mapping between column names and entity fields.  The workflow accommodates CSV, JSON, and XLSX formats.
+Bulk import supports initial migration/cleansing of external baseline tables such as locations, people, equipment, inventory, or chemical use. It is not the two-installation review exchange workflow.
 
-## Steps
+Review exchange is defined in [exchange-review.md](exchange-review.md).
 
-1. **File Selection**
-   - User clicks the “Import” button.  A modal appears with a file picker.  Accept `.csv`, `.json`, and `.xlsx` formats.
-   - Validate file extension immediately.  If invalid, disable the “Next” button and show an inline error.
-   - After selecting a file, display its name and size.  Automatically detect delimiter for CSV (comma, semicolon, tab).
+## Workflow
 
-2. **Preview & Mapping**
-   - Parse the first row to infer column headers.  Display a preview table showing the first five rows.
-   - For each column, provide a dropdown to map it to an entity field.  Required fields are indicated with a red asterisk.  Offer automatic matching when header names match field names exactly.
-   - Allow the user to set default values for missing optional fields.
-   - If a column is unmapped and not optional, highlight the issue and prevent proceeding.
+1. Choose the specific target entity/template.
+2. Select CSV/XLSX/JSON supported for that template.
+3. Parse with file-size, row-count, depth, and field-length limits.
+4. Preview rows and map columns to explicit typed fields.
+5. Validate field values and canonical dependencies.
+6. Classify rows as valid new, possible duplicate, invalid, missing dependency, or requires human mapping.
+7. Show a dry-run with no mutation and downloadable error/mapping report.
+8. Require an import reason and actor.
+9. Apply an accepted batch transactionally or in explicitly documented atomic chunks.
+10. Write normal record revisions with source `migration`/`bulk-import` and preserve the import run.
 
-3. **Validation**
-   - After mapping, validate each row against field data types and constraints (e.g., numeric values, date formats, required fields).  Validate foreign keys by checking existence in the database.
-   - Show a summary: total rows, valid rows, rows with errors.  Provide a detailed error log with row numbers and error messages.  Allow downloading the error log as a CSV.
-   - Users can choose to proceed with valid rows only or abort and correct the file.
+## Safety rules
 
-4. **Confirmation**
-   - Present a confirmation step summarizing the number of rows to import, number of rows skipped, and the affected register.  Provide an optional import description (e.g., “Q3 chemical inventory update”).
-   - Show a checkbox to overwrite existing records when a unique identifier matches.  Default is off (skip duplicates).
-   - Display a warning that imported data cannot be undone except via a restore operation.
+- No generic “overwrite existing” checkbox.
+- Existing target records are updated only through an explicit natural-key/ID match, expected-revision check, field diff, and user confirmation.
+- Invalid rows never create partially valid safety-critical records.
+- Import cannot create a professional determination, exposure comparison, or clinical record.
+- Ambiguous legacy chemical/location/SEG records create mapping tasks or data-quality findings.
+- A bulk import file is never accepted by the exchange handler merely because both use JSON.
 
-5. **Execution**
-   - On confirmation, send the validated data to the repository.  Show a progress bar with processed/total row count and estimated time remaining.
-   - Do not block the UI; allow the user to navigate away.  Provide a link to a status page if the import may take more than 30 seconds.
-   - On completion, show a toast summarizing inserted and updated records and any rows skipped.
+## Acceptance criteria
 
-## Constraints
-
-- Maximum rows per import: 10,000.  Larger datasets must be split or imported via a direct database script.
-- Date and time values must be ISO 8601 or localized formats recognized by the parser.  Reject ambiguous formats (e.g., `01/02/03`).
-- Numeric values use a dot (`.`) as the decimal separator.  Commas are not allowed as decimal separators in CSV.
-- User must have `import` permission for the target register.  Deny access otherwise.
-
-## Error Handling
-
-- **Invalid File**: Show an inline error if the file is corrupt or cannot be parsed.
-- **Missing Required Fields**: Highlight missing mappings and prevent progress.
-- **Foreign Key Violations**: Report missing references (e.g. unknown hazard ID) in the validation step; allow skipping rows or aborting.
-- **Duplicate Entries**: If overwrite is disabled, skip duplicates and report them.  If enabled, update existing records.
-
-## Testing
-
-- Test imports for each register with valid data; verify that records are created correctly.
-- Test mapping UI with mismatched headers and confirm that manual mapping works.
-- Test validation with various data errors: missing required fields, invalid formats, foreign key errors.
-- Test overwrite functionality by importing a file containing existing IDs and verifying that records are updated when the option is checked.
+- Dry-run and apply classifications match.
+- Failed atomic batches leave target state unchanged.
+- Every applied row is attributable and revisioned.
+- Duplicate, missing-dependency, and ambiguous mappings are reviewable.
+- Importing the same file does not silently duplicate records.

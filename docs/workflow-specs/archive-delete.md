@@ -1,35 +1,36 @@
-# Archive & Delete Workflow Specification
+# Archive, supersede, tombstone, and destructive recovery
 
-## Purpose
+Status: Governing
+Last updated: 2026-07-18
 
-Define the rules and user experience around archiving and deleting records.  Archiving removes a record from active lists while preserving it for reference, whereas deletion permanently removes it.  The workflow ensures that users understand the consequences and cannot accidentally remove important data.
+## Archive
 
-## Archiving
+- Default removal from active use.
+- Requires reason and expected revision.
+- Preview identifies active descendants/dependencies and whether archive is allowed, blocked, or requires coordinated changes.
+- Current state and immutable revision are written transactionally.
+- Historical relationships remain resolvable.
 
-* **Eligible Records:** Any active record in a register may be archived unless it has dependent active records (e.g. a location with active processes, a process with active findings).  See cross‑record rules in `validation-rules.md`.
-* **Initiation:** Users click the Archive action on a detail page.  The button is visible for active records.
-* **Confirmation:** A confirmation dialog appears: “Archive this [Record Type]?  Archived records are hidden but can be restored.”  The dialog includes Archive (danger) and Cancel buttons.
-* **Processing:** On confirm, the persistence layer sets `archived_at` to the current timestamp and updates the record’s status if applicable.  Any child records remain untouched but may still appear in searches via filters.
-* **Aftermath:** The record is removed from default lists and search results unless a filter for archived records is enabled.  On the detail page, a banner indicates that the record is archived and provides a “Restore” button.
-* **Restoration:** Restoring an archived record clears `archived_at`.  Restoration is allowed only if parent records are active and no conflicts arise (e.g. duplicate codes).
+## Restore
 
-## Deletion
+- Validates parent/dependency activity, uniqueness, and current revision.
+- Creates a new revision and does not erase prior archive history.
 
-* **Eligibility:** Deletion is restricted to administrative users.  Deleting a record may cascade to delete or archive dependent records.  Deletion is used sparingly (e.g. accidental creation, privacy requests).
-* **Initiation:** Users with permission click “Delete” from the archived record view or an administrative panel.
-* **Confirmation:** A stronger confirmation dialog appears with explicit warnings: “This will permanently delete the record and all related data.  This action cannot be undone.”  The user must type the record code or a confirmation phrase to proceed.
-* **Processing:** On confirm, the persistence layer removes the record row(s) from the database.  Dependent records are handled as per domain rules: either cascade delete, set foreign keys to null, or prevent deletion if dependents exist.
-* **Aftermath:** Deleted records are no longer recoverable.  A success message indicates completion.  Audit logs should record the deletion event.
+## Supersede
 
-## UI Considerations
+Use for SDS revisions, exposure limits, assessments/determinations, and other versioned conclusions/documents. The prior record remains historically valid and linked to records that used it.
 
-* Archive buttons use neutral colours, while Delete buttons use a danger palette (e.g. red) to indicate risk.
-* Archived records show a status chip (archived) and are excluded from default queries.  A filter toggle allows users to include archived records.
-* Delete actions are hidden by default and appear only for users with the appropriate role.
+## Exchange tombstone
 
-## Acceptance Criteria
+A tombstone communicates external deletion/retirement intent. Import preview shows local changes and dependency impact. User explicitly accepts, rejects, or resolves it; accepted handling is normally archive/supersede plus revision, not physical deletion.
 
-* Users can archive active records and restore archived records, subject to dependency rules.
-* Archive operations require confirmation and display success messages.  Restored records reappear in active lists.
-* Delete operations are restricted, require explicit confirmation and remove the record permanently along with dependents as defined.  Audit logs capture deletions.
-* UI clearly distinguishes between archiving and deleting and communicates consequences.
+## Destructive recovery
+
+Physical deletion/reset is exceptional and limited to controlled recovery/privacy obligations under a separately documented procedure. It requires exact target/dataset identification, verified backup where lawful, impact analysis, explicit confirmation, and an audit/recovery record. No generic cascade delete is allowed.
+
+## Acceptance criteria
+
+- Normal users preserve history through archive/supersession.
+- No dependent history is silently erased.
+- Tombstones are reviewable and attributable.
+- Destructive recovery cannot be triggered from ordinary register actions.

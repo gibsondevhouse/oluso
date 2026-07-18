@@ -1,42 +1,91 @@
-# Persistence Stack Specification
+# Browser persistence stack
 
-## Purpose
+Status: Governing target
+Last updated: 2026-07-18
+Decision: [ADR-0009](../adr/ADR-0009-browser-persistence.md)
 
-Define the concrete technologies and patterns used to persist OLUSO data on the user’s device.  This spec expands on ADR‑0004 by providing implementation‑level details and guidance for developers writing the persistence module.
+## Stack
 
-## Technology Choice
+- Database: browser IndexedDB.
+- Access: one typed TypeScript adapter behind repository contracts.
+- Application runtime: SvelteKit SPA/PWA.
+- Schema: ordered, versioned code migrations.
+- Backup/exchange: explicit versioned JSON packages.
+- Legacy sources: browser `localStorage` and native SQLite through migration-only readers.
 
-* **Database Engine:** SQLite 3, bundled with the application.  Supports ACID transactions, foreign keys and indexing.
-* **Access Layer:** A thin data access library written in TypeScript (for the UI) and Rust (for Tauri commands).  The TypeScript layer defines high‑level functions for each domain; the Rust layer executes SQL queries via `sqlx` or similar.
-* **Storage Location:** The SQLite file (`oluso.db`) is stored in the user’s application data directory provided by Tauri (`appLocalDataDir()`).  Attachments and exported files are stored in separate directories under the same root.
+## Module boundaries
 
-## Database Initialisation
+```text
+src/lib/data/
+  database/       open, close, version, health, transactions
+  migrations/     ordered target-schema upgrades
+  repositories/   entity and query implementations
+  revisions/      immutable history writes and reconstruction
+  backup/         complete snapshot export/restore validation
+  exchange/       manifest, staging, classification, apply, rollback
+  legacy/         temporary localStorage/native migration readers
+  diagnostics/    quota, blocked open, compatibility, recovery
+```
 
-* On application launch, the persistence module checks for the existence of `oluso.db`.  If absent, it creates the file and applies all migrations up to the latest version.
-* A `schema_version` table stores the current version number.  Migration scripts are numbered sequentially (e.g. `001_initial.sql`, `002_add_hazards.sql`).
-* Migration files reside in the `src-tauri/migrations/` directory and are applied in order.
+Exact paths may change, but these responsibilities must not remain in one persistence monolith.
 
-## Data Access Patterns
+## Database lifecycle
 
-* **Domain Modules:** Each register has its own TypeScript module exposing functions such as `listLocations(filters)`, `getLocationById(id)`, `createLocation(data)`, `updateLocation(id, data)`, `archiveLocation(id)`.  These functions call Tauri commands implemented in Rust.
-* **Transactions:** Complex operations (e.g. creating a SEG and linking hazards) should be wrapped in a transaction to ensure atomicity.
-* **Async Behaviour:** All data access functions return Promises.  UI components await these functions and display loading states accordingly.
+On startup:
 
-## Error Handling
+1. Check required browser capabilities.
+2. Open the database with blocked/version-change handling.
+3. Read dataset/schema metadata.
+4. Apply target-schema migrations transactionally.
+5. Verify required stores/indexes and invariant metadata.
+6. Initialize repositories.
+7. Report storage, migration, and backup status to the shell.
 
-* SQL errors and IO errors are caught in the Rust layer and returned to the UI with meaningful error codes and messages.
-* The UI translates technical errors into user‑friendly messages (e.g. “Unable to save data.  Please check disk space.”).
-* In case of database corruption, the persistence module attempts to back up the corrupted file and reinitialize a new database.  The user is notified and provided with recovery options.
+The UI does not report the application ready for writes until this sequence succeeds.
 
-## Concurrency
+## Transaction rules
 
-SQLite allows concurrent reads but serialises writes.  The persistence module must queue write operations and avoid long‑running transactions that block the UI.  For heavy read queries (e.g. analytics), consider spawning them in a worker thread.
+- Every domain mutation includes current-state changes and immutable revisions in one transaction.
+- Multi-entity operations include all required relationships, governance records, and dataset revision changes in one transaction.
+- Exchange apply is atomic.
+- A transaction error is propagated as a semantic error and never swallowed.
+- Repository methods return immutable domain values, not live database objects.
 
-## Backup & Export
+## Durability and diagnostics
 
-While backups are covered in `backup-export.md`, note that the persistence stack must support file locking and safe copying while the database is in use.  Use SQLite’s online backup API via Tauri commands.
+The application must detect and explain:
 
-## Security Considerations
+- IndexedDB unavailable by browser/policy/private mode.
+- Database open blocked by another tab/version.
+- Version change requiring reload.
+- Aborted or failed transaction.
+- Quota exceeded or storage pressure.
+- Migration failure.
+- Invalid/corrupt logical state.
+- Backup overdue or failed.
 
-* **Encryption:** The MVP does not include database encryption.  Sensitive data should not be stored in plain text.  Future ADRs may introduce encryption at rest.
-* **Permissions:** Ensure that only the current user account can access the application data directory.  On multi‑user systems, data should be isolated per user.
+Where supported, request persistent browser storage through a user-understandable action. The app must not claim that a request guarantees persistence.
+
+## Offline behavior
+
+The service worker caches the application shell and required static assets. Domain data remains in IndexedDB. Network loss must not block normal CRUD, assessment, monitoring, reporting, backup generation, or package generation.
+
+Application updates and schema migrations are coordinated so a new shell cannot write with an incompatible database contract.
+
+## Security and privacy
+
+- No remote scripts or operational-data transmission is required for normal use.
+- Imported JSON is untrusted and parsed with bounded size/depth/count constraints.
+- Do not store clinical medical information.
+- Browser/profile access and downloaded packages inherit corporate endpoint/file protections; product documentation must state this limitation.
+- The integrity hash detects corruption but is not an author signature.
+
+## Legacy removal gate
+
+Remove Rust/Tauri and `localStorage` record persistence only after:
+
+- All supported source schemas have migration fixtures.
+- Migration preserves identity, relationships, archive state, and material fields.
+- Unmappable data produces reviewable findings rather than silent loss.
+- Rollback/retry is demonstrated.
+- Representative migrated datasets pass repository and domain checks.

@@ -47,7 +47,7 @@ Almost every page and component needs to handle asynchronous data fetching and p
 
 ### Behaviour
 
-* The unavailable state appears when the user navigates to a route that cannot be fulfilled (missing record, invalid route, permission issues).  It informs the user and guides them back to a safe place.
+* The unavailable state appears when a route cannot be fulfilled because of a missing record, invalid route, archived/incompatible dependency, unavailable database, or failed migration. It explains the cause and guides the user to a safe recovery path.
 * If `onAction` is provided, a button appears.  Otherwise, only the message is displayed.
 
 ## Accessibility Rules

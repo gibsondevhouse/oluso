@@ -1,76 +1,77 @@
-# Validation Rules Specification
+# Validation rules
 
-## Purpose
+Status: Governing baseline
+Last updated: 2026-07-18
 
-Define field-level and enum validation enforced by the UI and local persistence layer. UI validation should mirror persistence validation; persistence remains authoritative.
+## Validation layers
 
-## Shared Rules
+1. Shape/schema validation at input boundaries.
+2. Field semantics and controlled values.
+3. Cross-record relationship/invariant validation.
+4. Lifecycle/promotion/review rules.
+5. Exchange/migration integrity validation.
 
-* Records use `id`, `createdAt`, and `updatedAt` as defined by the record identity ADR.
-* Required string fields must contain non-whitespace text.
-* Enum fields must match the exported enum arrays in the relevant schema file.
-* Create/update operations must reject invalid input before writing to persistence.
-* Field-level messages should be shown near the relevant form control.
+UI validation improves feedback but never replaces domain-service enforcement.
 
-## Locations
+## Common rules
 
-Required fields:
+- UUIDs and ISO 8601 UTC timestamps are valid.
+- Business IDs are unique in documented scope.
+- Expected revision matches current revision.
+- Required dependencies exist.
+- Archived/superseded dependencies are accepted only where the workflow explicitly permits historical use.
+- Unknown, missing, and not applicable are distinct.
+- Archive/restore requires attribution; archive requires reason.
 
-* `name`
-* `type`
-* `status`
+## Location rules
 
-Allowed `type` values:
+- Country has no parent.
+- StateOrRegion parent is Country.
+- Site parent is StateOrRegion.
+- Operational node types resolve to Site.
+- Parent links cannot create cycles.
+- Reparent/archive operations identify affected descendants and references before apply.
 
-* Facility
-* Storage
-* Workshop
-* Office
-* Outdoor Area
+## Chemical rules
 
-Allowed `status` values:
+- Substance identity is distinct from product identity.
+- SDS belongs to a product/manufacturer context and retains revision/effective dates.
+- Inventory requires product, Site, storage location, quantity, and compatible unit.
+- Chemical use requires product, process/task/location context, frequency/duration/condition as appropriate.
+- Exposure limit belongs to an agent, not inventory or product.
+- Current/superseded limit and SDS designations are internally consistent.
 
-* active
-* inactive
+## SEG/scenario/assessment rules
 
-Validation messages:
+- SEG membership dates are ordered and overlap is checked by scope.
+- Scenario promotion requires SEG, Site-resolvable location, process, task, agent, and operating condition.
+- Scenario process/task/location relationships are compatible.
+- Assessment references exactly one scenario and records uncertainty/data quality.
+- Determination references one assessment and includes determiner, date, rationale, limitations, and follow-up.
 
-* Blank name: `Name is required.`
-* Blank type: `Type is required.`
-* Invalid type: `Type must be one of: Facility, Storage, Workshop, Office, Outdoor Area.`
-* Invalid status: `Status must be active or inactive.`
+## Monitoring rules
 
-## Findings
+- Sample stop is after start and duration is consistent or explicitly justified.
+- Result numeric fields are numbers; qualifiers/model represent non-detect and below-quantitation values.
+- Unit has a known dimension and is compatible with the agent/method/result.
+- Exposure-limit comparison requires compatible dimension, unit conversion, limit type, averaging/duration basis, and applicable effective date.
+- Unsupported partial-shift, mixture, ceiling, or other interpretation returns “not automatically comparable” rather than a fabricated pass/fail.
+- Professional interpretation/determination is not generated from comparison outcome alone.
 
-Required fields:
+## Governance/exchange rules
 
-* `title`
-* `locationId`
-* `severity`
-* `status`
+- Record revision is unique and sequential for a record.
+- Revisions/import runs/resolutions are immutable after finalization.
+- Package ID is unique; re-import is idempotent.
+- Dataset ID/schema/integrity/manifest must validate before dry-run/apply.
+- Missing dependencies and invalid schemas block affected records; governed apply remains atomic.
+- Conflicts and external deletions require explicit resolution.
+- Applied changes record source package and actors.
 
-Allowed `severity` values:
+## Security limits for imported JSON
 
-* Low
-* Medium
-* High
-* Critical
+Implementation defines tested limits for file bytes, nesting depth, records, field length, array length, and total expanded content. Unknown fields are rejected for safety-critical schemas unless a versioned compatibility rule explicitly accepts them.
 
-Allowed `status` values:
+## Error requirements
 
-* Open
-* In Progress
-* Closed
-
-Validation messages:
-
-* Blank title: `Title is required.`
-* Blank location: `Location is required.`
-* Invalid severity: `Severity is required.`
-* Invalid status: `Status is required.`
-
-## Acceptance Criteria
-
-* UI form validation and persistence validation reject missing required fields.
-* Invalid enum values are rejected even if they are injected outside the normal select controls.
-* Tests cover Location type validation and Finding severity validation.
+Validation errors include stable code, human message, record/field path, offending value summary where safe, and remediation guidance. Import errors additionally identify package/record classification without exposing executable content.

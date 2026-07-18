@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Provide a concise checklist of accessibility requirements that must be met across OLUSO.  This checklist guides both automated and manual testing to ensure the application is usable by people with disabilities and meets WCAG 2.1 AA standards.
+Provide a concise accessibility checklist for ADAMA HSE. It guides automated/manual testing and the current adopted WCAG target.
 
 ## Checklist
 

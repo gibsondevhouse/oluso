@@ -1,42 +1,42 @@
-# Relationship Linking Workflow Specification
+# Relationship linking workflow
 
-## Purpose
+Status: Governing
+Last updated: 2026-07-18
 
-Describe how users link and unlink records across registers.  Linking relationships enables contextual navigation and ensures data integrity when associating entities such as hazards with processes or SEGs with hazards.
+## Principle
 
-## Relationship Types
+Relationships are typed domain facts, not arbitrary tags. Creating, replacing, or ending a relationship uses domain services, expected revisions, cross-record validation, and immutable history.
 
-* **One‑to‑Many:** e.g. Processes belong to one Location; a Location has many Processes.
-* **Many‑to‑Many:** e.g. SEGs may include many Hazards, and Hazards may belong to many SEGs.  Managed via a join table (`seg_hazards`).
-* **Optional Links:** e.g. A Finding may reference a Chemical, Hazard, Process and Location, all optional.  Zero or more may be provided.
+## Patterns
 
-## Linking UI Patterns
+- Parent/child: Location hierarchy and Process → Task.
+- Effective-dated: Person ↔ SEG membership.
+- Context: Scenario → SEG/Location/Process/Task/Agent.
+- Versioned basis: Result/Comparison → ExposureLimit revision.
+- Source/follow-up: Assessment/Incident/Finding → Action → Verification.
+- Evidence: Domain record → EvidenceReference/DocumentReference.
 
-* **Select Inputs:** For one‑to‑many relationships, use a select dropdown or searchable select.  When creating or editing a record, the user chooses the parent entity (e.g. selecting a Location for a new Process).  The UI loads available parents from the register and disables selection when no parents exist.
-* **Multi‑Select Inputs:** For many‑to‑many relationships, use a multi‑select component that allows the user to search and select multiple items (e.g. selecting Hazards to add to a SEG).  Selected items appear as chips/tags with remove buttons.
-* **Relationship Panel:** On detail pages, display linked records in the Relationship Panel (see `relationship-panel-specs.md`).  Each link includes the record’s label and status.  Links are interactive and navigate to the record’s detail page.
-* **Link/Unlink Actions:** Next to the relationship list, include an “Add” button to link a new record and an “Unlink” button for each existing record.  Unlinking requires confirmation and does not delete either record—it simply removes the association.
+SEG ↔ Hazard is not a generic many-to-many target relationship. Exposure relevance is expressed through Exposure Scenario and Assessment.
 
-## Business Rules
+## UI
 
-* A record cannot be linked to an archived or deleted entity.  The UI should filter out archived entities from selection lists.
-* In many‑to‑many relationships, duplicates are prevented by a unique constraint on the join table (e.g. `UNIQUE(seg_id, hazard_id)`).
-* When unlinking, ensure that removing the link does not violate domain rules (e.g. a SEG must contain at least one hazard; if only one hazard remains, prevent unlinking until another is added).
+- Searchable selection shows business ID, name, status, Site context, and archived/superseded state.
+- Context filters narrow choices but do not hide the actual relationship rules.
+- Historical views display inactive dependencies with clear status.
+- Removing/ending a relationship shows impact and does not delete either record.
+- Effective-dated relationships use an end date rather than destructive unlink where history matters.
 
-## Validation & Persistence
+## Validation
 
-* The persistence module provides functions to create and delete relationships (e.g. `addHazardToSeg(segId, hazardId)`, `removeHazardFromSeg(segId, hazardId)`).
-* These functions enforce foreign key constraints and validate that both entities exist and are active.
-* For optional links on findings, the parent table must check that referenced entities exist or return an error.
+- Required target exists.
+- Active use of archived/superseded target is allowed only by explicit rule/justification.
+- Site/process/task relationships are compatible.
+- Location relationships do not create cycles.
+- Duplicate relationships/effective intervals are prevented or justified.
+- Removing/replacing a required relationship cannot orphan an assessment, determination, sample, action, review, or revision.
 
-## UI Feedback
+## Acceptance criteria
 
-* After linking or unlinking, update the Relationship Panel immediately to reflect changes.  Show a toast or inline notification confirming the action.
-* If linking fails (e.g. due to validation rules), show an error banner with the reason.
-
-## Acceptance Criteria
-
-* Users can link records via select or multi‑select inputs when creating or editing records.
-* Relationship panels display linked records and provide Add and Remove actions.
-* The system prevents linking archived entities and prevents duplicate relationships.
-* Unlinking requires confirmation and updates the UI without deleting the underlying records.
+- Relationship changes are transactional and revisioned.
+- Historical records remain navigable.
+- Domain-invalid generic links are impossible through UI or repository.

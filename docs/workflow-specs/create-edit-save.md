@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Standardise how records are created and edited across OLUSO.  Define save, cancel, validation, error handling and dirty‑state behaviour to ensure a predictable user experience.
+Standardise how records are created and edited across ADAMA HSE, including save, revision checks, validation, error handling, and dirty-state behavior.
 
 ## Workflow Overview
 
@@ -11,14 +11,14 @@ Standardise how records are created and edited across OLUSO.  Define save, cance
 3. **User Input:** User fills in fields.  Form performs client‑side validation on blur and on submission.
 4. **Dirty State:** The form tracks whether any field value differs from `initialValues`.  If dirty, unsaved changes detection is activated.
 5. **Save:** User clicks Save.  The form runs validation again.  If valid, it calls `onSave(values)` and awaits completion.
-6. **Persist:** The persistence module validates data server‑side and writes to the database.  On success, it returns the saved record, including generated IDs/codes and timestamps.
+6. **Persist:** The domain service validates again, enforces cross-record invariants and `expectedRevision`, then transactionally writes current state and immutable history through the repository. On success it returns the saved record with identity, revision, and attribution metadata.
 7. **Success:** On save, navigate to the record’s detail page (for create) or remain on the detail page (for edit).  Display a success toast/notification.
 8. **Cancel:** User clicks Cancel or navigates away.  If the form is dirty, show a confirmation dialog asking to discard changes.  If confirmed, discard; otherwise keep editing.
-9. **Error Handling:** If validation fails in the persistence layer or there is a network/disk error, display an error banner at the top of the form with the error message.  Do not navigate away; keep the form state for user correction.
+9. **Error Handling:** If validation, stale-revision, database, quota, or migration state prevents the write, display an actionable form/banner error. Do not navigate away or show saved state; preserve recoverable input.
 
 ## Validation
 
-* Forms must implement the rules defined in `validation-rules.md`.  Client‑side validation prevents obviously invalid input (e.g. required fields) but the persistence layer validates again.
+* Forms implement `validation-rules.md` for feedback, but domain/application services validate again and remain authoritative.
 * Display field‑level errors below the input.  Display non‑field errors (e.g. unique constraint violations) in a banner at the top.
 * While validation errors exist, disable the Save button.
 

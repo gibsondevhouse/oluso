@@ -75,7 +75,7 @@ Loading, empty, error, missing record — same patterns as other registers.
 ## Record Relationships
 
 * Each hazard is associated with exactly one entity (chemical, process, location or SEG).  The detail page must provide a link back to that entity.
-* Hazards may be linked to multiple SEGs if the hazard contributes to a significant environmental aspect.  This linking is represented in the relationship panel.
+* Hazards or exposure agents relate to a SEG through explicit exposure scenarios and assessments. A SEG is a Similar Exposure Group, not a significant environmental aspect, and the page must not create a direct generic grouping that bypasses scenario context.
 * Field findings that involve the hazard should be listed, along with any corrective actions.
 
 ## Accessibility Expectations

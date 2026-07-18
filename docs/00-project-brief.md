@@ -1,192 +1,138 @@
-# 00 — Project Brief
+# 00 — ADAMA HSE product brief
 
-# OLUSO Product Brief
+Status: Governing
+Last updated: 2026-07-18
+Legacy repository/product name: OLUSO
 
-## 1. Product Name
+## Product definition
 
-**OLUSO**
+ADAMA HSE is a local-only, web-first HSE and occupational-health application. It is designed for an HSE professional and an HSE manager who work on separate corporate laptops, retain separate local datasets, and exchange review packages manually through OneDrive.
 
-## 2. Product Type
+The application is not a shared cloud database. It must remain useful without network access after its first load.
 
-OLUSO is a local-first desktop application for managing health, safety, environmental, and industrial hygiene information in a structured, field-usable way.
+## Core problem
 
-The product is not intended to be a generic note-taking app, spreadsheet replacement, or enterprise EHS suite. It is a focused operational tool for maintaining registers, records, observations, corrective actions, and compliance-supporting information in one coherent system.
+The immediate operational problem is incomplete and fragmented knowledge about:
 
-## 3. Product Summary
+- Where work occurs.
+- Which processes and tasks occur there.
+- Which equipment and chemical products are involved.
+- Which workers form similar exposure groups.
+- Which exposure scenarios exist under routine, non-routine, upset, and cleanup conditions.
+- Which controls apply and how reliable they are.
+- Which evidence supports a professional exposure determination.
+- Which monitoring, actions, verification, and reassessment remain due.
 
-OLUSO helps an HSE professional organize the operational reality of a facility:
+ADAMA HSE turns that knowledge into one traceable workflow:
 
-* What chemicals are present
-* Where work occurs
-* What processes exist
-* Which worker groups may be exposed
-* What hazards have been identified
-* What controls are in place
-* What field observations, inspections, audits, and air sampling activities have occurred
-* What incidents or near misses need follow-up
-* What corrective actions remain open
-* What compliance items require tracking
+```text
+Location → Process → Task → SEG → Exposure Scenario
+  → Exposure Assessment → Determination → Monitoring
+  → Controls → Actions → Reassessment
+```
 
-The application’s purpose is to reduce fragmented HSE work by replacing scattered notes, spreadsheets, folders, and memory-based tracking with a structured local system.
+## Intended users and collaboration model
 
-## 4. Core Problem
+The initial operating group is:
 
-HSE work breaks down when critical information lives in disconnected places.
+- The HSE professional who captures baseline and occupational-health data.
+- The HSE manager who reviews, comments on, and revises records.
 
-Typical failure modes include:
+Each installation has an explicit installation identity and each user action has an explicit user identity. Collaboration occurs through versioned exchange packages with dry-run previews, attribution, conflict resolution, and import history.
 
-* Chemical inventories becoming stale
-* SDS files not being linked to actual chemicals or processes
-* Hazards being documented without controls or verification
-* Observations creating no corrective action trail
-* Incidents being investigated without durable linkage to hazards, processes, or controls
-* Compliance tasks depending on memory instead of a visible calendar or register
-* Field information being difficult to retrieve during audits, walkthroughs, or planning
+OneDrive is only a manual file-transfer channel. The product does not silently monitor, synchronize, or merge a OneDrive folder.
 
-OLUSO exists to make HSE information easier to capture, connect, review, and act on.
+## Product thesis
 
-## 5. Primary User
+The governing domain object is the exposure scenario, not a generic hazard, SEG, sample, or register row.
 
-The primary user is an HSE professional responsible for practical field execution and documentation.
+An assessment must state who is exposed, where and during what work, to which agent, under which operating condition, through which routes, for how long and how often, with which controls, and with what evidence and uncertainty.
 
-This includes users who need to:
+Professional determinations remain explicit and reviewable. Calculated comparisons may support them but must not masquerade as professional judgment.
 
-* Walk a facility and document observations
-* Track hazards and corrective actions
-* Maintain chemical and SDS information
-* Connect processes, locations, equipment, and SEGs
-* Support audit readiness
-* Prepare for inspections, exposure assessments, and incident reviews
-* Keep operational safety information organized without relying on an enterprise system
+## Target architecture
 
-The initial product assumes a single-user workflow.
+```text
+SvelteKit SPA/PWA
+  → typed application/domain services
+  → repository contracts
+  → versioned IndexedDB database
+  → JSON backups and exchange packages
+  → user-controlled OneDrive transfer
+```
 
-## 6. Product Thesis
+The target has one persistence implementation. Tauri/Rust and browser `localStorage` are migration sources, not parallel production architectures.
 
-A useful HSE application should behave more like an operational register system than a document dump.
+## Initial product scope
 
-The app should make important relationships explicit:
+### Foundation
 
-* Chemicals connect to SDS records, exposure limits, processes, and locations
-* Processes connect to locations, equipment, hazards, and SEGs
-* Hazards connect to controls, observations, incidents, and corrective actions
-* Corrective actions connect to verification evidence
-* Compliance items connect to records, documents, and due dates
+- Organizations and people.
+- Hierarchical locations from Country through Site and operational areas.
+- Processes, tasks, and equipment.
+- Chemical substances, products, SDS revisions, site inventory, and chemical use.
+- Exposure agents, exposure limits, controls, and document references.
 
-The product should support field thinking first, then documentation.
+### Industrial hygiene
 
-## 7. Initial Scope
+- SEGs and effective-dated memberships.
+- Exposure scenarios.
+- Qualitative assessments, uncertainty, confidence, and data gaps.
+- Monitoring priorities and sampling plans.
+- Sampling events, samples, laboratory results, limit comparisons, interpretations, and determinations.
+- Control verification, program applicability, surveillance requirements, and reassessment.
 
-The initial scope is a structured desktop app with core navigation areas for:
+### Governance and collaboration
 
-* Dashboard
-* Operations
-* Chemical Safety
-* Risk Management
-* Field Work
-* Incidents
-* Corrective Actions
-* Compliance
-* Reports
+- Immutable record revisions.
+- Reviews, approvals, notes, data-quality findings, and evidence references.
+- Versioned exchange packages, tombstones, import dry-runs, conflict resolution, attribution, and rollback.
 
-The first build should prioritize clean navigation, durable data structures, and simple register-based workflows before advanced reporting, automation, or external integrations.
+### Assurance
 
-## 8. Initial Non-Goals
+- Observations, inspections, findings, incidents, investigations, corrective actions, and verification when linked to the operational/exposure model.
 
-OLUSO should not initially attempt to be:
+## Immediate field experience
 
-* A full enterprise EHS management system
-* A multi-tenant SaaS platform
-* A regulatory interpretation engine
-* A replacement for legal review or professional judgment
-* A real-time monitoring system
-* A complex workflow automation platform
-* A mobile-first inspection app
-* A document management system with unlimited file handling
-* An AI-first application
+The application must support a unit walkthrough without forcing the user to navigate across many disconnected registers. A baseline workflow should capture location, process, task, equipment, chemical use, worker/SEG, exposure scenarios, controls, evidence, and data gaps in context.
 
-AI assistance, advanced analytics, cloud sync, mobile capture, and multi-user workflows may be considered later, but they are not part of the first product definition.
+The dashboard should show baseline completeness by site or unit, including missing exposure scenarios, controls, monitoring history, and reassessment schedules.
 
-## 9. Product Principles
-
-OLUSO should be:
-
-### Local-first
-
-The user should be able to work without depending on cloud availability.
-
-### Register-driven
-
-The app should treat key HSE entities as structured records, not loose notes.
-
-### Field-usable
-
-Screens should support real work: quick review, clean entry, obvious status, and minimal friction.
-
-### Audit-aware
-
-Records should preserve enough context to support review, investigation, and follow-up.
-
-### Relationship-oriented
-
-Important operational links should be visible and intentional.
-
-### Maintainable
-
-The application should avoid overbuilt abstractions before the domain model is stable.
-
-## 10. Success Criteria
-
-The product brief is satisfied when the application can eventually support the following outcomes:
-
-* A user can see the major HSE operating areas from the side navigation.
-* A user can maintain structured registers for chemicals, processes, locations, SEGs, hazards, controls, incidents, and actions.
-* A user can connect related records without duplicating information across unrelated pages.
-* A user can identify open safety work quickly.
-* A user can retrieve supporting information during an audit, walkthrough, or planning session.
-* The application structure remains understandable as more modules are added.
-* The product remains usable as a local desktop application without requiring cloud infrastructure.
-
-## 11. Key Risks
-
-### Scope Creep
-
-HSE systems can expand endlessly. The first version must stay focused on registers, relationships, and basic workflows.
-
-### Data Model Drift
-
-If entities are not clearly defined early, the app will become a collection of unrelated pages.
-
-### Over-Documentation
-
-The product should help create useful records, not bury the user in administrative burden.
-
-### Weak Verification
-
-Corrective actions and controls lose value if the app does not distinguish between assigned, completed, and verified work.
-
-### Compliance Ambiguity
-
-The app may support compliance readiness, but it must not imply that storing a record equals legal compliance.
-
-## 12. Current Product Position
-
-OLUSO is in the documentation and architecture definition stage.
-
-The immediate goal is to define the product clearly enough that future documents can describe:
-
-* Product vision
-* Information architecture
-* Sidebar navigation
-* Domain model
-* User workflows
-* Design principles
-* Build plan
-* Scope boundaries
-* Routing
-* UI architecture
-* State management
-* Future roadmap
-* Architecture decision records
-
-This brief is the anchor document. Later documents should expand specific decisions without changing the basic product purpose.
+## Explicit non-goals for the reset
+
+- Real-time collaboration or automatic cloud sync.
+- A SaaS backend, multi-tenant platform, or enterprise identity system.
+- Full training/LMS behavior.
+- Complex MOC/PSSR, environmental, waste, permit, or compliance-calendar suites.
+- Clinical medical information or medical diagnosis.
+- Automated legal conclusions or automated professional determinations.
+- Unmanaged document storage or a full document-management system.
+- Maintaining Tauri and web production architectures in parallel.
+
+Deferred modules may remain in the repository behind a Future Modules boundary, but they must not drive architecture or receive polish before the core workflow is complete.
+
+## Success criteria
+
+ADAMA HSE is ready for operational use when:
+
+- Tifton and Ocilla can be represented through a valid Country → State/Region → Site hierarchy without workarounds.
+- A chemical product can be used at multiple sites without duplicating its identity, and multiple SDS and exposure-limit revisions remain historically visible.
+- An HSE professional can complete the governing workflow from site baseline through reassessment.
+- The manager can review a package, add notes, return changes, and exchange subsequent packages without silent data loss.
+- Every applied change is attributable to a user, installation, revision, and exchange package where applicable.
+- Conflicts and invalid packages are visible before any local mutation.
+- The browser database survives restarts, supports verified migrations and backups, and reports failed writes visibly.
+- The app works offline after first load on supported corporate browsers.
+- A review packet can explain what work occurs, who may be exposed, what supports the determination, and what must happen next.
+
+## Product risks
+
+- Treating implemented pages as proof of domain completeness.
+- Retaining generic records for safety-critical workflows.
+- Conflating backup, bulk import, and collaborative exchange.
+- Applying monitoring comparisons without compatible basis, duration, and units.
+- Losing changes during separate-laptop review.
+- Removing legacy persistence before data conversion and rollback are proven.
+- Re-expanding deferred modules before the industrial-hygiene spine is accepted.
+
+This brief supersedes desktop-first and single-user statements in earlier OLUSO documents.

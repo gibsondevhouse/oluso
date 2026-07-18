@@ -20,7 +20,7 @@ Corrective actions follow the lifecycle defined in `record-lifecycle.md` with ad
 2. **Request Closure:** On the action detail page or edit form, the responsible party selects “Close Action”.  A modal appears prompting them to enter a closure comment.
 3. **Validation:** The closure comment is required; the system also validates that all related findings have been addressed (e.g. no remaining open non‑conformities).
 4. **Persist:** Upon confirmation, the action’s status changes to Closed.  The `closed_at` timestamp is set to the current date/time, and the comment is stored in the action’s history/log.
-5. **Verification:** A separate user with appropriate permissions reviews the closure.  On the action detail page, they select “Verify Action”.  A modal prompts for a verification comment.
+5. **Verification:** An explicitly identified verifier reviews the completed action. The verifier may be the manager or another designated person according to local procedure; application authentication/permissions are not implied. The verification records actor, evidence, conclusion, and comment as a new immutable revision.
 6. **Validation:** Verification requires that the action is Closed and that the verifier is not the original responsible party.  The verification comment is required.
 7. **Persist:** On confirmation, the action’s status changes to Verified and `verified_at` is set.  The comment is stored.
 8. **Post‑Verification:** The related finding may automatically transition to Verified or Closed if all its actions are verified (see workflow rules in `field-findings.md`).

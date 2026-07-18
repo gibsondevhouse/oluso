@@ -1,159 +1,127 @@
-# Schema Overview
+# Target schema overview
 
-## Purpose
+Status: Conceptual; physical IndexedDB keys/indexes are finalized with implementation
+Last updated: 2026-07-18
 
-Provide a high‑level description of the database schema used by OLUSO.  This overview helps developers and product owners understand the entities, their fields and relationships before diving into detailed migrations.
+## System stores
 
-## Tables and Fields
+| Store | Purpose |
+| --- | --- |
+| `dataset_metadata` | Dataset identity, schema version, dataset revision, created/update metadata. |
+| `installation_metadata` | Stable installation identity and compatibility state. |
+| `local_users` | Explicit local actor/reviewer profiles. |
+| `migration_runs` | Source/target versions, results, findings, timestamps, and rollback state. |
+| `settings` | Non-domain local preferences and diagnostics metadata. |
 
-### `locations`
+## Foundation stores
 
-| Field          | Type      | Notes                                  |
-|---------------|----------|----------------------------------------|
-| id            | UUID      | Primary key.                           |
-| code          | TEXT      | Unique short code.                     |
-| name          | TEXT      | Location name.                         |
-| description   | TEXT      | Longer description.                    |
-| address       | TEXT      | Physical address or region.            |
-| manager       | TEXT      | Person responsible.                    |
-| created_at    | DATETIME  | See ADR‑0007.                          |
-| updated_at    | DATETIME  | Updated on modification.               |
-| archived_at   | DATETIME  | Null when active.                      |
+```text
+organizations
+people
+locations
+processes
+tasks
+equipment
+chemical_substances
+chemical_products
+chemical_product_substances
+sds_revisions
+site_chemical_inventory
+chemical_uses
+exposure_agents
+exposure_limits
+controls
+scenario_controls
+document_references
+evidence_references
+```
 
-### `processes`
+## Industrial-hygiene stores
 
-| Field          | Type      | Notes                                  |
-|---------------|----------|----------------------------------------|
-| id            | UUID      | Primary key.                           |
-| code          | TEXT      | Unique code.                           |
-| name          | TEXT      | Process name.                          |
-| description   | TEXT      | Description of the process.            |
-| location_id   | UUID      | Foreign key → locations(id).           |
-| owner         | TEXT      | Responsible person.                    |
-| procedure_doc | TEXT      | URL or path to procedure document.     |
-| created_at    | DATETIME  | As above.                              |
-| updated_at    | DATETIME  |                                      |
-| archived_at   | DATETIME  |                                      |
+```text
+segs
+seg_memberships
+exposure_scenarios
+exposure_assessments
+exposure_determinations
+sampling_plans
+sampling_events
+samples
+laboratory_results
+exposure_limit_comparisons
+professional_interpretations
+control_verifications
+program_applicability
+medical_surveillance_requirements
+```
 
-### `chemicals`
+## Assurance stores
 
-| Field               | Type     | Notes                                        |
-|---------------------|---------|----------------------------------------------|
-| id                  | UUID     | Primary key.                                 |
-| cas_number          | TEXT     | Unique CAS number.                           |
-| name                | TEXT     | Common name.                                 |
-| synonyms            | TEXT     | Comma‑separated synonyms.                    |
-| hazard_class        | TEXT     | Classification (flammable, corrosive, etc.). |
-| storage_requirements| TEXT     | Storage guidelines.                          |
-| sds_link            | TEXT     | URL or path to Safety Data Sheet.           |
-| created_at          | DATETIME |                                             |
-| updated_at          | DATETIME |                                             |
-| archived_at         | DATETIME |                                             |
+```text
+observations
+inspections
+findings
+incidents
+investigations
+corrective_actions
+verifications
+```
 
-### `hazards`
+## Governance stores
 
-| Field                   | Type     | Notes                                        |
-|-------------------------|---------|----------------------------------------------|
-| id                      | UUID     | Primary key.                                 |
-| code                    | TEXT     | Unique identifier (e.g. HZ‑xxx).             |
-| title                   | TEXT     | Hazard name.                                 |
-| description             | TEXT     | Detailed description.                        |
-| hazard_type             | TEXT     | Category (chemical, physical, etc.).         |
-| severity                | TEXT     | Severity enum.                               |
-| likelihood             | TEXT     | Likelihood enum.                             |
-| controls                | TEXT     | Recommended controls.                        |
-| associated_entity_type  | TEXT     | One of: location, process, chemical, SEG.    |
-| associated_entity_id    | UUID     | Foreign key to corresponding table.          |
-| created_at              | DATETIME |                                             |
-| updated_at              | DATETIME |                                             |
-| archived_at             | DATETIME |                                             |
+```text
+record_revisions
+reviews
+approvals
+exchange_packages
+import_runs
+conflict_resolutions
+tombstones
+review_notes
+data_quality_findings
+backup_manifests
+```
 
-### `segs`
+## Required indexing concepts
 
-| Field                | Type     | Notes                                        |
-|----------------------|---------|----------------------------------------------|
-| id                   | UUID     | Primary key.                                 |
-| code                 | TEXT     | Unique identifier (e.g. SEG‑xxx).           |
-| name                 | TEXT     | Name.                                        |
-| description          | TEXT     | Detailed description.                        |
-| category             | TEXT     | Category (Environmental, Safety, etc.).      |
-| risk_rating          | TEXT     | Risk rating enum.                            |
-| controls             | TEXT     | Mitigation measures.                         |
-| created_at           | DATETIME |                                             |
-| updated_at           | DATETIME |                                             |
-| archived_at          | DATETIME |                                             |
+Physical index design must support:
 
-### `seg_hazards`
+- Entity ID and business ID.
+- Active/archive/superseded status.
+- Site resolution and location parent/ancestry queries.
+- Process/task/location relationships.
+- Product, site, inventory, and chemical-use relationships.
+- SEG membership by person/SEG/effective dates.
+- Scenario by Site, SEG, process, task, agent, condition, and status.
+- Assessment/determination current and superseded states.
+- Sampling by plan/event/scenario/worker/date/agent.
+- Actions by source, responsible party, due date, and status.
+- Revisions by record type/ID/revision and exchange package.
+- Import runs/packages by identity and applied status.
 
-Many‑to‑many relationship between SEGs and hazards.
+## Relationship requirements
 
-| Field     | Type | Notes                       |
-|-----------|-----|------------------------------|
-| seg_id    | UUID | Foreign key → segs(id).     |
-| hazard_id | UUID | Foreign key → hazards(id).  |
+IndexedDB does not enforce foreign keys. Domain services and repository transactions therefore enforce and test:
 
-### `findings`
+- Required dependency existence.
+- Site resolution and hierarchy rules.
+- No circular location parents.
+- Process/task/location compatibility.
+- Assessment → Scenario.
+- Determination → Assessment.
+- Plan/Event/Sample/Result chain.
+- Result/comparison agent, dimension, unit, and duration compatibility.
+- Review/revision target existence.
+- Archive/supersession behavior.
 
-| Field            | Type     | Notes                                             |
-|------------------|---------|---------------------------------------------------|
-| id               | UUID     | Primary key.                                      |
-| reference        | TEXT     | Unique reference number.                          |
-| title            | TEXT     | Summary.                                         |
-| description      | TEXT     | Details.                                         |
-| finding_type     | TEXT     | Enum: Positive, Minor, Major.                    |
-| location_id      | UUID     | Location where observed.                          |
-| process_id       | UUID     | Related process (optional).                       |
-| chemical_id      | UUID     | Related chemical (optional).                      |
-| hazard_id        | UUID     | Related hazard (optional).                        |
-| reported_by      | TEXT     | Reporter name.                                   |
-| reported_at      | DATETIME | Date/time reported.                              |
-| status           | TEXT     | Enum: Open, In Progress, Closed, Verified.       |
-| created_at       | DATETIME |                                                 |
-| updated_at       | DATETIME |                                                 |
-| archived_at      | DATETIME |                                                 |
+## Current-state and history separation
 
-### `corrective_actions`
+Entity stores contain the latest accepted state for efficient reads. `record_revisions` contains immutable changes. A transaction that updates current state must update both consistently.
 
-| Field             | Type     | Notes                                                      |
-|-------------------|---------|-----------------------------------------------------------|
-| id                | UUID     | Primary key.                                               |
-| reference         | TEXT     | Unique action number.                                      |
-| finding_id        | UUID     | Foreign key → findings(id).                                |
-| title             | TEXT     | Action title.                                              |
-| description       | TEXT     | Action details.                                            |
-| responsible_party | TEXT     | Assigned person or role.                                   |
-| due_date          | DATE     | Due date.                                                  |
-| status            | TEXT     | Enum: Open, In Progress, Closed, Verified.                |
-| created_at        | DATETIME |                                                           |
-| updated_at        | DATETIME |                                                           |
-| closed_at         | DATETIME | When marked closed.                                        |
-| verified_at       | DATETIME | When verified.                                             |
-| archived_at       | DATETIME | When archived.                                             |
+## Derived data
 
-### `export_metadata`
+Dashboard completeness, counts, search projections, and reports are derived. If cached, the cache includes source revision/rule-set metadata and can be discarded/rebuilt.
 
-| Field         | Type     | Notes                                        |
-|--------------|---------|----------------------------------------------|
-| id           | UUID     | Primary key.                                 |
-| file_name    | TEXT     | Name of exported file.                       |
-| type         | TEXT     | Register or report type.                    |
-| filters      | TEXT     | JSON string of filters used.                |
-| created_at   | DATETIME | When export was generated.                  |
-| file_path    | TEXT     | Location on disk.                           |
+## Legacy mapping
 
-## Relationships Summary
-
-* Locations → Processes: one‑to‑many (`processes.location_id`).
-* Hazards associate with one entity (location/process/chemical/SEG) via `associated_entity_type` and `associated_entity_id`.
-* SEGs ↔ Hazards: many‑to‑many via `seg_hazards`.
-* Findings ↔ Locations, Processes, Chemicals, Hazards: optional foreign keys linking the finding context.
-* Findings ↔ Corrective Actions: one‑to‑many (`corrective_actions.finding_id`).
-
-## Indexes & Constraints
-
-* Unique indexes on `code` fields (`locations.code`, `processes.code`, `hazards.code`, `segs.code`), `cas_number` for chemicals, `reference` for findings and corrective actions.
-* Foreign key constraints enforce referential integrity.  On delete, set foreign keys to `NULL` or restrict depending on business rules.
-
-## Evolution
-
-This overview provides the initial schema.  Future versions may add tables (e.g. attachments) or fields (e.g. audit trail) as the product evolves.  All changes must be captured in migrations and documented here.
+Legacy `chemicals`, `segs`, generic campaign records, exposure monitoring records, and broad location types do not map one-to-one. Migration creates canonical entities where the mapping is unambiguous and `DataQualityFinding` records where human resolution is required. Migration never invents professional conclusions.

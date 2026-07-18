@@ -1,6 +1,6 @@
 # Controls Page Specification
 
-This specification describes the **Controls** page of **Olùṣọ́**, where engineering and administrative controls, personal protective equipment (PPE), and other mitigation measures are recorded, reviewed, and managed.
+This specification describes the **Controls** page of **ADAMA HSE**, where engineering, administrative, work-practice, substitution/elimination, and PPE controls are recorded, reviewed, and managed.
 
 ## Purpose
 
@@ -57,7 +57,7 @@ Effective hazard control is foundational to an industrial hygiene program.  This
 
 - Link controls to hazard control hierarchy: elimination, substitution, engineering, administrative, PPE.  The UI should encourage selecting higher order controls where feasible.
 - Show regulatory references or internal policies relevant to the selected control type.  For example, linking to OSHA 29 CFR 1910 for machine guarding.
-- Allow attaching supporting documents (e.g., inspection certificates) via Google Drive integration.
+- Allow typed evidence/document references to approved external files (including a user-selected OneDrive location) without implying direct Drive integration or making the file the source record.
 
 ## Testing
 

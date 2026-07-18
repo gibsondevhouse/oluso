@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Define the test cases required to verify correct routing behaviour across OLUSO.  Route tests ensure that navigation leads to the appropriate pages, the side panel highlights the active item, breadcrumbs update correctly, and not‑found/error pages appear when expected.
+Define route tests for the ADAMA HSE target contract, including active navigation, breadcrumbs, legacy redirects, Future Module boundaries, and not-found/error behavior.
 
 ## Test Cases
 

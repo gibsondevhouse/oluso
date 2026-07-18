@@ -1,6 +1,6 @@
 # Search & Filter Workflow Specification
 
-This document describes the user workflow for searching and filtering records across registers in **Olùṣọ́**.  It complements the component specification (`component-specs/search-filter-specs.md`) by outlining the interactions and data flow between the UI and the repository layer.
+This document describes searching and filtering ADAMA HSE records. It complements the component specification (`component-specs/search-filter-specs.md`) and uses typed repository queries over canonical local records.
 
 ## Workflow
 

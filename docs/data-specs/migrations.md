@@ -1,61 +1,64 @@
-# Migrations Specification
+# Migration specification
 
-## Purpose
+Status: Governing target
+Last updated: 2026-07-18
 
-Define the strategy for evolving the database schema over time without losing user data.  Migrations allow us to introduce new tables, columns or constraints and ensure that existing installations update gracefully.
+## Migration classes
 
-## Versioning Scheme
+### Target-schema migration
 
-* Migrations are stored as SQL files in `src-tauri/migrations/`.
-* Each file name starts with a three‑digit zero‑padded number followed by a descriptive name and `.sql` extension, e.g. `001_initial.sql`, `002_add_hazards.sql`.
-* The migration runner reads the `schema_version` table to determine the current version and applies pending migrations in ascending order.
-* Schema version numbers increment by one per migration; they must not be reused or reordered.
+Upgrades one IndexedDB schema version to the next through ordered TypeScript migration functions.
 
-## Migration File Structure
+### Legacy-source migration
 
-Each migration file contains two SQL statements separated by a delimiter comment `-- down`: the first part applies the migration (up), and the second part reverts it (down).  Example:
+Imports supported pre-reset browser `localStorage` or native SQLite snapshots into the target schema. This is an explicit user/developer-controlled conversion, not an automatic destructive upgrade.
 
-```sql
--- 002_add_hazards.sql
--- up
-CREATE TABLE hazards (
-  id TEXT PRIMARY KEY,
-  code TEXT NOT NULL UNIQUE,
-  title TEXT NOT NULL,
-  description TEXT,
-  ...
-);
+### Exchange schema adaptation
 
--- down
-DROP TABLE hazards;
-```
+Adapts a supported older exchange schema into the current staging model before dry-run. It never bypasses package validation or domain rules.
 
-Down migrations allow developers to roll back during development but are not normally used in production.
+These classes are tested separately.
 
-## Applying Migrations
+## Target-schema rules
 
-* On app startup, the persistence layer queries `schema_version` to determine the current version.
-* It scans the migrations directory for files with numbers greater than the current version.
-* Each migration’s `up` section is executed within a transaction.  If any statement fails, the transaction is rolled back and the app aborts startup with an error.
-* After successfully applying a migration, the version in `schema_version` is updated.
+- Versions are positive monotonically increasing integers.
+- Every version has an immutable migration definition after release.
+- Each migration declares source/target versions, affected stores/indexes, data transform, preconditions, postconditions, and failure behavior.
+- Upgrades are transactional where IndexedDB permits; designs avoid long asynchronous work inside upgrade transactions.
+- Destructive removal uses add/backfill/verify/remove sequencing across releases when needed.
+- A failed migration does not expose a partially upgraded database as ready.
 
-## Writing Migrations
+## Legacy migration rules
 
-* Every change to the database schema must be captured in a new migration file, even if the change is small.
-* Avoid destructive operations (dropping columns/tables) in migrations unless absolutely necessary.  Use new columns and data transforms instead.
-* When adding columns with `NOT NULL` constraints, provide a default value or backfill existing rows within the migration.
-* Test migrations against sample data to ensure that they can be applied to existing user databases without data loss.
+1. Create and validate a source snapshot before conversion.
+2. Identify source implementation and schema version.
+3. Reject unsupported/corrupt sources without target mutation.
+4. Convert into a new/staged target database.
+5. Preserve stable IDs, business IDs, timestamps, archive state, and relationships where valid.
+6. Record every mapping and unmappable/ambiguous field.
+7. Create data-quality findings for human decisions; do not invent missing scenario context, OEL basis, or professional determinations.
+8. Run target invariants and counts.
+9. Produce a migration report and rollback instructions.
+10. Activate the target database only after verification.
 
-## Handling Data Transforms
+## Required source matrix
 
-If a migration requires modifying existing data (e.g. splitting a field into two), include SQL or code in the migration to perform the transformation.  Always perform transformations in a transaction and back up data if the operation is complex.
+The matrix includes every supported browser schema and native SQLite schema present in released/piloted data. For each source version, fixtures cover:
 
-## Seeding Data
+- Empty database.
+- Representative active and archived records.
+- Relationships and orphaned/invalid legacy relationships.
+- Generic campaign records.
+- Combined chemical records.
+- Broad location types.
+- Existing assessment/determination/sampling records.
+- Unicode, long text, dates, numeric strings, and missing optional fields.
 
-Seeding of development data is handled separately (see `seed-data.md`) and should not be part of migrations.  Migrations focus on schema, not content.
+## Acceptance criteria
 
-## Acceptance Criteria
-
-* The migration runner applies pending migrations on startup without user intervention.
-* Migrations never leave the database in a partially updated state.
-* Adding a new feature that requires schema changes always includes a corresponding migration file.
+- Every supported version migrates to the same current invariants.
+- Record counts and relationship mappings are explained, not merely compared.
+- A failed migration leaves the source and prior active database recoverable.
+- Re-running an already completed migration is safe/idempotent.
+- Migration writes attributed `RecordRevision`/migration history without pretending migrated data was newly authored.
+- Tauri/Rust and legacy browser readers are removed only after this matrix passes with representative user data.

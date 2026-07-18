@@ -1,134 +1,118 @@
-# Repository Contracts
+# Repository contracts
 
-This specification defines the repository pattern and contracts used by **Olùṣọ́** for data persistence.  Repositories decouple the domain logic from the underlying storage engine (SQLite) and ensure consistent access patterns, validation, and error handling.  Coding agents must never bypass the repository layer or mutate global state directly.
+Status: Governing target
+Last updated: 2026-07-18
 
-## Base Repository Interface
+Repositories decouple domain/application services from IndexedDB. UI components and Svelte stores never access the database directly.
 
-All repositories implement the following base operations for their respective entity type `T`.  Methods must return immutable copies of domain entities and must never expose internal ORM or database objects.
+## Base read contract
 
-- **`list(filters: dict | None, page: int = 1, page_size: int = 50) -> List[T]`**
-  
-  Returns a paginated list of records matching optional filter criteria.  Filters are key–value pairs that map field names to exact match values.  Pagination defaults to 50 records per page and must be enforced to prevent unbounded queries.
+```typescript
+interface PageRequest<F> {
+  filters?: F;
+  search?: string;
+  sort?: { field: string; direction: "asc" | "desc" }[];
+  cursor?: string;
+  pageSize?: number;
+  includeArchived?: boolean;
+}
 
-- **`search(query: str, filters: dict | None, page: int = 1, page_size: int = 50) -> List[T]`**
-  
-  Performs full‑text search across designated fields.  The `query` string may include multiple terms.  Filters are applied after search results are scored.
+interface Repository<T, Create, Update, Filters> {
+  list(request: PageRequest<Filters>): Promise<Page<T>>;
+  count(filters?: Filters): Promise<number>;
+  get(id: string, options?: { includeArchived?: boolean }): Promise<T>;
+  exists(id: string): Promise<boolean>;
+}
+```
 
-- **`count(filters: dict | None) -> int`**
-  
-  Returns the total number of records matching filters (without pagination).  Used for reporting and pagination metadata.
+List/query contracts use typed filters for operational entities. Unbounded reads require a documented export/report use case.
 
-- **`get(id: uuid) -> T`**
-  
-  Retrieves a single record by UUID.  Raises `RecordNotFound` if the id does not exist or if the record is archived.
+## Mutation context
 
-- **`create(data: dict) -> uuid`**
-  
-  Inserts a new record.  Must validate required fields, enforce foreign‑key constraints, apply defaults, and audit metadata.  Returns the generated UUID.
+```typescript
+interface MutationContext {
+  actorId: string;
+  installationId: string;
+  source: "local" | "migration" | "exchange" | "rollback";
+  reason?: string;
+  exchangePackageId?: string;
+}
 
-- **`update(id: uuid, data: dict) -> None`**
-  
-  Updates an existing record.  Must merge allowed fields, validate references, and update `modified_by` and `updated_at`.  Raises `RecordNotFound` if the id does not exist.
+interface MutableRepository<T, Create, Update, Filters>
+  extends Repository<T, Create, Update, Filters> {
+  create(input: Create, context: MutationContext): Promise<T>;
+  update(id: string, input: Update, expectedRevision: number, context: MutationContext): Promise<T>;
+  archive(id: string, expectedRevision: number, reason: string, context: MutationContext): Promise<T>;
+  restore(id: string, expectedRevision: number, context: MutationContext): Promise<T>;
+}
+```
 
-- **`delete(id: uuid, soft: bool = True) -> None`**
-  
-  Soft deletes a record by setting `archived_at` when `soft=True`.  When `soft=False`, permanently removes the record only after verifying that no foreign keys depend on it.  Never cascade delete child records except in migration scripts.
+Domain services orchestrate multi-repository operations within an injected transaction. A repository method must not create an incomplete cross-record state merely to fit a generic CRUD interface.
 
-- **`exists(id: uuid) -> bool`**
-  
-  Returns `True` if the record exists and is not archived; otherwise `False`.
+## Required semantic errors
 
-- **`restore(id: uuid) -> None`**
-  
-  Clears `archived_at` on a soft‑deleted record.  Raises `RecordNotFound` if the id does not exist or is not archived.
+- `RecordNotFound`.
+- `ValidationError` with field/path details.
+- `DependencyError` for missing/incompatible relationships.
+- `ArchivedDependencyError` where active use is prohibited.
+- `StaleRevisionError` with expected/current revision.
+- `ConstraintError` for uniqueness/cross-record invariants.
+- `StorageUnavailableError`.
+- `QuotaExceededError`.
+- `MigrationError`.
+- `IntegrityError`.
+- `ExchangeValidationError`.
 
+Low-level DOM/IndexedDB errors are wrapped with a stable semantic code and retained diagnostic cause.
 
-## Entity‑Specific Contracts
+## Domain-specific contracts
 
 ### LocationRepository
 
-Extends BaseRepository with hierarchical queries:
+- List children and ancestors.
+- Resolve Site.
+- Validate allowed parent types.
+- Reject cycles and invalid reparenting.
+- Identify descendants affected by archive/reparent.
 
-- **`list_children(parent_id: uuid | None) -> List[Location]`**: returns immediate children of a given parent, or top‑level locations when `parent_id` is `None`.
-- **`get_ancestors(id: uuid) -> List[Location]`**: returns the chain of ancestors from the root to the specified location.
+### Chemical repositories
 
-### ProcessRepository
+Separate contracts for substances, products, SDS revisions, inventory, chemical use, exposure agents, and limits. No `ChemicalRepository` may recreate the legacy combined record.
 
-Extends BaseRepository with location scoping:
+### SEGRepository and SEGMembershipRepository
 
-- **`list_by_location(location_id: uuid) -> List[Process]`**: returns processes at a specific location.
-- **`attach_hazard(process_id: uuid, hazard_id: uuid) -> None`**: associates a hazard with a process.  Must ensure hazard’s location matches the process location.
-- **`detach_hazard(process_id: uuid, hazard_id: uuid) -> None`**: removes association.
+- Query effective membership for a date/range.
+- Detect conflicting/overlapping membership according to domain scope.
+- Preserve ended memberships.
 
-### ChemicalRepository
+### ExposureScenarioRepository
 
-- **`list_by_location(location_id: uuid) -> List[Chemical]`**: returns chemicals stored at a location.
-- **`list_by_hazard(hazard_id: uuid) -> List[Chemical]`**: returns chemicals associated with a hazard.
+- Query by Site/Unit, SEG, process/task, agent, condition, status, and data-quality state.
+- Return assessment/monitoring/control completeness without flattening related entities into mutable scenario fields.
 
-### HazardRepository
+### Assessment and determination repositories
 
-- **`list_by_process(process_id: uuid) -> List[Hazard]`**: returns hazards identified in a process.
-- **`list_by_seg(seg_id: uuid) -> List[Hazard]`**: returns hazards associated with a SEG.
-- **`attach_control(hazard_id: uuid, control_id: uuid) -> None`**: links a control to a hazard; ensures types are appropriate.
-- **`detach_control(hazard_id: uuid, control_id: uuid) -> None`**: removes association.
+- Require scenario/assessment relationships.
+- Query current and superseded conclusions.
+- Preserve the exact revisions used for review.
 
-### SEGRepository
+### Sampling repositories
 
-- **`list_by_process(process_id: uuid) -> List[SEG]`**: returns SEGs for a process.
-- **`assign_hazard(seg_id: uuid, hazard_id: uuid) -> None`**: links a hazard to the SEG.  Ensures hazard belongs to a process assigned to the SEG.
+Separate plan, event, sample, result, comparison, and interpretation operations. Comparison writes require a validated versioned limit and reproducible calculation details.
 
-### ExposureRepository
+### Governance repositories
 
-- **`list_by_seg(seg_id: uuid, start: datetime | None, end: datetime | None) -> List[Exposure]`**: returns exposure measurements for a SEG within an optional time range.
-- **`list_by_hazard(hazard_id: uuid, start: datetime | None, end: datetime | None) -> List[Exposure]`**: returns exposures for a hazard.
-- **`aggregate(seg_id: uuid, hazard_id: uuid, period: str) -> List[Dict]`**: returns aggregated statistics (max, min, average) grouped by day/week/month.
+Record revisions, reviews, approvals, import runs, conflict resolutions, tombstones, and data-quality findings have append-only/controlled-transition contracts. Generic update/delete is prohibited.
 
-### ControlRepository
+## Contract tests
 
-- **`list_by_hazard(hazard_id: uuid) -> List[Control]`**: returns controls associated with a hazard.
+The same contract suite runs against the production IndexedDB adapter and covers:
 
-### FieldFindingRepository
-
-- **`list_by_location(location_id: uuid) -> List[FieldFinding]`**: returns findings at a location.
-- **`list_by_hazard(hazard_id: uuid) -> List[FieldFinding]`**: returns findings related to a hazard.
-
-### CorrectiveActionRepository
-
-- **`list_by_finding(finding_id: uuid) -> List[CorrectiveAction]`**: returns actions for a field finding.
-- **`list_by_assigned_to(user_id: uuid) -> List[CorrectiveAction]`**: returns actions assigned to a specific user.
-
-### ReportRepository
-
-- **`list_by_type(report_type: str) -> List[Report]`**: returns reports of a given type.
-- **`generate(report_type: str, params: dict) -> uuid`**: orchestrates a report build job, capturing relevant data and storing file assets.  The repository should interact with the reporting service rather than implement generation logic itself.
-
-## Error Handling
-
-All repository methods must raise semantic exceptions rather than returning `None` or generic errors.  Examples include:
-
-- `RecordNotFound(id: uuid)`: raised when an entity is not found.
-- `ValidationError(field: str, message: str)`: raised when input data fails validation.
-- `ForeignKeyError(foreign_key: str, id: uuid)`: raised when a referenced record does not exist.
-- `ConcurrencyError(id: uuid)`: raised when an update would overwrite more recent changes (optimistic concurrency).
-
-Repositories must never catch and silence database errors.  They may wrap low‑level exceptions in domain‑level errors with improved context.
-
-## Concurrency and Transactions
-
-Updates and deletes must be wrapped in database transactions.  Repositories must implement optimistic locking by comparing record revision IDs or `updated_at` timestamps.  When a conflict is detected, raise `ConcurrencyError`.  Do not implement pessimistic locks unless there is a specific legal requirement.
-
-## Caching and Performance
-
-Repositories may implement read caching for frequently accessed data (e.g., lookup tables).  Caches must be invalidated on write operations.  Do not cache search results or paginated lists at this stage; prefer database indexes and query optimization.
-
-## Testing
-
-All repository methods require unit tests covering:
-
-- Happy path (creating, listing, updating, deleting records).
-- Validation errors (missing required fields, foreign key violations).
-- Concurrency handling (update after another writer has modified the record).
-- Soft delete behavior (exclusion from lists and searches).
-- Pagination and search filters.
-
-Repositories must be instantiated with a transactional test database.  Tests must reset the database state between runs to ensure isolation.
+- CRUD/lifecycle and immutable revision writes.
+- Expected-revision concurrency.
+- Cross-record invariants and archived dependencies.
+- Transaction rollback.
+- Query/filter/index behavior.
+- Migration-created records.
+- Exchange attribution/idempotency.
+- Storage/open/quota failure translation where simulatable.

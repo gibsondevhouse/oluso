@@ -1,6 +1,6 @@
 # Toast Notification Specification
 
-This document defines the toast notification component used across **Olùṣọ́** to deliver transient feedback to users.  Toasts provide non‑blocking messages for successes, warnings, errors and informational events.
+This document defines the toast notification component used across **ADAMA HSE** to deliver transient feedback. Toasts provide non-blocking messages for successes, warnings, errors, and informational events.
 
 ## Purpose
 
@@ -53,7 +53,7 @@ Components dispatch toast events through this service rather than directly manip
 ## Failure Modes
 
 - **Overflow**: If more than five toasts are triggered in rapid succession, queue them.  Do not discard messages silently.
-- **Network Errors**: API call errors must trigger error toasts with actionable details (status code, reason) and a retry action when appropriate.
+- **Storage and Package Errors**: Database, quota, migration, backup, or exchange failures must produce actionable feedback and a safe retry/recovery path where appropriate. Network status is informational for application updates/manual transfer and must not imply local records are unavailable.
 - **Validation Errors**: Summarize the first error inline (e.g., “Name is required”) and optionally link to a detailed view.
 
 ## Testing

@@ -1,90 +1,46 @@
-# HSE — Chemicals Page Spec
+# Chemicals, SDS, inventory, and use page specification
+
+Status: Governing target
+Canonical routes: `/master/substances`, `/master/products`, `/master/inventory`, `/master/chemical-uses`
+Last updated: 2026-07-18
 
 ## Purpose
 
-Manage the catalogue of chemicals used within the organisation.  Track their properties, hazards, storage requirements and regulatory classifications.  Provide a central list for compliance and risk assessments.
+Maintain global chemical identity separately from commercial products, SDS history, site inventory, and actual work use.
 
-## Route
+## Views
 
-`/hse/chemicals`
+### Substance
 
-Child routes:
+Canonical name, CAS number, synonyms, intrinsic identity/classification, linked products, agents, and history.
 
-* `/hse/chemicals/new` — create a new chemical entry.
-* `/hse/chemicals/:chemicalId` — view chemical details.
-* `/hse/chemicals/:chemicalId/edit` — edit a chemical entry.
+### Product
 
-## Sidebar Parent
+Trade/product name, manufacturer, formulation, related substances, status, SDS revisions, site inventories, uses, and history.
 
-“HSE” group → “Chemicals” item.
+### SDS revision
 
-## Domain Owner
+Product/manufacturer, revision/effective date, document reference, current/superseded status, review metadata.
 
-Health, Safety & Environment (HSE) Domain.
+### Site inventory
 
-## Data Source
+Product, Site, storage location, quantity/unit, container type, maximum inventory, status, and observation date/source.
 
-`chemicals` table.  Each record includes:
+### Chemical use
 
-* `id` (UUID)
-* `cas_number` (string) — Chemical Abstracts Service number.
-* `name` (string) — common name.
-* `synonyms` (string) — other names separated by commas.
-* `hazard_class` (string) — classification (e.g. flammable, corrosive).
-* `storage_requirements` (text)
-* `created_at`, `updated_at`, `archived_at`
-* Additional fields: regulatory references, SDS link.
+Product, location, process, task, SEG where applicable, frequency, duration, operating condition, controls, and evidence.
 
-## Primary User Tasks
+## Rules
 
-* View a searchable list of chemicals, filter by hazard class.
-* Add a new chemical with CAS number and hazard information.
-* Edit chemical details when classifications change.
-* Archive chemicals no longer used.
-* Link chemicals to SEGs and Hazards registers for risk assessments.
+- Product and substance identity are not duplicated per Site.
+- Several SDS revisions remain visible; current is explicit.
+- Inventory does not imply use/exposure.
+- Chemical use provides exposure-scenario input but does not itself make an exposure determination.
+- Exposure limits are maintained under exposure agents, not chemical/product/inventory records.
+- Archive/supersession preserves historical relationships.
 
-## Page Regions
+## Acceptance criteria
 
-### Register Page
-
-* **Page Header** — “Chemicals” with “New Chemical” action.
-* **Search & Filters** — search by name or CAS number; filter by hazard class; filter by status.
-* **Register Table** — columns: CAS Number, Name, Hazard Class, Status, Last Updated.
-* **Empty/Loading/Error States** — per component specs.
-
-### Create/Edit Page
-
-* Form fields: CAS Number (text, required, unique), Name (text, required), Synonyms (tags input), Hazard Class (select from standard list), Storage Requirements (textarea), SDS Link (url), Additional Notes.
-* Validation: CAS number must be valid format; name required; hazard class required.
-* Save persists and navigates to detail; cancel discards with prompt if dirty.
-
-### Detail Page
-
-* Overview: CAS Number, Name, Hazard Class, Status, Created/Updated.
-* Details: Synonyms list, Storage Requirements text, Links to SDS or regulatory documents.
-* Relationship Panel: Hazards (hazards associated with this chemical), SEGs, Field Findings (observations involving the chemical), Corrective Actions.
-* Actions: Edit, Archive.
-
-## States
-
-As above: loading, empty, error, missing record.
-
-## Record Relationships
-
-* Chemicals may be associated with hazard entries (hazards describe specific risks when used).  The relationship panel lists hazards referencing this chemical.
-* Chemicals may be linked to SEGs (Significant Environmental/GHS aspects) to support segmentation and reporting.
-* Field findings referencing this chemical must appear under findings.
-* Corrective actions addressing findings with this chemical may appear.
-
-## Accessibility Expectations
-
-* Forms must label inputs clearly and provide guidance on format (e.g. CAS number pattern).  Use ARIA live regions for validation feedback.
-* Table and filters are keyboard accessible.
-* External links (SDS, regulatory docs) open in a new tab or viewer and include `aria-label` to indicate they are external.
-
-## Acceptance Criteria
-
-* Users can search and filter chemicals by name, CAS number, hazard class and status.
-* Creating and editing chemicals enforces required fields and unique CAS numbers.
-* Detail pages display all information and relationships to hazards, SEGs and findings.
-* Archived chemicals are hidden by default but accessible via filters.
+- One product supports multiple sites/storage locations/uses.
+- Multiple SDS revisions and related substances are represented without overwriting history.
+- Legacy combined chemical records migrate or create reviewable mapping findings.

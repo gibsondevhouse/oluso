@@ -1,7 +1,7 @@
 {
   "name": "oluso",
   "version": "0.1.0",
-  "description": "",
+  "description": "ADAMA HSE local-only web application for plant baselines and occupational-health workflows",
   "type": "module",
   "scripts": {
     "dev": "vite dev",

@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Many records in OLUSO have relationships with other records (e.g. a field finding has corrective actions; a chemical belongs to a SEG).  The relationship panel displays these linked records and provides navigation between them.  It enables users to see context and traverse related data without losing their place.
+Many ADAMA HSE records have typed relationships (for example, a finding has corrective actions and an exposure scenario links a SEG, task, agent, and controls). The relationship panel displays these links and provides navigation without flattening them into generic associations.
 
 ## Props / Data Contract
 

@@ -1,49 +1,86 @@
-# Record Identity Specification
+# Record identity and revision specification
 
-## Purpose
+Status: Governing
+Last updated: 2026-07-18
+Decision: [ADR-0007](../adr/ADR-0007-record-identity-and-lifecycle.md)
 
-Define the conventions for uniquely identifying records across OLUSO, including ID generation, metadata fields and naming patterns.  This spec operationalises the decisions in ADR‑0007.
+## Durable record metadata
 
-## Identifier Strategy
+```typescript
+interface RecordEnvelope {
+  id: string;
+  businessId: string;
+  revision: number;
+  createdAt: string;
+  createdBy: string;
+  updatedAt: string;
+  updatedBy: string;
+  originInstallationId: string;
+  lastExchangePackageId?: string;
+  lifecycleStatus: string;
+  archivedAt?: string;
+  archivedBy?: string;
+  archiveReason?: string;
+}
+```
 
-* **Primary Key:** Each table uses a primary key column of type UUID (`id`).  UUIDs are generated on the client when new records are created, enabling offline usage without collisions.
-* **Human‑Friendly Codes:** Many registers also have a short, unique `code` or `reference` field (e.g. “LOC‑001”, “F‑2026‑001”).  Codes make it easier for users to refer to records verbally or in reports.  Code generation strategies:
-  * Locations: prefix “LOC‑” followed by a sequential number padded to three digits.
-  * Processes: “PR‑”.
-  * Hazards: “HZ‑”.
-  * SEGs: “SEG‑”.
-  * Findings: “F‑YYYY‑nnn” where `YYYY` is the year and `nnn` is a counter.
-  * Corrective Actions: “CA‑YYYY‑nnn”.
-  * Codes are generated within the persistence layer to avoid collisions and stored in the `code` or `reference` field.  Users may manually override codes but must maintain uniqueness.
+All timestamps are ISO 8601 UTC instants. Display conversion is a UI concern.
 
-## Metadata Fields
+## Identifier rules
 
-All tables (except pure join tables) include the following metadata columns:
+- `id` is a locally generated UUID and is immutable.
+- `businessId` is human-readable, stable after publication, and unique within a documented entity/dataset scope.
+- ID collisions block import and create a data-quality finding; they are never resolved by overwrite.
+- IDs and business IDs are not recycled after archive, supersession, or tombstone.
+- Legacy IDs are preserved when valid; mappings are recorded when conversion is unavoidable.
 
-* `created_at`: DATETIME — timestamp when the record was created.  Set once at creation.
-* `updated_at`: DATETIME — timestamp when the record was last modified.  Updated automatically.
-* `archived_at`: DATETIME (nullable) — set when the record is archived.  Null indicates the record is active.
-* Optional `closed_at` and `verified_at` fields for tables that support closure/verification (e.g. corrective actions).
+## Revision rules
 
-## Lifecycle Flags
+- Creation produces revision 1.
+- Every accepted update, archive, restore, supersession, imported change, or approved resolution increments by exactly one.
+- Rejected validation, cancelled edits, identical package records, and failed transactions do not increment revision.
+- Save requires `expectedRevision`; a mismatch returns a stale-revision error.
+- Dataset revision is distinct from record revision and advances according to transaction/package rules.
 
-* **Active vs Archived:** A record is considered active when `archived_at` is null.  Archived records remain in the database but are hidden from default views.  Users can restore an archived record by clearing `archived_at`.
-* **Closed:** Applies to findings and corrective actions; indicated by `status` and optionally `closed_at`.  Closed records are read‑only but still visible.
-* **Verified:** A sub‑state of closed, indicated by `status = 'Verified'` and `verified_at` timestamp.
-* **Deleted:** Permanent deletion sets `deleted_at` (not currently implemented).  Deletion is rare and requires a separate confirmation workflow.
+## Actor and installation identity
 
-## Naming & Display
+- `createdBy` and `updatedBy` reference an explicit local user/person profile.
+- `originInstallationId` identifies the creating installation and never changes.
+- An imported mutation sets `updatedBy` to the source actor represented in the package and records the importing actor in `ImportRun`/`RecordRevision` source context.
+- `lastExchangePackageId` is set only when a package caused the current local revision.
 
-* UIs should display the human‑friendly code or reference in conjunction with the record name/title in page headers, tables and breadcrumbs (e.g. “Hazard HZ‑010: Flammable Liquid”).
-* When codes are not available (e.g. draft records), display “New [Record Type]” until a code is assigned upon save.
+## RecordRevision
 
-## Synchronisation & Conflicts
+```typescript
+interface RecordRevision<T = unknown> {
+  id: string;
+  recordType: string;
+  recordId: string;
+  revision: number;
+  operation: "create" | "update" | "archive" | "restore" | "supersede" | "import" | "resolve" | "tombstone";
+  changedAt: string;
+  changedBy: string;
+  source: "local" | "migration" | "exchange" | "rollback";
+  changeReason?: string;
+  before?: T;
+  after?: T;
+  exchangePackageId?: string;
+}
+```
 
-Because OLUSO is local‑first, record IDs may be generated offline.  When sync features are introduced, conflict resolution must detect collisions (unlikely with UUIDs) and merge or reject duplicates.  Code generation must ensure uniqueness across sync boundaries.
+Revisions are immutable and unique by `recordType + recordId + revision`.
 
-## Acceptance Criteria
+## Lifecycle rules
 
-* Every persisted record has a stable UUID and metadata fields.
-* Code generation functions ensure uniqueness and follow naming patterns.
-* UIs display codes prominently and update them after saving new records.
-* Archiving a record sets `archived_at` and hides it by default.
+- Archive preserves records and relationships.
+- Restore creates a new revision; it does not erase the archive event.
+- Superseded records remain readable and cannot be selected as current by default.
+- Tombstones represent reviewed external deletion/retirement intent.
+- Hard deletion is exceptional administrative recovery and must not remove audit evidence required to reconstruct accepted history.
+
+## Acceptance criteria
+
+- Every target entity conforms to the envelope or documents why it is non-exchangeable/transient.
+- Full current state can be reconstructed from accepted revisions for the supported audit window.
+- Same-ID divergent changes are detected through revisions/base fingerprints.
+- History identifies local, migration, exchange, resolution, and rollback sources.

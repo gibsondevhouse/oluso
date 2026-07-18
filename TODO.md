@@ -1,177 +1,102 @@
-# OLUSO MVP Evolution Plan
+# ADAMA HSE architecture-reset backlog
 
-Last updated: 2026-07-14
+Last updated: 2026-07-18
 
-This document is the execution-oriented companion to the scope and roadmap docs. It tracks what exists now, what must be hardened for MVP credibility, and how OLUSO should be elevated after the core backbone is stable.
+This backlog replaces the campaign-era checklist that treated broad register delivery as MVP completion. Completed legacy capabilities remain useful implementation inventory; they do not satisfy the new exit criteria by themselves.
 
-The plan is intentionally conservative. It follows the documented product shape:
+## P0 — Freeze and decide
 
-- Local-first
-- Desktop-first
-- Single-user
-- Register-driven
-- Traceable
-- Audit-aware
-- Exportable
+- [x] Record the repository audit and new project direction.
+- [x] Replace the Tauri-template README with an ADAMA HSE project README.
+- [x] Rewrite the governing product, domain, workflow, scope, and build-plan documents.
+- [x] Freeze new campaign-register expansion in documentation.
+- [x] Decide web-only local-first runtime.
+- [x] Decide IndexedDB as the primary browser database behind repository contracts.
+- [x] Define the reviewed exchange/conflict model.
+- [ ] Create the implementation migration branch.
+- [ ] Inventory every implemented feature as retain, refactor, defer, or remove at code/module level.
+- [ ] Map every supported legacy schema to the target schema.
+- [ ] Define representative migration fixtures from browser and native persistence.
 
-The current implementation already covers the MVP backbone in broad strokes. The remaining work is not to make the app bigger first, but to make it more durable, more legible, and more defensible.
+## P0 — Core correctness
 
-## 1. Current Baseline
+- [ ] Implement the versioned IndexedDB adapter and repository-contract suite.
+- [ ] Add transactional record revision history.
+- [ ] Introduce typed `ExposureScenario`.
+- [ ] Replace generic exposure-assessment, determination, and sampling campaign records.
+- [ ] Add dataset, installation, and local-user identities.
+- [ ] Implement exchange package validation, dry-run, classification, conflict resolution, and rollback.
+- [ ] Ensure invalid or failed imports cannot partially mutate the database.
 
-The worktree currently has a functional SvelteKit/Tauri shell with local persistence and shared CRUD/detail/edit/archive flows for the main MVP registers:
+## P1 — Master data
 
-- Locations
-- Processes
-- Equipment
-- Chemicals
-- Hazards
-- Controls
-- Risk Assessments
-- SEGs
-- Exposure Monitoring
-- Findings
-- Incidents and Near Misses
-- Compliance Support
-- Corrective Actions
+- [ ] Correct the Country → State/Region → Site → operational location hierarchy.
+- [ ] Enforce Site resolution and circular-parent prevention.
+- [ ] Separate chemical substances, products, SDS revisions, site inventory, and chemical use.
+- [ ] Separate exposure agents from versioned exposure limits.
+- [ ] Implement effective-dated SEG membership.
+- [ ] Refactor persistence monoliths into bounded modules.
+- [ ] Migrate and verify all supported legacy data.
+- [ ] Remove Tauri/Rust only after migration and rollback gates pass.
+- [ ] Remove `localStorage` as primary persistence only after migration gates pass.
 
-The implementation now also includes the campaign delivery register set from the OLUSO Project Delivery System:
+## P1 — Industrial hygiene
 
-- Campaign 0 foundation extensions across identity, relationships, navigation, search, exports, and Settings counts.
-- Campaign 1 people and work registers: organizations, people, SEG memberships, tasks, and contractor scopes.
-- Campaign 2 field assurance register: inspections.
-- Campaign 3 industrial hygiene registers: exposure agents, exposure limits, exposure assessments, determinations, sampling campaigns, control verifications, HSE programs, program applicability, and medical surveillance administration.
-- Campaign 4 training registers: courses, requirements, and records.
-- Campaign 5 change-control registers: management of change, change reviews, and PSSRs.
-- Campaign 6 environmental registers: requirements, permits, waste streams, waste shipments, environmental sources, inspections, and events.
-- Campaign 7 transition and reporting registers: document references, data quality findings, migration mappings, import runs, and migration bundles.
+- [ ] Build structured qualitative assessments with uncertainty, confidence, and data gaps.
+- [ ] Build sampling plans, events, samples, laboratory results, comparisons, and interpretations.
+- [ ] Store numeric results, qualifiers, LOD/LOQ, units, and duration correctly.
+- [ ] Add unit/dimension/duration compatibility rules.
+- [ ] Keep calculated comparisons separate from professional determinations.
+- [ ] Connect control verification, program/surveillance applicability, actions, and reassessment.
 
-The main implementation backbone is the shared register route pattern in `src/lib/pages/RegisterCrudPage.svelte` and `src/lib/components/register/register-config.ts`.
+## P2 — Field and review experience
 
-## 2. MVP Evolution Strategy
+- [ ] Add the unit baseline workspace/wizard.
+- [ ] Add baseline-completeness rules and dashboard.
+- [ ] Add review-ready unit packets.
+- [ ] Add record history and package-attribution views.
+- [ ] Add manager review/sign-off and durable review notes.
+- [ ] Connect observations/incidents/actions to the exposure spine.
 
-OLUSO should evolve in three steps:
+## P2 — Verification and deployment
 
-1. Stabilize the core record model.
-2. Elevate the record relationships and review behavior.
-3. Add evidence-heavy workflows only after the backbone remains stable.
+- [ ] Add `npm run verify`.
+- [ ] Add formatting and lint checks.
+- [ ] Add browser repository-contract tests.
+- [ ] Add migration tests from every supported schema.
+- [ ] Add exchange round-trip, conflict, stale-revision, malicious-package, and rollback tests.
+- [ ] Add browser-storage quota/failure/corruption recovery tests.
+- [ ] Add PWA/offline and supported-browser tests.
+- [ ] Add critical end-to-end and accessibility tests.
+- [ ] Exercise backup recovery with realistic data.
+- [ ] Complete user acceptance with Tifton data and manager review.
 
-The rule of thumb is simple: if a feature does not improve durable records, linked context, verification, or exportability, it is probably not MVP work.
+## P3 — Reactivate only after gates
 
-## 3. P0 - MVP Stability and Backbone Hardening
+- [ ] Reassess training/competency scope.
+- [ ] Reassess MOC/PSSR scope.
+- [ ] Reassess environmental/waste/permit scope.
+- [ ] Reassess broader compliance/calendar scope.
 
-These items keep the current app from feeling like a demo shell.
+## Removal checklist
 
-- [x] Shared CRUD route for registered MVP registers.
-- [x] Local persistence with SQLite and localStorage fallback.
-- [x] Archive and restore flows for register records.
-- [x] Basic exports for register data.
-- [x] Corrective-action state model that separates completion, verification, and closure.
-- [x] Corrective-action source traceability with explicit source records or justified manual sources.
-- [x] Equipment register included as an HSE-relevant operational context record.
-- [x] SDS and exposure-limit support for Chemical Safety.
-- [x] Controls and basic Risk Assessment records.
-- [x] Exposure monitoring register and workflow.
-- [x] Field-work expansion beyond generic findings.
-- [x] Incident and near-miss support at the scoped level.
-- [x] Compliance-supporting records at the scoped level.
-- [x] Import, backup, and restore controls.
-- [x] Relationship validation across registers.
+These are intentionally unchecked until migration evidence exists:
 
-### Remaining P0 checks
+- [ ] Remove Tauri npm dependencies and script.
+- [ ] Remove `src-tauri/` and Rust build/test requirements.
+- [ ] Remove desktop-only configuration and packaging documentation.
+- [ ] Remove duplicate/superseded desktop persistence specifications after historical retention review.
+- [ ] Remove `localStorage` as the primary database implementation.
 
-- [x] Verify every MVP register has consistent create, read, edit, archive, restore, and export behavior.
-- [x] Confirm empty, loading, error, and not-found states are consistent across all shared routes.
-- [x] Ensure archived records stay visible enough for audit review without becoming active workflow noise.
-- [x] Confirm the current data model matches the scope docs and registered route set.
-- [x] Keep global state behind the application/repository boundary so it does not become a second database.
+## Governing sequence
 
-## 4. P1 - MVP Elevation
-
-These items do not expand the domain footprint much, but they make the MVP substantially better to use.
-
-### 4.1 Traceability Elevation
-
-- [x] Add richer record headers that show source, status, owner, last updated, and linked context at a glance.
-- [x] Surface backlink context consistently across shared detail pages.
-- [x] Add lightweight activity traces for create, update, and archive lifecycle changes.
-- [x] Make required relationships obvious when they are missing, stale, or archived.
-
-### 4.2 Workflow Elevation
-
-- [x] Add unsaved-change protection everywhere a user can lose work.
-- [x] Standardize save, dirty, and recovery states across create/edit flows.
-- [x] Make completion, verification, and closure transitions visually explicit.
-- [x] Tighten the corrective-action handoff from source record to action detail.
-
-### 4.3 Review Elevation
-
-- [x] Make review-ready summaries easier to generate from core registers.
-- [x] Add record-level evidence/reference fields wherever traceability matters.
-- [x] Preserve the distinction between source data and report projections.
-- [x] Expand export presets so a user can retrieve useful support data quickly.
-
-### 4.4 Search and Retrieval Elevation
-
-- [x] Global search across registers.
-- [x] Add better filtering and faceting on the most-used registers.
-- [x] Make search results clearly distinguish active, archived, and linked records.
-- [x] Add direct jump paths from search results into the relevant detail view.
-
-## 5. P2 - Post-MVP Readiness
-
-These features are valuable, but they should be treated as post-MVP elevation unless the product already needs them to support real work.
-
-- [x] Reference-first evidence handling across evidence-heavy records; unmanaged binary attachment storage remains deferred by scope.
-- [x] Explicit review cycles and review/sign-off states for risk and compliance support records.
-- [x] Printable, PDF-ready review packets alongside CSV and JSON exports.
-- [x] Cross-register review/audit support packages with source-data manifests and gap counts.
-- [x] Compliance review support with due dates, owners, evidence tracking, and gap/overdue presets.
-- [x] Incident and near-miss investigation context with linked hazards, controls, evidence, and corrective actions.
-- [x] Controlled-document and evidence-reference metadata without expanding OLUSO into a document-management system.
-
-### Execution evidence (2026-07-12)
-
-- Shared record detail pages now expose source, owner, status, last update, linked-context health, evidence state, and lifecycle activity.
-- Shared forms expose clean, dirty, saving, validation-recovery, and discard-protection states.
-- Global search identifies active versus archived records, reports linked-reference counts, and retains direct detail links.
-- Reports provide full, review-ready, evidence-gap, and overdue presets plus printable HTML/PDF-ready and structured JSON review packages.
-- Automated verification covers 145 frontend/domain tests and 7 native persistence tests; static checks and production builds pass.
-- Live browser verification covered the report package flow, record traceability view, and dirty-state feedback with no console errors.
-
-### Campaign delivery evidence (2026-07-14)
-
-- Added a metadata-driven campaign register layer covering all Campaign 0-7 register families, route definitions, sidebar navigation, shared CRUD/detail/archive/restore flows, relationship fields, global search, Settings counts, and export definitions.
-- Added browser/localStorage persistence for campaign collections with schema v14 migration, seeding, backup/restore/import behavior, generated business IDs, lifecycle metadata, and shared generic create/update APIs.
-- Added native SQLite persistence for campaign records with schema v9, `campaign_records` storage, snapshot/import/export support, validation gates, and schema recreation support.
-- Added targeted campaign persistence test coverage for seed, create, update, archive, restore, export, and import behavior.
-- Verification passed: `npm run check`, `npm test` (146 tests), `npm run build`, `cargo test`, and dev-server route smoke checks for representative campaign routes. The browser automation plugin reported no available browser, so interactive browser verification was limited to HTTP route smoke checks in this environment.
-
-## 6. Explicit Deferred Scope
-
-Do not pull these into the MVP unless the scope docs change first.
-
-- Cloud sync, SaaS hosting, accounts, and multi-user permissions.
-- AI-first workflows or automated compliance decisions.
-- Enterprise governance, role hierarchies, or workflow builders.
-- Full LMS, procurement, inventory control, or document-management systems.
-- Native mobile-first inspection UX.
-- Advanced industrial hygiene calculations, lab imports, calibration management, and chain-of-custody workflows.
-- Legal, regulatory, or compliance certification claims.
-
-## 7. Exit Criteria for a Strong MVP
-
-The MVP is strong enough when a user can:
-
-- Open the app and understand where HSE work belongs.
-- Create operational, chemical, hazard, field-work, and corrective-action records.
-- Link records across the core backbone without fighting the UI.
-- Capture traceable field findings and source-linked corrective actions.
-- Move actions through completion, verification, and closure with no ambiguity.
-- Export useful record sets for review or evidence support.
-- Trust that local data survives ordinary app restarts and restore flows.
-
-## 8. Elevation Goal
-
-The long-term objective is not to make OLUSO broader first. It is to make it more reliable, more inspectable, and more audit-useful while keeping the same core HSE backbone.
-
-If a future idea does not improve durability, traceability, review readiness, or exportability, it does not belong ahead of these items.
+```text
+Web platform reset
+  → canonical master data
+  → exposure-scenario model
+  → DOEHRS-inspired assessment workflow
+  → safe two-person exchange
+  → baseline field workflow
+  → corrective-action closure
+  → production hardening
+```

@@ -2,14 +2,14 @@
 
 ## Purpose
 
-The app shell defines the root layout for OLUSO.  It composes the side panel, header, and main content region into a cohesive frame.  Every page in the application is rendered within the app shell, which manages global concerns such as persistent navigation, responsive layout, and high‑level status surfaces (e.g. global loading indicators).
+The app shell defines the root layout for ADAMA HSE. It composes the side panel, header, and main content region and manages persistent navigation, responsive/PWA layout, and narrow global diagnostic status.
 
 ## Structure
 
 The app shell consists of the following regions:
 
 1. **Side Panel** — see `sidepanel-specs.md` for details.  Anchored to the left; may be collapsible.
-2. **Header Bar** — a horizontal bar across the top of the main content area.  Contains the page header component when on content pages or the app name/logo on dashboard login.  May also host global actions such as user settings, sync status, and help links.
+2. **Header Bar** — a horizontal bar across the top of the main content area. Contains the page header component on content pages and may host local user identity, storage/write health, offline/PWA state, backup status, unresolved exchange conflicts, and help links. Do not show a cloud-sync status.
 3. **Main Content Region** — the area where route content is rendered.  Pages are responsible for their own layouts within this region.
 4. **Global Overlay Layer** — optional.  Provides a container for modal dialogs, toasts, or other overlay components that must appear above both the header and main content.
 
@@ -35,7 +35,7 @@ The app shell consists of the following regions:
 
 ## Error & Empty States
 
-The app shell itself does not load data.  If a routed page fails, that page is responsible for rendering its own error state within the main content region.  The app shell may optionally display a top‑level offline banner if the persistence layer detects a disk or permission error.
+The shell coordinates narrow global database/diagnostic state while routed pages own their domain queries and page errors. A failed write, unavailable/blocked IndexedDB database, migration failure, or quota risk may require a persistent top-level banner. Network-offline state is informational and does not represent local database failure.
 
 ## Accessibility Rules
 

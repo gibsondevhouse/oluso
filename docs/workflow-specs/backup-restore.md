@@ -1,55 +1,43 @@
-# Backup & Restore Workflow Specification
+# Backup and restore workflow
 
-This document defines the backup and restore workflow for **Olùṣọ́**.  System operators use this workflow to create complete snapshots of the database and restore from previous backups when necessary.
+Status: Governing disaster-recovery workflow
+Last updated: 2026-07-18
 
-## Purpose
+## Backup
 
-Backups protect against data loss due to corruption, user error, or system failure.  Restores allow the system to be rolled back to a known good state.  The workflow ensures that backups are easy to initiate, labelled clearly, and stored in a secure location (e.g., Google Drive).
+1. Open Settings → Backups.
+2. Review dataset ID/revision, schema version, last verified backup, change count, and storage diagnostics.
+3. Choose `Create full backup` and an optional description.
+4. The application reads a consistent snapshot, serializes all required stores/history, generates a manifest/hash, and validates the result.
+5. The browser downloads the artifact. The user saves it to an approved location, optionally a OneDrive folder.
+6. Record backup metadata and show the limitation that the application cannot verify later file retention after browser download.
 
-## Backup Process
+Browser limitations mean automatic scheduled file creation is not promised. The app provides reminders while running.
 
-1. **Initiation**
-   - Accessible from the system settings page under “Data Management”.
-   - Button labelled “Create Backup”.  Clicking opens a confirmation dialog.
+## Restore
 
-2. **Confirmation Dialog**
-   - Explain that a full backup includes all registers, user preferences, and audit logs.
-   - Offer option to include media files (images, attachments) or exclude them for a smaller backup.
-   - Confirm destination (default Drive folder `oluso/backups`).
-   - Provide an optional description field (e.g., “Pre‑upgrade backup”).
-   - “Confirm” triggers the backup; “Cancel” aborts.
+1. Choose a backup file explicitly.
+2. Parse as untrusted input and validate artifact type, integrity, dataset, schema support, record counts, and domain invariants.
+3. Show a preview with creation time/user/installation, dataset revision, schema, counts, and compatibility/migration plan.
+4. Generate a verified backup of current local state.
+5. Restore into staged/new database state and run required migrations.
+6. Verify postconditions.
+7. Require final confirmation before activation/replacement.
+8. Activate atomically and reload repositories.
+9. Show the new dataset state and recovery location/reference.
 
-3. **Execution**
-   - System packages all SQLite tables and uploads them as a compressed archive (`oluso-backup-YYYYMMDD-HHMMSS.zip`) to the designated Drive folder.
-   - Display progress with a determinate progress bar.  Keep UI responsive; allow cancellation with warning that backup will be incomplete.
-   - On completion, show success toast with link to the file.  Record the backup in the system log.
-   - On failure, show error toast with details and a retry option.
+## Boundaries
 
-4. **Retention**
-   - Maintain a configurable retention policy (e.g., keep last 10 backups).  When limit is exceeded, ask the user whether to delete the oldest backup or cancel the new backup.
+- Restore never serves as collaboration merge.
+- Exchange packages and reports are rejected by the restore handler.
+- A failed restore does not partially replace the active database.
+- A restore of another dataset requires an explicit replacement warning; it cannot masquerade as an exchange.
+- Clinical medical data is prohibited in snapshots.
 
-## Restore Process
+## Acceptance criteria
 
-1. **Initiation**
-   - Accessible from “Data Management” under “Restore from Backup”.
-   - Presents a list of available backup files in the designated Drive folder.  Include file names, creation dates, sizes, and user‑supplied descriptions.
-
-2. **Selection & Warning**
-   - User selects a backup file.  Show warning that restoring will overwrite the current database.  Provide a checkbox “I have created a backup of the current data”.  Do not allow proceeding unless checked.
-
-3. **Restore Execution**
-   - Disable other system operations.  Download the selected backup, decompress it, and replace the SQLite database.  Ensure file permissions and migration scripts are applied.
-   - Display a progress bar.  Provide estimated time to completion.
-   - On success, automatically reload the application.  Show success toast (“Restore complete.  Data has been rolled back to [timestamp]”).
-   - On failure, show error toast.  Do not partially overwrite data; keep original database intact.
-
-## Permissions
-
-Only administrators with the `data_admin` role may perform backups and restores.  Attempting to access the workflow without this role must redirect to an error page (“Access denied”).  Audit all backup and restore actions with timestamps and user IDs.
-
-## Testing
-
-- Create backups with and without media files; verify that the resulting ZIP contains expected content.
-- Restore from a backup; verify that all tables and records match the backup state.
-- Test cancellation during backup; ensure partial files are cleaned up.
-- Test retention policy by creating more than the configured number of backups.
+- Exact backup round-trip, including revisions and import history.
+- Current-state safety backup before replacement.
+- Invalid/truncated/hash-invalid/unsupported artifacts cannot mutate data.
+- Migration failure leaves prior state usable.
+- UI clearly distinguishes backup, exchange, and report export.

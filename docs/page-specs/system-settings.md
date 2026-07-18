@@ -1,78 +1,55 @@
-# System Settings Page Spec
+# Settings and diagnostics page specification
 
-## Purpose
+Status: Governing target
+Routes: `/settings`, `/settings/identity`, `/settings/storage`, `/settings/backups`, `/settings/diagnostics`
+Last updated: 2026-07-18
 
-Provide a central location where administrators can configure application‑wide settings.  These settings control behaviour such as default values, appearance preferences, data export directories, and user preferences.  The system settings page should be carefully scoped to avoid feature bloat and should not expose dangerous configurations to casual users.
+## Identity
 
-## Route
+- Dataset ID and current dataset revision (read-only except controlled dataset creation/restore).
+- Installation ID (read-only after initialization).
+- Local user/person identity used for attribution.
+- Schema and application version.
 
-`/system/settings`
+## Storage
 
-## Sidebar Parent
+- IndexedDB availability/open state.
+- Browser storage estimate/quota where available.
+- Persistent-storage request/status where supported, described without guarantees.
+- Last successful write and migration status.
+- Supported-browser/PWA/offline readiness.
 
-“System” group → “Settings” item.
+No native database path or desktop runtime file-path setting is shown.
 
-## Domain Owner
+## Backup
 
-System/Administration Domain.
+- Last verified backup time/revision.
+- Changes since backup.
+- Create full backup.
+- Validate/restore backup.
+- Clear warning that browser downloads and external retention are user/corporate responsibilities.
 
-## Data Source
+## Exchange
 
-Settings are stored in a `settings` table or configuration file within the local persistence layer.  Each setting record includes:
+- Last exported/imported package metadata.
+- Unresolved conflicts/import failures.
+- Link to Review Exchange; settings does not perform silent sync.
 
-* `key` (string)
-* `value` (string/json)
-* `category` (string) — grouping (e.g. Appearance, Data, Notifications)
-* `description` (string)
-* `editable` (boolean) — whether the user can change it.
+## Diagnostics
 
-Some settings may be stored outside the database (e.g. file paths).  These are accessed via the desktop runtime API.
+- Database/schema/store health summary.
+- Blocked upgrade/version-change state.
+- Storage/quota warnings.
+- Migration/import/backup failures with safe diagnostic export.
+- Service-worker/update state.
 
-## Primary User Tasks
+## Destructive actions
 
-* View current system settings and understand their impact.
-* Edit editable settings, such as default export directory, UI theme (light/dark), and date/time format.
-* Reset settings to defaults.
-* Save settings and observe changes immediately (where applicable).
+Reset/replace/delete-local-data actions require exact dataset identification, current verified backup, impact summary, and explicit confirmation. They are separate from preference reset.
 
-## Page Regions
+## Acceptance criteria
 
-1. **Page Header** — “System Settings” with description.  May include actions like “Reset to Defaults”.
-2. **Settings Categories** — list or tabs representing categories: Appearance, Data & Storage, Notifications, Export, Misc.
-3. **Settings Form** — for the selected category, display form inputs for each setting:
-   * **Appearance** — UI theme (light/dark/system), accent colour.
-   * **Data & Storage** — default database location (display only), export directory (choose via file picker), auto‑backup frequency.
-   * **Notifications** — enable/disable certain in‑app notifications.
-   * **Export** — default file format, include archived records by default.
-   * **Misc** — any additional settings.
-4. **Save Button** — applies changes.  Disabled if no changes.
-5. **Reset Button** — resets selected category or all settings to defaults (with confirmation).
-
-## Behaviour
-
-* Settings are loaded on page load and populate the form.  Changes are tracked locally until the user clicks Save.
-* Save writes changes to the `settings` table or config file and applies them immediately (e.g. changes theme without reload).
-* Reset triggers a confirmation dialog; on confirm, resets the selected category or all settings to factory defaults.
-* Some settings (e.g. database location) are read‑only and displayed for information only.
-
-## States
-
-* **Loading** — while settings are being loaded, display skeleton inputs or a spinner.
-* **Error** — if settings cannot be loaded or saved (e.g. permission issues), display an error banner with retry.
-* **Dirty** — when the user has unsaved changes, enable the Save button and warn before navigating away.
-
-## Record Relationships
-
-None.  Settings are not related to other registers.
-
-## Accessibility Expectations
-
-* Form fields have descriptive labels and helper text.  File picker buttons announce the selected path.
-* Tabs or categories are keyboard navigable.  The Save and Reset buttons are focusable and have clear labels.
-
-## Acceptance Criteria
-
-* Settings load correctly on page load and reflect current values.
-* Users can edit and save settings; changes persist and apply immediately where applicable.
-* Reset confirms before discarding changes and restores defaults.
-* The page handles errors gracefully and meets accessibility standards.
+- User can identify who/which installation/dataset will author an exchange.
+- Storage failure is visible and actionable.
+- Backup and exchange remain distinct.
+- Settings work in browser and installed PWA without Tauri APIs.

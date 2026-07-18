@@ -1,7 +1,7 @@
-// Tauri doesn't have a Node.js server to do proper SSR
-// so we use adapter-static with a fallback to index.html to put the site in SPA mode
+// ADAMA HSE targets a local-first web/PWA deployment with no application server,
+// so the SvelteKit app remains a static SPA with an index.html fallback.
+// Tauri is a legacy migration source, not the target runtime.
 // See: https://svelte.dev/docs/kit/single-page-apps
-// See: https://v2.tauri.app/start/frontend/sveltekit/ for more info
 import adapter from "@sveltejs/adapter-static";
 import { vitePreprocess } from "@sveltejs/vite-plugin-svelte";
 
