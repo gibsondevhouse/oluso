@@ -17,6 +17,7 @@ export interface RecordEnvelope {
   archivedAt: string | null;
   archivedBy: string | null;
   archiveReason: string | null;
+  archivedReason: string | null;
 }
 
 export type RecordRevisionOperation =

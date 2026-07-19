@@ -30,8 +30,11 @@ This backlog replaces the campaign-era checklist that treated broad register del
 
 ## P1 — Master data
 
-- [ ] Correct the Country → State/Region → Site → operational location hierarchy.
-- [ ] Enforce Site resolution and circular-parent prevention.
+- [x] Cut over Organization, Person, Location, Process, and Task routes to typed IndexedDB repositories and services.
+- [x] Correct the Country → State/Region → Site → operational location hierarchy.
+- [x] Enforce Site resolution and circular-parent prevention.
+- [x] Prohibit migrated foundation routes from importing legacy persistence or generic campaign operations.
+- [x] Normalize representative legacy foundation fixtures and render them in typed screens.
 - [ ] Separate chemical substances, products, SDS revisions, site inventory, and chemical use.
 - [ ] Separate exposure agents from versioned exposure limits.
 - [ ] Implement effective-dated SEG membership.

@@ -61,6 +61,13 @@ export const SIDEBAR_CONFIG: SidebarConfig = {
           routeType: "register",
         },
         {
+          id: "tasks",
+          title: "Tasks",
+          route: "/operations/tasks",
+          icon: "ListChecks",
+          routeType: "register",
+        },
+        {
           id: "equipment",
           title: "Equipment",
           route: "/operations/equipment",
@@ -76,7 +83,23 @@ export const SIDEBAR_CONFIG: SidebarConfig = {
       icon: "UsersRound",
       collapsible: true,
       defaultExpanded: true,
-      children: campaignChildrenFor("people-work"),
+      children: [
+        {
+          id: "organizations",
+          title: "Organizations",
+          route: "/people/organizations",
+          icon: "UsersRound",
+          routeType: "register",
+        },
+        {
+          id: "people",
+          title: "People",
+          route: "/people/workers",
+          icon: "UsersRound",
+          routeType: "register",
+        },
+        ...campaignChildrenFor("people-work"),
+      ],
     },
     {
       id: "hse-registers",

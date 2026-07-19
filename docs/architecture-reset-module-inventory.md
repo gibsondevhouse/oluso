@@ -29,6 +29,18 @@ The authoritative file-by-file record is [architecture-reset-file-inventory.csv]
 | Training, MOC/PSSR, environmental, broad compliance, contractor modules | Defer | Park behind a Future Modules boundary until the baseline and IH spine are accepted. |
 | Historical delivery system and superseded ADRs | Defer as history | Keep for traceability but do not treat as current implementation authority. |
 
+## Current runtime cutover boundary
+
+| Runtime area | Current persistence path | Status |
+| --- | --- | --- |
+| Organizations, people, locations, processes, tasks | Typed services and repositories over IndexedDB | Cut over; legacy imports prohibited by architecture tests. |
+| Equipment, chemicals, exposure monitoring | Legacy application adapter and `localStorage` | Retained until the canonical equipment/chemical/IH model is implemented and migrated. |
+| Hazards, controls, risk assessments, SEGs | Legacy application adapter and `localStorage` | Retained pending typed risk and exposure-scenario work. |
+| Findings, incidents, corrective actions, compliance support | Legacy application adapter and `localStorage` | Retained pending assurance/corrective-action cutover. |
+| Dashboard aggregation, global search, reports/exports | Mixed legacy application composition | Must be reconciled after their source registers are typed. |
+| Generic campaign/Future Modules | Legacy campaign definitions and `localStorage` | Frozen; Organizations, People, and Tasks have been removed from generic creation. |
+| Tauri/Rust persistence | Legacy migration evidence only | Retained until the documented removal gate is satisfied; not a production path for typed foundation routes. |
+
 ## Removal gate
 
 No REMOVE_AFTER_MIGRATION file is authorized for deletion until all of the following are evidenced:
@@ -38,4 +50,3 @@ No REMOVE_AFTER_MIGRATION file is authorized for deletion until all of the follo
 3. Exact backup/restore, atomic failure, immutable revisions, and rollback tests pass.
 4. The installed PWA passes offline, browser-restart, and realistic data acceptance checks.
 5. The current user and HSE manager accept the migrated Tifton/Ocilla dataset.
-

@@ -1,8 +1,7 @@
 # Locations page specification
 
 Status: Governing target
-Canonical route: `/master/locations`
-Legacy route during migration: `/operations/locations`
+Active canonical route: `/operations/locations`
 Last updated: 2026-07-18
 
 ## Purpose
@@ -61,3 +60,4 @@ Country/state are nodes, not duplicated free-text fields on every operational lo
 - Every operational node resolves to one Site.
 - Invalid hierarchies are rejected in domain services and repository tests.
 - Archived nodes remain visible from historical records.
+- The active route uses typed IndexedDB services and is statically prohibited from importing legacy persistence.

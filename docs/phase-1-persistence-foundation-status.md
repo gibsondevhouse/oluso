@@ -1,12 +1,12 @@
 # Phase 1 persistence foundation status
 
-Status: foundation implemented; application cutover not complete  
+Status: foundation application cutover complete for Organization, Person, Location, Process, and Task
 Last updated: 2026-07-18  
-Branch: `codex/adama-hse-migration`
+Branch: `codex/foundation-application-cutover`
 
 ## Outcome
 
-The repository now contains the bounded web-persistence foundation needed for the ADAMA HSE reset. It does not yet mean the legacy register UI has completed its runtime cutover. Current routes still use the legacy application adapter while typed screens and services are moved onto the new database.
+The repository contains the bounded web-persistence foundation and the first complete typed application slice. Organization, Person, Location, Process, and Task routes now initialize and operate through typed domain contracts, dedicated repositories, application services, and IndexedDB. Other broad and deferred modules remain on the legacy adapter until their own controlled cutovers.
 
 ## Implemented
 
@@ -25,6 +25,10 @@ The repository now contains the bounded web-persistence foundation needed for th
 | Browser diagnostics | Settings exposes IndexedDB, service-worker, storage-quota, and durable-storage availability with visible failures. |
 | PWA shell | The production build emits an install manifest, 192/512 icons, and a versioned offline application-shell service worker. |
 | Legacy detection and migration | Browser schemas 1–14 and native schemas 1–10 are detected. Representative browser v14/native v10 fixtures migrate atomically with revisions, archive evidence, deferred raw rows, and data-quality findings. |
+| Typed foundation domain | Organization, Person, Location, Process, and Task have explicit contracts, field validation, named errors, and cross-record invariants outside UI components. |
+| Foundation repositories and services | Five dedicated repositories and services enforce business-ID uniqueness, active dependencies, hierarchy legality, Site resolution, expected revisions, archive/restore, and atomic subtree moves. |
+| Foundation route cutover | `/people/organizations`, `/people/workers`, `/operations/locations`, `/operations/processes`, and `/operations/tasks` use the typed IndexedDB application. Their list/create/detail/edit/archive/restore flows no longer initialize or call legacy record persistence. |
+| Cutover enforcement | Static architecture tests prohibit legacy persistence, campaign adapters, and Tauri imports from typed foundation code. Migrated entities are absent from generic campaign definitions. |
 | Verification command | `npm run verify` currently runs type/Svelte checks, the full test suite, production build, and PWA artifact verification. |
 
 ## Migration behavior proved by tests
@@ -36,12 +40,14 @@ The repository now contains the bounded web-persistence foundation needed for th
 - Deferred campaign and generic assessment records remain inside the immutable migration-run evidence and create explicit data-quality findings.
 - A duplicate/retried migration rolls back all domain records, revisions, migration history, and dataset revision.
 - Archived native records retain archive time and reason.
+- Legacy Organization, Person, Location, Process, and Task records are normalized into typed field shapes and render in typed screens.
+- Location moves reject cycles and atomically recalculate Site resolution for every descendant.
 
 ## Deliberately not complete
 
-1. The current `olusoApplication` still delegates existing broad register screens to the legacy synchronous persistence adapter. The IndexedDB adapter becomes the sole production path only as typed foundation/IH routes replace those screens.
+1. Equipment, chemicals, exposure monitoring, compliance, hazards, controls, risk assessments, SEGs, findings, incidents, corrective actions, dashboard aggregation, global search, reports, and deferred campaign modules still use the legacy synchronous adapter.
 2. Browser schemas 1–14 and native schemas 1–10 have detection coverage, but the full version-by-version migration matrix with empty, invalid, orphaned, Unicode, and long-text cases is still open.
-3. Target schema version 1 is the only released IndexedDB version; upgrade sequencing is established but multi-version upgrade evidence cannot exist until version 2 is defined.
+3. Target schema version 2 adds typed foundation relationship indexes. The ordered upgrade registry is tested; realistic long-lived browser upgrade exercises remain open.
 4. Corruption is detected and reported, but guided recovery UI and user-accepted recovery exercises remain open.
 5. The PWA artifact is build-verified; manual installed/offline tests in every supported corporate browser remain open.
 6. Exchange staging exists, but manifest validation, dry-run classifications, side-by-side conflict resolution, tombstones, idempotent apply, and rollback packages remain Phase 4.
@@ -49,4 +55,4 @@ The repository now contains the bounded web-persistence foundation needed for th
 
 ## Next implementation gate
 
-Complete the application cutover by building typed foundation repositories/services and migrating the first workflow slice—Organization, Person, Location, Process, and Task—onto `AdamaIndexedDbAdapter`. Do not recreate the legacy generic campaign adapter over the new database; that would preserve the modeling defect the reset is intended to remove.
+Proceed to the canonical chemical, SDS, site-inventory, and chemical-use model. Preserve the completed foundation boundary and do not route these records back through generic campaign operations.

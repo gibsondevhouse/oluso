@@ -22,7 +22,7 @@ Location
 
 The repository already contains a functional SvelteKit/Svelte 5 application shell, shared register CRUD patterns, local persistence implementations, archive/restore behavior, search, reports, exports, backup controls, and automated tests. It is not being rewritten from scratch.
 
-The current implementation is broader than the target and still contains a Tauri/Rust persistence path plus a browser `localStorage` path. Those are migration sources, not the target architecture. The migration branch now contains the target IndexedDB adapter, immutable revision transactions, legacy migration fixtures, backup/integrity services, browser diagnostics, and PWA shell; existing broad register routes have not completed their cutover yet.
+The current implementation is broader than the target and still contains a Tauri/Rust persistence path plus a browser `localStorage` path. Those are migration sources, not the target architecture. The target IndexedDB adapter, immutable revision transactions, legacy migration fixtures, backup/integrity services, browser diagnostics, and PWA shell are implemented. Organization, Person, Location, Process, and Task workflows have completed their typed IndexedDB cutover; the remaining broad registers are migrated in controlled slices.
 
 The active reset is:
 

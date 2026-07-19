@@ -1,7 +1,7 @@
 # Processes and tasks page specification
 
 Status: Governing target
-Canonical routes: `/master/processes`, `/master/tasks`
+Active canonical routes: `/operations/processes`, `/operations/tasks`
 Last updated: 2026-07-18
 
 ## Purpose
@@ -20,10 +20,10 @@ Maintain reusable process definitions and discrete work tasks without collapsing
 - Business ID, name, description, status.
 - Required parent process.
 - Default/more-specific operational location.
-- Task category and expected work pattern.
+- Task type, routine status, and operating condition classification.
 - Related equipment and chemical uses.
 
-Operating condition, frequency, duration, controls, and exposure routes that vary by scenario belong on `ExposureScenario`/relationships, not as one flattened task/process conclusion.
+Task operating condition provides reusable operational classification. Frequency, duration, controls, exposure routes, and scenario-specific deviations belong on `ExposureScenario`/relationships rather than one flattened process conclusion.
 
 ## Interface
 
@@ -43,3 +43,4 @@ Operating condition, frequency, duration, controls, and exposure routes that var
 - Users can represent routine production, duct clearing, cleanup, and maintenance as distinct tasks.
 - Process and task are independently searchable and revisioned.
 - Scenario-specific exposure conditions are not forced into reusable master fields.
+- Both active routes use typed IndexedDB services and are statically prohibited from importing legacy persistence.
