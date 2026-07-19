@@ -4,6 +4,7 @@
   import { olusoApplication } from "../../application/oluso-application";
   import ConfirmDialog from "$lib/components/ui/ConfirmDialog.svelte";
   import BackupRestoreControls from "$lib/components/system/BackupRestoreControls.svelte";
+  import BrowserStorageDiagnostics from "$lib/components/system/BrowserStorageDiagnostics.svelte";
   import {
     campaignRecordStores,
     getPersistenceStatusLabel,
@@ -180,6 +181,8 @@
         </button>
       </div>
     </section>
+
+    <BrowserStorageDiagnostics />
 
     <!-- Record Counts -->
     <section class="diagnostics-panel" aria-labelledby="record-counts-title">

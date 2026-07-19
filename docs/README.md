@@ -20,6 +20,9 @@ When documents disagree, use this order:
 | --- | --- |
 | [Repository audit](repository-audit-2026-07-18.md) | Records why the reset is required and what is retained, refactored, deferred, or removed. |
 | [Feature inventory](feature-inventory.md) | Maps current implementation assets to retain, refactor, defer, remove, and new-work categories. |
+| [File/module inventory](architecture-reset-module-inventory.md) | Summarizes the explicit file-by-file retain/refactor/defer/remove record. |
+| [Legacy schema mapping](legacy-schema-mapping.md) | Maps browser versions 1–14 and native versions 1–10 into the target model. |
+| [Phase 1 persistence status](phase-1-persistence-foundation-status.md) | Records implemented IndexedDB/PWA evidence and the remaining application-cutover gap. |
 | [Project brief](00-project-brief.md) | Defines intended use, users, operating model, and success criteria. |
 | [Product vision](01-product-vision.md) | Defines the desired operational outcome. |
 | [Information architecture](02-information-architecture.md) | Defines the workflow-centered product structure. |

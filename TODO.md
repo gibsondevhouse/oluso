@@ -13,18 +13,18 @@ This backlog replaces the campaign-era checklist that treated broad register del
 - [x] Decide web-only local-first runtime.
 - [x] Decide IndexedDB as the primary browser database behind repository contracts.
 - [x] Define the reviewed exchange/conflict model.
-- [ ] Create the implementation migration branch.
-- [ ] Inventory every implemented feature as retain, refactor, defer, or remove at code/module level.
-- [ ] Map every supported legacy schema to the target schema.
-- [ ] Define representative migration fixtures from browser and native persistence.
+- [x] Create the implementation migration branch.
+- [x] Inventory every implemented feature as retain, refactor, defer, or remove at code/module level.
+- [x] Map every supported legacy schema to the target schema.
+- [x] Define representative migration fixtures from browser and native persistence.
 
 ## P0 — Core correctness
 
-- [ ] Implement the versioned IndexedDB adapter and repository-contract suite.
-- [ ] Add transactional record revision history.
+- [x] Implement the versioned IndexedDB adapter and repository-contract suite.
+- [x] Add transactional record revision history.
 - [ ] Introduce typed `ExposureScenario`.
 - [ ] Replace generic exposure-assessment, determination, and sampling campaign records.
-- [ ] Add dataset, installation, and local-user identities.
+- [x] Add dataset, installation, and local-user identities.
 - [ ] Implement exchange package validation, dry-run, classification, conflict resolution, and rollback.
 - [ ] Ensure invalid or failed imports cannot partially mutate the database.
 
@@ -60,9 +60,9 @@ This backlog replaces the campaign-era checklist that treated broad register del
 
 ## P2 — Verification and deployment
 
-- [ ] Add `npm run verify`.
+- [x] Add `npm run verify` for the current check, test, build, and PWA artifact gates; extend it with format, lint, e2e, and accessibility gates before Phase 7 exit.
 - [ ] Add formatting and lint checks.
-- [ ] Add browser repository-contract tests.
+- [x] Add browser repository-contract tests.
 - [ ] Add migration tests from every supported schema.
 - [ ] Add exchange round-trip, conflict, stale-revision, malicious-package, and rollback tests.
 - [ ] Add browser-storage quota/failure/corruption recovery tests.
