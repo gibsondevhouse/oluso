@@ -1,4 +1,11 @@
+import {
+  AdamaDatabaseError,
+  type AdamaStoreName,
+  type MutationContext,
+  type RecordEnvelope,
+} from "$lib/data/database";
 import { LocationRepository, ProcessRepository, TaskRepository } from "$lib/data/repositories/foundation";
+import { runMutationTransaction } from "$lib/data/revisions";
 import {
   CircularHierarchyError,
   CrossSiteRelationshipError,
@@ -7,12 +14,132 @@ import {
   ValidationError,
   assertValid,
   isOperationalLocation,
+  isValidLocationParent,
+  resolveSiteForLocation,
   validateLocation,
+  type FoundationLocation,
   type Location,
   type LocationFields,
   type LocationNodeType,
 } from "$lib/domain/foundation";
 import { FoundationService, type FoundationServiceOptions } from "./foundation-service";
+
+const DEPENDENCY_STORES = [
+  "processes",
+  "tasks",
+  "equipment",
+  "site_chemical_inventory",
+  "chemical_uses",
+  "segs",
+  "exposure_scenarios",
+  "sampling_plans",
+  "sampling_events",
+  "samples",
+  "findings",
+  "incidents",
+  "corrective_actions",
+] as const satisfies readonly AdamaStoreName[];
+
+const LOCATION_REFERENCE_FIELDS = new Set([
+  "locationId",
+  "siteId",
+  "storageLocationId",
+  "resolvedSiteId",
+  "sourceLocationId",
+  "targetLocationId",
+]);
+
+type LocationReferenceValue = string | string[] | null | undefined;
+
+interface LocationDependencyRecord extends RecordEnvelope {
+  status?: string;
+  locationId?: LocationReferenceValue;
+  siteId?: LocationReferenceValue;
+  storageLocationId?: LocationReferenceValue;
+  resolvedSiteId?: LocationReferenceValue;
+  sourceLocationId?: LocationReferenceValue;
+  targetLocationId?: LocationReferenceValue;
+}
+
+type LocationReclassificationPatch = Pick<FoundationLocation, "nodeType" | "resolvedSiteId">;
+
+function reclassificationError(message: string) {
+  return new AdamaDatabaseError(message, "LOCATION_RECLASSIFICATION_BLOCKED");
+}
+
+function isActive(record: LocationDependencyRecord) {
+  return record.lifecycleStatus !== "archived" && record.status !== "archived";
+}
+
+function referencesLocation(record: LocationDependencyRecord, locationId: string) {
+  return [...LOCATION_REFERENCE_FIELDS].some((field) => {
+    const value = record[field as keyof LocationDependencyRecord];
+    if (value === locationId) return true;
+    return Array.isArray(value) && value.includes(locationId);
+  });
+}
+
+export class FoundationLocationService {
+  constructor(
+    private readonly database: IDBDatabase,
+    private readonly now: () => Date = () => new Date(),
+    private readonly createId: () => string = () => crypto.randomUUID(),
+  ) {}
+
+  async reclassifyLeaf(
+    id: string,
+    nodeType: LocationNodeType,
+    expectedRevision: number,
+    context: MutationContext,
+  ) {
+    return runMutationTransaction(
+      this.database,
+      ["locations"],
+      context,
+      async (session) => {
+        const location = await session.getRecord<FoundationLocation>("locations", id);
+        if (!location || location.lifecycleStatus === "archived") {
+          throw new Error("Location was not found or is archived.");
+        }
+        if (location.nodeType === nodeType) return location;
+
+        const locations = await session.listRecords<FoundationLocation>("locations");
+        if (locations.some((candidate) => candidate.parentId === id && candidate.lifecycleStatus !== "archived")) {
+          throw reclassificationError("Location type cannot change while active child Locations exist.");
+        }
+        for (const storeName of DEPENDENCY_STORES) {
+          const dependencies = await session.listRecords<LocationDependencyRecord>(storeName);
+          if (dependencies.some((record) => isActive(record) && referencesLocation(record, id))) {
+            throw reclassificationError(`Location type cannot change while active ${storeName.replaceAll("_", " ")} dependencies exist.`);
+          }
+        }
+
+        const parent = location.parentId
+          ? locations.find((candidate) => candidate.id === location.parentId) ?? null
+          : null;
+        if (!isValidLocationParent(nodeType, parent)) {
+          throw reclassificationError("The current parent is incompatible with the proposed Location type.");
+        }
+        const resolvedSiteId = resolveSiteForLocation(nodeType, location.id, parent);
+        if (isOperationalLocation(nodeType) && !resolvedSiteId) {
+          throw reclassificationError("The proposed Location type does not resolve to a valid Site.");
+        }
+        return session.updateRecord<FoundationLocation, LocationReclassificationPatch>({
+          storeName: "locations",
+          recordType: "Location",
+          id,
+          expectedRevision,
+          patch: { nodeType, resolvedSiteId },
+        });
+      },
+      {
+        now: this.now,
+        createId: this.createId,
+        additionalStoreNames: [...DEPENDENCY_STORES],
+      },
+    );
+  }
+}
 
 export class LocationService extends FoundationService<Location> {
   constructor(
@@ -100,7 +227,6 @@ export class LocationService extends FoundationService<Location> {
     }
     const nodeType = rootPatch.nodeType ?? root.nodeType;
     const parent = await this.validateParent(nodeType, parentId);
-    const nextRoot = { ...root, ...rootPatch, nodeType, parentId };
     const nextSiteById = new Map<string, string | null>();
     nextSiteById.set(root.id, this.resolveFromParent(nodeType, root.id, parent));
 
@@ -218,9 +344,7 @@ export class LocationService extends FoundationService<Location> {
   }
 
   private resolveFromParent(nodeType: LocationNodeType, id: string, parent: Location | null) {
-    if (nodeType === "Site") return id;
-    if (!isOperationalLocation(nodeType)) return null;
-    return parent?.nodeType === "Site" ? parent.id : parent?.resolvedSiteId ?? null;
+    return resolveSiteForLocation(nodeType, id, parent);
   }
 
   protected title(record: Location) {

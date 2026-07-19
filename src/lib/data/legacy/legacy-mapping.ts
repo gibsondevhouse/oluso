@@ -12,9 +12,9 @@ export const LEGACY_COLLECTION_MAPPING: Record<string, LegacyCollectionMapping> 
   tasks: { targets: ["tasks"], disposition: "map", note: "Requires valid process and location." },
   equipment: { targets: ["equipment"], disposition: "map", note: "Preserves valid context links." },
   chemicals: {
-    targets: ["chemical_substances", "chemical_products", "sds_revisions", "site_chemical_inventory", "chemical_uses", "exposure_agents", "exposure_limits"],
+    targets: ["chemical_substances", "chemical_products", "chemical_product_substances", "document_references", "sds_revisions", "site_chemical_inventory", "chemical_uses", "data_quality_findings"],
     disposition: "split",
-    note: "Separates identity, product, SDS, inventory, use, agent, and limit.",
+    note: "Separates identity, product, composition, SDS, inventory, and use; legacy limit text remains migration evidence for later professional review.",
   },
   hazards: { targets: ["hazards"], disposition: "map", note: "Preserved separately from exposure agents." },
   controls: { targets: ["controls"], disposition: "map", note: "Verification event requires explicit evidence/date." },

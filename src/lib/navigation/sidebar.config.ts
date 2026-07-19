@@ -40,6 +40,20 @@ export const SIDEBAR_CONFIG: SidebarConfig = {
       ],
     },
     {
+      id: "chemical-master-data",
+      title: "Chemical Master Data",
+      icon: "FlaskConical",
+      collapsible: true,
+      defaultExpanded: true,
+      children: [
+        { id: "chemical-products", title: "Products", route: "/master/products", icon: "FlaskConical", routeType: "register" },
+        { id: "chemical-substances", title: "Substances", route: "/master/substances", icon: "FlaskConical", routeType: "register" },
+        { id: "chemical-inventory", title: "Site Inventory", route: "/master/inventory", icon: "ClipboardList", routeType: "register" },
+        { id: "chemical-uses", title: "Chemical Uses", route: "/master/chemical-uses", icon: "Workflow", routeType: "register" },
+        { id: "chemical-migration", title: "Migration Review", route: "/migration/chemicals", icon: "ClipboardCheck", routeType: "system" },
+      ],
+    },
+    {
       id: "operations",
       title: "Operations",
       icon: "Factory",
@@ -108,13 +122,6 @@ export const SIDEBAR_CONFIG: SidebarConfig = {
       collapsible: true,
       defaultExpanded: true,
       children: [
-        {
-          id: "chemicals",
-          title: "Chemicals",
-          route: "/hse/chemicals",
-          icon: "FlaskConical",
-          routeType: "register",
-        },
         {
           id: "hazards",
           title: "Hazards",
@@ -282,6 +289,20 @@ export const SIDEBAR_CONFIG: SidebarConfig = {
       collapsible: true,
       defaultExpanded: false,
       children: [
+        {
+          id: "local-profile",
+          title: "Local Profile",
+          route: "/settings/profile",
+          icon: "UsersRound",
+          routeType: "system",
+        },
+        {
+          id: "installation",
+          title: "Installation",
+          route: "/settings/installation",
+          icon: "Settings",
+          routeType: "system",
+        },
         {
           id: "settings",
           title: "Settings",

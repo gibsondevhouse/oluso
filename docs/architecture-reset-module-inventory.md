@@ -50,3 +50,7 @@ No REMOVE_AFTER_MIGRATION file is authorized for deletion until all of the follo
 3. Exact backup/restore, atomic failure, immutable revisions, and rollback tests pass.
 4. The installed PWA passes offline, browser-restart, and realistic data acceptance checks.
 5. The current user and HSE manager accept the migrated Tifton/Ocilla dataset.
+
+## Campaign progress
+
+The canonical Chemical master-data module has crossed its route cutover gate. New typed modules under `src/lib/domain/chemical`, `src/lib/application/chemical`, and `src/lib/data/repositories/chemical` are RETAIN. The legacy combined Chemical persistence types and readers remain REMOVE_AFTER_MIGRATION as source-history infrastructure only; they are not authorized dependencies of the canonical Chemical runtime. Exposure Agents and Exposure Limits remain the next separate campaign and were not folded into Product, inventory, or use.

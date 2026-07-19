@@ -53,6 +53,14 @@ export class MutationSession {
     return this.mutationCount;
   }
 
+  async getRecord<TRecord>(storeName: AdamaStoreName, id: string) {
+    return requestToPromise<TRecord | undefined>(this.transaction.objectStore(storeName).get(id));
+  }
+
+  async listRecords<TRecord>(storeName: AdamaStoreName) {
+    return requestToPromise<TRecord[]>(this.transaction.objectStore(storeName).getAll());
+  }
+
   async createRecord<TRecord extends RecordEnvelope, TInput extends RecordData>(
     options: CreateRecordOptions<TInput>,
   ): Promise<TRecord> {
@@ -229,6 +237,7 @@ export class MutationSession {
       operation,
       changedAt: this.timestamp,
       changedBy: this.context.actorId,
+      changedInstallationId: this.context.installationId,
       source: this.context.source,
       changeReason: this.context.reason,
       before,
@@ -250,6 +259,33 @@ export class MutationSession {
       updatedBy: this.context.actorId,
     } satisfies DatasetMetadata);
   }
+
+  async assertMutationIdentityReady() {
+    if (this.context.source !== "local") return;
+    const installation = await requestToPromise<{ installationId: string } | undefined>(
+      this.transaction.objectStore("installation_metadata").get("current"),
+    );
+    const user = await requestToPromise<{
+      id: string;
+      installationId: string;
+      isCurrentForInstallation: boolean;
+      status: string;
+      displayName: string;
+      initials: string;
+    } | undefined>(this.transaction.objectStore("local_users").get(this.context.actorId));
+    if (
+      !installation ||
+      installation.installationId !== this.context.installationId ||
+      !user ||
+      user.installationId !== installation.installationId ||
+      user.isCurrentForInstallation !== true ||
+      user.status !== "active" ||
+      !user.displayName?.trim() ||
+      !user.initials?.trim()
+    ) {
+      throw new IdentityNotInitializedError();
+    }
+  }
 }
 
 export async function runMutationTransaction<T>(
@@ -264,6 +300,8 @@ export async function runMutationTransaction<T>(
       ...storeNames,
       "record_revisions" as const,
       "dataset_metadata" as const,
+      "installation_metadata" as const,
+      "local_users" as const,
       ...(options.additionalStoreNames ?? []),
     ]),
   ];
@@ -277,6 +315,7 @@ export async function runMutationTransaction<T>(
   );
 
   try {
+    await session.assertMutationIdentityReady();
     const result = await operation(session);
     await session.advanceDatasetRevision();
     await completion;

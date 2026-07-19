@@ -14,15 +14,7 @@ describe("global register search", () => {
 
     const results = searchAllRegisters(olusoApplication, "acetone");
 
-    expect(results).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          registerTitle: "Chemicals",
-          recordTitle: "Acetone",
-          href: "/hse/chemicals/chem-demo-acetone",
-        }),
-      ]),
-    );
+    expect(results.some((result) => result.registerTitle === "Chemicals")).toBe(false);
     expect(results.some((result) => result.registerTitle === "Exposure Monitoring")).toBe(true);
   });
 

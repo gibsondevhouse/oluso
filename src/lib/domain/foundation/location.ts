@@ -1,4 +1,12 @@
-import { FOUNDATION_RECORD_STATUSES, requiredChoice, requiredText, result, validateBusinessId, type FoundationRecordMetadata, type FoundationRecordStatus } from "./validation";
+import {
+  FOUNDATION_RECORD_STATUSES,
+  requiredChoice,
+  requiredText,
+  result,
+  validateBusinessId,
+  type FoundationRecordMetadata,
+  type FoundationRecordStatus,
+} from "./validation";
 
 export const LOCATION_NODE_TYPES = [
   "Country",
@@ -23,18 +31,23 @@ export const LOCATION_PARENT_TYPES: Record<LocationNodeType, readonly LocationNo
   Building: ["Site", "Building"],
   Unit: ["Site", "Building"],
   Zone: ["Site", "Building", "Unit"],
-  Subzone: ["Zone"],
-  Room: ["Building", "Unit", "Zone"],
+  Subzone: ["Zone", "Unit"],
+  Room: ["Building", "Unit", "Zone", "Subzone"],
   StorageArea: ["Site", "Building", "Unit", "Zone"],
   OutdoorArea: ["Site"],
   MobileArea: ["Site"],
 };
 
-export interface Location extends FoundationRecordMetadata {
+export interface FoundationLocation extends FoundationRecordMetadata {
   name: string;
   nodeType: LocationNodeType;
   parentId: string | null;
   resolvedSiteId: string | null;
+  description?: string;
+  status?: FoundationRecordStatus;
+}
+
+export interface Location extends FoundationLocation {
   description: string;
   status: FoundationRecordStatus;
 }
@@ -66,4 +79,22 @@ export function validateLocation(input: LocationFields) {
 
 export function isOperationalLocation(nodeType: LocationNodeType) {
   return !["Country", "StateOrRegion"].includes(nodeType);
+}
+
+export function isValidLocationParent(
+  nodeType: LocationNodeType,
+  parent: FoundationLocation | null,
+) {
+  if (nodeType === "Country") return parent === null;
+  return Boolean(parent && LOCATION_PARENT_TYPES[nodeType].includes(parent.nodeType));
+}
+
+export function resolveSiteForLocation(
+  nodeType: LocationNodeType,
+  id: string,
+  parent: FoundationLocation | null,
+) {
+  if (nodeType === "Site") return id;
+  if (!isOperationalLocation(nodeType)) return null;
+  return parent?.nodeType === "Site" ? parent.id : parent?.resolvedSiteId ?? null;
 }

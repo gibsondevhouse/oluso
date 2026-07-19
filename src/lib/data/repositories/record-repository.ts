@@ -1,6 +1,6 @@
 import { RecordNotFoundError } from "../database/errors";
 import { requestToPromise, transactionToPromise } from "../database/idb-utils";
-import type { CurrentRecordStoreName } from "../database/schema";
+import type { MutableRecordStoreName } from "../database/schema";
 import type { MutationContext, RecordEnvelope } from "../database/types";
 import {
   runMutationTransaction,
@@ -31,7 +31,7 @@ export class IndexedDbRecordRepository<TRecord extends RecordEnvelope> {
 
   constructor(
     private readonly database: IDBDatabase,
-    private readonly storeName: CurrentRecordStoreName,
+    private readonly storeName: MutableRecordStoreName,
     private readonly options: RecordRepositoryOptions,
   ) {
     this.mutationOptions = { now: options.now, createId: options.createId };

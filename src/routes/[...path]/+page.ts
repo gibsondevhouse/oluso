@@ -4,6 +4,9 @@ import type { PageLoad } from "./$types";
 
 export const load: PageLoad = ({ url }) => {
   const pathname = normalizePath(url.pathname);
+  if (pathname === "/hse/chemicals" || pathname.startsWith("/hse/chemicals/")) {
+    throw redirect(307, "/master/products");
+  }
   const parentRedirect = findParentRedirect(pathname);
 
   if (parentRedirect) {

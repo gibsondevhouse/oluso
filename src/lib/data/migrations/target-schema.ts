@@ -1,6 +1,7 @@
 import {
   ADAMA_DATABASE_VERSION,
   createInitialAdamaSchema,
+  upgradeFoundationHardeningSchema,
 } from "../database/schema";
 
 export interface TargetSchemaMigration {
@@ -18,10 +19,9 @@ export const TARGET_SCHEMA_MIGRATIONS: readonly TargetSchemaMigration[] = [
   },
   {
     version: 2,
-    description: "Add typed foundation relationship indexes for organizations, people, processes, and tasks.",
-    apply(database, transaction) {
-      createInitialAdamaSchema(database, transaction);
-    },
+    description:
+      "Add local-profile identity, typed foundation relationship, and canonical chemical relationship indexes without rewriting existing records.",
+    apply: upgradeFoundationHardeningSchema,
   },
 ] as const;
 

@@ -38,6 +38,7 @@ export interface RecordRevision<T = unknown> {
   operation: RecordRevisionOperation;
   changedAt: string;
   changedBy: string;
+  changedInstallationId: string;
   source: MutationSource;
   changeReason?: string;
   before?: T;
@@ -76,6 +77,20 @@ export interface LocalUserProfile {
   id: string;
   businessId: string;
   displayName: string;
+  role:
+    | "HSE Coordinator"
+    | "HSE Manager"
+    | "Site Manager"
+    | "Plant Manager"
+    | "Reviewer"
+    | "Industrial Hygienist"
+    | "Administrator"
+    | "Other";
+  initials: string;
+  employeeIdentifier?: string;
+  email?: string;
+  installationId: string;
+  isCurrentForInstallation: boolean;
   personId?: string;
   status: "active" | "inactive";
   createdAt: string;
