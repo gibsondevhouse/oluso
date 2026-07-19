@@ -1,5 +1,5 @@
 export const ADAMA_DATABASE_NAME = "adama-hse";
-export const ADAMA_DATABASE_VERSION = 1;
+export const ADAMA_DATABASE_VERSION = 2;
 
 export const SYSTEM_STORE_NAMES = [
   "dataset_metadata",
@@ -122,6 +122,14 @@ function addRecordIndexes(store: IDBObjectStore) {
   createIndex(store, "byExchangePackage", "lastExchangePackageId");
 }
 
+function addSystemIndexes(name: SystemStoreName, store: IDBObjectStore) {
+  if (name === "local_users") {
+    createIndex(store, "byInstallation", "installationId");
+    createIndex(store, "byInstallationAndCurrent", ["installationId", "isCurrentForInstallation"]);
+    createIndex(store, "byBusinessId", "businessId");
+  }
+}
+
 function addDomainIndexes(name: CurrentRecordStoreName, store: IDBObjectStore) {
   switch (name) {
     case "locations":
@@ -141,20 +149,51 @@ function addDomainIndexes(name: CurrentRecordStoreName, store: IDBObjectStore) {
       createIndex(store, "byProcess", "processId");
       createIndex(store, "byTask", "taskId");
       break;
+    case "chemical_substances":
+      createIndex(store, "byCASNumber", "casNumber", { unique: true });
+      createIndex(store, "byCanonicalName", "canonicalName");
+      break;
+    case "chemical_products":
+      createIndex(store, "byManufacturer", "manufacturerOrganizationId");
+      createIndex(store, "byProductName", "productName");
+      createIndex(store, "byProductCode", "productCode");
+      break;
+    case "chemical_product_substances":
+      createIndex(store, "byProduct", "productId");
+      createIndex(store, "bySubstance", "substanceId");
+      createIndex(store, "byProductAndSubstance", ["productId", "substanceId"], { unique: true });
+      createIndex(store, "byComponentRole", "componentRole");
+      break;
     case "sds_revisions":
       createIndex(store, "byProduct", "productId");
       createIndex(store, "byCurrentStatus", "currentStatus");
+      createIndex(store, "byReviewStatus", "reviewStatus");
+      createIndex(store, "byRevisionDate", "revisionDate");
+      createIndex(store, "byLanguageAndJurisdiction", ["language", "jurisdiction"]);
+      createIndex(store, "byDocumentReference", "documentReferenceId");
       break;
     case "site_chemical_inventory":
       createIndex(store, "byProduct", "productId");
       createIndex(store, "bySite", "siteId");
       createIndex(store, "byStorageLocation", "storageLocationId");
+      createIndex(store, "byProductAndSite", ["productId", "siteId"]);
+      createIndex(store, "byInventoryStatus", "inventoryStatus");
+      createIndex(store, "byObservationDate", "observationDate");
       break;
     case "chemical_uses":
       createIndex(store, "byProduct", "productId");
+      createIndex(store, "bySite", "siteId");
       createIndex(store, "byProcess", "processId");
       createIndex(store, "byTask", "taskId");
       createIndex(store, "byLocation", "locationId");
+      createIndex(store, "byOperatingCondition", "operatingCondition");
+      createIndex(store, "byStatus", "status");
+      break;
+    case "document_references":
+      createIndex(store, "byDocumentType", "documentType");
+      createIndex(store, "byExternalSystem", "externalSystem");
+      createIndex(store, "byAvailabilityStatus", "availabilityStatus");
+      createIndex(store, "byContentHash", "contentHash");
       break;
     case "exposure_limits":
       createIndex(store, "byAgent", "exposureAgentId");
@@ -272,7 +311,8 @@ export function createInitialAdamaSchema(
   transaction: IDBTransaction,
 ) {
   for (const name of SYSTEM_STORE_NAMES) {
-    createStore(database, name);
+    const store = createStore(database, name) ?? transaction.objectStore(name);
+    addSystemIndexes(name, store);
   }
 
   for (const name of CURRENT_RECORD_STORE_NAMES) {
@@ -284,5 +324,19 @@ export function createInitialAdamaSchema(
   for (const name of GOVERNANCE_STORE_NAMES) {
     const store = createStore(database, name) ?? transaction.objectStore(name);
     addGovernanceIndexes(name, store);
+  }
+}
+
+export function upgradeFoundationHardeningSchema(
+  _database: IDBDatabase,
+  transaction: IDBTransaction,
+) {
+  for (const name of SYSTEM_STORE_NAMES) {
+    addSystemIndexes(name, transaction.objectStore(name));
+  }
+  for (const name of CURRENT_RECORD_STORE_NAMES) {
+    const store = transaction.objectStore(name);
+    addRecordIndexes(store);
+    addDomainIndexes(name, store);
   }
 }

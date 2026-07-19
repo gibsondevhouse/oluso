@@ -9,6 +9,7 @@
   import ReportsExportsPage from "./ReportsExportsPage.svelte";
   import RoutePlaceholderPage from "./RoutePlaceholderPage.svelte";
   import SettingsPage from "./SettingsPage.svelte";
+  import LocalIdentitySettingsPage from "./LocalIdentitySettingsPage.svelte";
 
   interface Props {
     route: AppRoute;
@@ -27,6 +28,10 @@
   <ReportsExportsPage />
 {:else if route.kind === "settings"}
   <SettingsPage />
+{:else if route.kind === "profile"}
+  <LocalIdentitySettingsPage mode="profile" />
+{:else if route.kind === "installation"}
+  <LocalIdentitySettingsPage mode="installation" />
 {:else if route.kind === "not-found"}
   <NotFoundPage />
 {:else if route.kind === "error"}

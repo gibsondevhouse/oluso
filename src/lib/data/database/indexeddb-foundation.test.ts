@@ -6,9 +6,11 @@ import {
   initializeDatabaseIdentity,
   openAdamaDatabase,
   type MutationContext,
+  type LocalUserProfile,
   type RecordEnvelope,
   StaleRevisionError,
 } from ".";
+import { requestToPromise, transactionToPromise } from "./idb-utils";
 import {
   canonicalStringify,
   exportDatabaseBackup,
@@ -265,7 +267,19 @@ describe("IndexedDB foundation", () => {
       { recordType: "Location" },
     );
     expect(await restoredRepository.list()).toEqual(await repository.list());
-    expect(await getDatabaseIdentity(destination)).toEqual(await getDatabaseIdentity(source));
+    expect(await getDatabaseIdentity(destination)).toMatchObject({
+      dataset: (await getDatabaseIdentity(source))!.dataset,
+      installation: { installationId: "different-installation" },
+      localUser: { id: "different-user" },
+    });
+    const restoredUsersTransaction = destination.transaction("local_users", "readonly");
+    const restoredUsers = await requestToPromise<LocalUserProfile[]>(
+      restoredUsersTransaction.objectStore("local_users").getAll(),
+    );
+    await transactionToPromise(restoredUsersTransaction);
+    expect(restoredUsers.map((user) => user.id)).toEqual(
+      expect.arrayContaining(["user-hse", "different-user"]),
+    );
 
     const tampered = structuredClone(backup);
     (tampered.stores.locations[0] as TestLocation).name = "Tampered";

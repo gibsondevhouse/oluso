@@ -24,6 +24,20 @@ export const SIDEBAR_CONFIG: SidebarConfig = {
       defaultExpanded: true,
       children: [
         {
+          id: "local-profile",
+          title: "Local Profile",
+          route: "/settings/profile",
+          icon: "UsersRound",
+          routeType: "system",
+        },
+        {
+          id: "installation",
+          title: "Installation",
+          route: "/settings/installation",
+          icon: "Settings",
+          routeType: "system",
+        },
+        {
           id: "dashboard-home",
           title: "Dashboard",
           route: "/dashboard",

@@ -5,7 +5,13 @@ import { assertDatabaseIntegrity, inspectDatabaseIntegrity } from "../integrity"
 import { migrateLegacyDatabase, type LegacyMigrationOptions } from "../legacy";
 import { IndexedDbRecordRepository, type RecordRepositoryOptions } from "../repositories";
 import type { RecordEnvelope } from "./types";
-import { getDatabaseIdentity, initializeDatabaseIdentity, type InitializeIdentityOptions } from "./identity";
+import {
+  getDatabaseIdentity,
+  initializeDatabaseIdentity,
+  initializeInstallationIdentity,
+  LocalIdentityService,
+  type InitializeIdentityOptions,
+} from "./identity";
 import { openAdamaDatabase, type OpenDatabaseOptions } from "./open-database";
 import type { CurrentRecordStoreName } from "./schema";
 
@@ -23,6 +29,8 @@ export class AdamaIndexedDbAdapter {
     const adapter = new AdamaIndexedDbAdapter(database);
     if (options.identity) {
       await initializeDatabaseIdentity(database, options.identity);
+    } else {
+      await initializeInstallationIdentity(database);
     }
     return adapter;
   }
@@ -41,6 +49,10 @@ export class AdamaIndexedDbAdapter {
 
   identity() {
     return getDatabaseIdentity(this.database);
+  }
+
+  localIdentity() {
+    return new LocalIdentityService(this.database);
   }
 
   repository<TRecord extends RecordEnvelope>(

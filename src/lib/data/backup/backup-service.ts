@@ -1,7 +1,7 @@
 import { AdamaDatabaseError, translateIndexedDbError } from "../database/errors";
 import { abortTransaction, requestToPromise, transactionToPromise } from "../database/idb-utils";
 import { ADAMA_DATABASE_VERSION, ADAMA_STORE_NAMES, type AdamaStoreName } from "../database/schema";
-import type { DatasetMetadata, InstallationMetadata } from "../database/types";
+import type { DatasetMetadata, InstallationMetadata, LocalUserProfile } from "../database/types";
 
 export const BACKUP_ARTIFACT_TYPE = "adama-hse-backup";
 export const BACKUP_ARTIFACT_VERSION = 1;
@@ -147,6 +147,19 @@ export async function validateDatabaseBackup(value: unknown): Promise<AdamaBacku
 
 export async function restoreDatabaseBackup(database: IDBDatabase, value: unknown) {
   const backup = await validateDatabaseBackup(value);
+  const identityTransaction = database.transaction(
+    ["installation_metadata", "local_users"],
+    "readonly",
+  );
+  const identityCompletion = transactionToPromise(identityTransaction);
+  const localInstallation = await requestToPromise<InstallationMetadata | undefined>(
+    identityTransaction.objectStore("installation_metadata").get("current"),
+  );
+  const localUsers = await requestToPromise<LocalUserProfile[]>(
+    identityTransaction.objectStore("local_users").getAll(),
+  );
+  await identityCompletion;
+
   const transaction = database.transaction([...ADAMA_STORE_NAMES], "readwrite");
   const completion = transactionToPromise(transaction);
 
@@ -154,7 +167,16 @@ export async function restoreDatabaseBackup(database: IDBDatabase, value: unknow
     for (const storeName of ADAMA_STORE_NAMES) {
       const store = transaction.objectStore(storeName);
       await requestToPromise(store.clear());
-      for (const record of backup.stores[storeName]) {
+      let records = backup.stores[storeName];
+      if (storeName === "installation_metadata" && localInstallation) {
+        records = [localInstallation];
+      } else if (storeName === "local_users") {
+        const merged = new Map<string, unknown>();
+        for (const user of backup.stores.local_users as LocalUserProfile[]) merged.set(user.id, user);
+        for (const user of localUsers) merged.set(user.id, user);
+        records = [...merged.values()];
+      }
+      for (const record of records) {
         await requestToPromise(store.add(record));
       }
     }

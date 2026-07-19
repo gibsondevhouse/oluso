@@ -22,6 +22,8 @@ export type RouteKind =
   | "corrective-actions"
   | "exports"
   | "settings"
+  | "profile"
+  | "installation"
   | "placeholder"
   | "not-found"
   | "error"
@@ -219,6 +221,20 @@ export const APP_ROUTES: AppRoute[] = [
     kind: "settings",
   },
   {
+    path: "/settings/profile",
+    title: "Local User Profile",
+    summary: "Configure the named local actor used for mutation attribution.",
+    section: "System",
+    kind: "profile",
+  },
+  {
+    path: "/settings/installation",
+    title: "Installation Identity",
+    summary: "Configure the durable label for this browser installation.",
+    section: "System",
+    kind: "installation",
+  },
+  {
     path: "/not-found",
     title: "Page Not Found",
     summary: "The requested page does not exist.",
@@ -248,6 +264,7 @@ export const PARENT_REDIRECTS: ParentRedirect[] = [
   { path: "/ih", redirectTo: "/ih/exposure-agents" },
   { path: "/reports", redirectTo: "/reports/exports" },
   { path: "/system", redirectTo: "/system/settings" },
+  { path: "/settings", redirectTo: "/settings/profile" },
 ];
 
 export function normalizePath(pathname: string): string {
