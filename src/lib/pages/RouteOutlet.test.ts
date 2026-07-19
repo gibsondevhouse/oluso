@@ -142,7 +142,6 @@ describe("RouteOutlet", () => {
     ["/operations/locations/new", "Type", "Production Area"],
     ["/operations/processes/new", "Category", "Waste Handling"],
     ["/operations/equipment/new", "Equipment Type", "Dust Collector"],
-    ["/hse/chemicals/new", "Classification", "Dust/Formulated Solid"],
     ["/hse/hazards/new", "Category", "Fire/Explosion"],
     ["/risk/controls/new", "Control Type", "Engineering"],
     ["/risk/assessments/new", "Inherent Severity", "Critical"],
@@ -175,7 +174,6 @@ describe("RouteOutlet", () => {
       "Workshop Dust Collector",
       ["Related Location", "Related Process"],
     ],
-    ["/hse/chemicals/chem-demo-acetone", "Acetone", ["Related Processes", "Related Hazards", "Related SEGs"]],
     [
       "/hse/hazards/hazard-demo-slips",
       "Slip hazard near chemical storage entry",
@@ -242,6 +240,12 @@ describe("RouteOutlet", () => {
       "href",
       "/operations/locations/loc-demo-main-facility",
     );
+  });
+
+  it("renders the canonical Chemical Substance workflow instead of the legacy combined register", () => {
+    renderRoute("/master/substances");
+    expect(screen.getByRole("heading", { level: 1, name: "Chemical Substances" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Create Substance" })).toHaveAttribute("href", "/master/substances/new");
   });
 
   it("renders a controlled warning when a related record is missing", async () => {

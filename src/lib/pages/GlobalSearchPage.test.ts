@@ -37,17 +37,16 @@ describe("GlobalSearchPage", () => {
     render(GlobalSearchPage);
 
     const input = await screen.findByPlaceholderText("Search all registers");
-    await fireEvent.input(input, { target: { value: "acetone" } });
-    expect(await screen.findByRole("link", { name: "Acetone" })).toBeInTheDocument();
+    await fireEvent.input(input, { target: { value: "egress" } });
+    expect(await screen.findByRole("link", { name: "Emergency Egress Walkthrough" })).toBeInTheDocument();
 
     await fireEvent.change(screen.getByLabelText("Register"), {
-      target: { value: "exposure-monitoring" },
+      target: { value: "findings" },
     });
 
-    expect(screen.queryByRole("link", { name: "Acetone" })).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "IH-2026-001" })).toHaveAttribute(
-      "href",
-      "/hse/exposure-monitoring/exposure-demo-acetone-twa",
+    expect(screen.queryByRole("link", { name: "Emergency Egress Walkthrough" })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Blocked emergency egress path" })).toHaveAttribute(
+      "href", "/field/findings/finding-demo-egress",
     );
   });
 

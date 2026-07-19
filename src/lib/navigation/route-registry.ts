@@ -24,6 +24,11 @@ export type RouteKind =
   | "settings"
   | "profile"
   | "installation"
+  | "chemical-substances"
+  | "chemical-products"
+  | "chemical-inventory"
+  | "chemical-uses"
+  | "chemical-migration"
   | "placeholder"
   | "not-found"
   | "error"
@@ -47,7 +52,7 @@ export type RegisterRouteKind = Extract<
   | CampaignRegisterKind
 >;
 
-export type RouteMode = "list" | "new" | "detail" | "edit";
+export type RouteMode = "list" | "new" | "detail" | "edit" | "sds-new" | "sds-detail" | "sds-edit";
 
 export interface AppRoute {
   path: string;
@@ -58,6 +63,7 @@ export interface AppRoute {
   mode?: RouteMode;
   basePath?: string;
   recordId?: string;
+  parentRecordId?: string;
 }
 
 export interface ParentRedirect {
@@ -79,6 +85,49 @@ export const APP_ROUTES: AppRoute[] = [
     summary: "Search active and archived records across all registers.",
     section: "Dashboard",
     kind: "global-search",
+  },
+  {
+    path: "/master/substances",
+    title: "Chemical Substances",
+    summary: "Manage global canonical chemical identity independently of Products and Sites.",
+    section: "Chemical Master Data",
+    kind: "chemical-substances",
+    mode: "list",
+    basePath: "/master/substances",
+  },
+  {
+    path: "/master/products",
+    title: "Chemical Products",
+    summary: "Manage global commercial Product identity, composition, and SDS history.",
+    section: "Chemical Master Data",
+    kind: "chemical-products",
+    mode: "list",
+    basePath: "/master/products",
+  },
+  {
+    path: "/master/inventory",
+    title: "Site Chemical Inventory",
+    summary: "Record Product presence and quantity at Site-resolvable storage Locations.",
+    section: "Chemical Master Data",
+    kind: "chemical-inventory",
+    mode: "list",
+    basePath: "/master/inventory",
+  },
+  {
+    path: "/master/chemical-uses",
+    title: "Chemical Uses",
+    summary: "Document how Products are used in compatible Sites, Locations, Processes, and Tasks.",
+    section: "Chemical Master Data",
+    kind: "chemical-uses",
+    mode: "list",
+    basePath: "/master/chemical-uses",
+  },
+  {
+    path: "/migration/chemicals",
+    title: "Chemical Migration Review",
+    summary: "Review legacy Chemical evidence, canonical mappings, and unresolved data-quality findings.",
+    section: "Chemical Master Data",
+    kind: "chemical-migration",
   },
   {
     path: "/operations/locations",
@@ -106,15 +155,6 @@ export const APP_ROUTES: AppRoute[] = [
     kind: "equipment",
     mode: "list",
     basePath: "/operations/equipment",
-  },
-  {
-    path: "/hse/chemicals",
-    title: "Chemicals",
-    summary: "Track chemical substances, hazard classifications, and storage locations.",
-    section: "HSE Registers",
-    kind: "chemicals",
-    mode: "list",
-    basePath: "/hse/chemicals",
   },
   {
     path: "/hse/hazards",
@@ -251,7 +291,8 @@ export const APP_ROUTES: AppRoute[] = [
 export const PARENT_REDIRECTS: ParentRedirect[] = [
   { path: "/", redirectTo: "/dashboard" },
   { path: "/operations", redirectTo: "/operations/locations" },
-  { path: "/hse", redirectTo: "/hse/chemicals" },
+  { path: "/hse", redirectTo: "/master/products" },
+  { path: "/master", redirectTo: "/master/products" },
   { path: "/risk", redirectTo: "/risk/controls" },
   { path: "/field", redirectTo: "/field/findings" },
   { path: "/actions", redirectTo: "/actions/corrective-actions" },
@@ -346,10 +387,37 @@ function findDynamicRegisterRoute(pathname: string): AppRoute | undefined {
   return undefined;
 }
 
+const CHEMICAL_ROUTE_KINDS = [
+  "chemical-substances", "chemical-products", "chemical-inventory", "chemical-uses",
+] as const;
+
+export function isChemicalRouteKind(kind: RouteKind): kind is (typeof CHEMICAL_ROUTE_KINDS)[number] {
+  return CHEMICAL_ROUTE_KINDS.includes(kind as (typeof CHEMICAL_ROUTE_KINDS)[number]);
+}
+
+function findDynamicChemicalRoute(pathname: string): AppRoute | undefined {
+  const routes = APP_ROUTES.filter((route) => isChemicalRouteKind(route.kind) && route.basePath);
+  for (const route of routes) {
+    const prefix = `${route.basePath}/`;
+    if (!pathname.startsWith(prefix)) continue;
+    const parts = pathname.slice(prefix.length).split("/").filter(Boolean).map(decodeURIComponent);
+    if (parts.length === 1 && parts[0] === "new") return { ...route, path: pathname, mode: "new" };
+    if (parts.length === 1) return { ...route, path: pathname, mode: "detail", recordId: parts[0] };
+    if (parts.length === 2 && parts[1] === "edit") return { ...route, path: pathname, mode: "edit", recordId: parts[0] };
+    if (route.kind === "chemical-products" && parts.length >= 3 && parts[1] === "sds") {
+      if (parts.length === 3 && parts[2] === "new") return { ...route, path: pathname, mode: "sds-new", parentRecordId: parts[0] };
+      if (parts.length === 3) return { ...route, path: pathname, mode: "sds-detail", parentRecordId: parts[0], recordId: parts[2] };
+      if (parts.length === 4 && parts[3] === "edit") return { ...route, path: pathname, mode: "sds-edit", parentRecordId: parts[0], recordId: parts[2] };
+    }
+  }
+  return undefined;
+}
+
 export function findRoute(pathname: string): AppRoute | undefined {
   const normalizedPathname = normalizePath(pathname);
   return (
     APP_ROUTES.find((route) => route.path === normalizedPathname) ??
+    findDynamicChemicalRoute(normalizedPathname) ??
     findDynamicRegisterRoute(normalizedPathname)
   );
 }
@@ -370,9 +438,21 @@ export function getRegisteredRoutePatterns(): string[] {
     `${route.basePath}/:id`,
     `${route.basePath}/:id/edit`,
   ]);
+  const chemicalPatterns = APP_ROUTES.filter((route) => isChemicalRouteKind(route.kind) && route.basePath).flatMap((route) => [
+    route.basePath!,
+    `${route.basePath}/new`,
+    `${route.basePath}/:id`,
+    `${route.basePath}/:id/edit`,
+    ...(route.kind === "chemical-products" ? [
+      `${route.basePath}/:productId/sds/new`,
+      `${route.basePath}/:productId/sds/:sdsId`,
+      `${route.basePath}/:productId/sds/:sdsId/edit`,
+    ] : []),
+  ]);
 
   return [
     ...APP_ROUTES.filter((route) => !isRegisterRouteKind(route.kind)).map((route) => route.path),
     ...registerPatterns,
+    ...chemicalPatterns,
   ];
 }

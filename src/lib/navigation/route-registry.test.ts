@@ -11,7 +11,6 @@ describe("route registry", () => {
     { kind: "locations", basePath: "/operations/locations" },
     { kind: "processes", basePath: "/operations/processes" },
     { kind: "equipment", basePath: "/operations/equipment" },
-    { kind: "chemicals", basePath: "/hse/chemicals" },
     { kind: "hazards", basePath: "/hse/hazards" },
     { kind: "controls", basePath: "/risk/controls" },
     { kind: "risk-assessments", basePath: "/risk/assessments" },
@@ -23,6 +22,13 @@ describe("route registry", () => {
     { kind: "compliance-items", basePath: "/compliance/items" },
   ] as const;
 
+  const chemicalRoutes = [
+    { kind: "chemical-substances", basePath: "/master/substances" },
+    { kind: "chemical-products", basePath: "/master/products" },
+    { kind: "chemical-inventory", basePath: "/master/inventory" },
+    { kind: "chemical-uses", basePath: "/master/chemical-uses" },
+  ] as const;
+
   it("registers the documented MVP shell routes", () => {
     expect(getRegisteredRoutePaths()).toEqual(
       expect.arrayContaining([
@@ -31,7 +37,11 @@ describe("route registry", () => {
         "/operations/locations",
         "/operations/processes",
         "/operations/equipment",
-        "/hse/chemicals",
+        "/master/substances",
+        "/master/products",
+        "/master/inventory",
+        "/master/chemical-uses",
+        "/migration/chemicals",
         "/hse/hazards",
         "/risk/controls",
         "/risk/assessments",
@@ -97,6 +107,17 @@ describe("route registry", () => {
     }
   });
 
+  it("resolves canonical Chemical list, create, detail, edit, and SDS routes", () => {
+    for (const chemicalRoute of chemicalRoutes) {
+      expect(findRoute(chemicalRoute.basePath)).toMatchObject({ kind: chemicalRoute.kind, mode: "list" });
+      expect(findRoute(`${chemicalRoute.basePath}/new`)).toMatchObject({ kind: chemicalRoute.kind, mode: "new" });
+      expect(findRoute(`${chemicalRoute.basePath}/record-1`)).toMatchObject({ kind: chemicalRoute.kind, mode: "detail", recordId: "record-1" });
+      expect(findRoute(`${chemicalRoute.basePath}/record-1/edit`)).toMatchObject({ kind: chemicalRoute.kind, mode: "edit", recordId: "record-1" });
+    }
+    expect(findRoute("/master/products/product-1/sds/new")).toMatchObject({ mode: "sds-new", parentRecordId: "product-1" });
+    expect(findRoute("/master/products/product-1/sds/sds-1/edit")).toMatchObject({ mode: "sds-edit", parentRecordId: "product-1", recordId: "sds-1" });
+  });
+
   it("keeps Exports out of persisted register route patterns", () => {
     expect(getRegisteredRoutePatterns()).not.toEqual(
       expect.arrayContaining([
@@ -120,7 +141,7 @@ describe("route registry", () => {
   it("defines parent route redirects for MVP section paths", () => {
     expect(findParentRedirect("/")?.redirectTo).toBe("/dashboard");
     expect(findParentRedirect("/operations")?.redirectTo).toBe("/operations/locations");
-    expect(findParentRedirect("/hse")?.redirectTo).toBe("/hse/chemicals");
+    expect(findParentRedirect("/hse")?.redirectTo).toBe("/master/products");
     expect(findParentRedirect("/risk")?.redirectTo).toBe("/risk/controls");
     expect(findParentRedirect("/incidents")?.redirectTo).toBe("/incidents/log");
     expect(findParentRedirect("/compliance")?.redirectTo).toBe("/compliance/items");
