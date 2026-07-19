@@ -3,6 +3,8 @@ import type { MutationContext, RecordEnvelope } from "../database/types";
 import { runMutationTransaction } from "../revisions/mutation-transaction";
 import { detectLegacySource, type DetectedLegacySource } from "./legacy-source";
 import { LEGACY_COLLECTION_MAPPING } from "./legacy-mapping";
+import { normalizeCasNumber } from "$lib/domain/chemical";
+import { requestToPromise, transactionToPromise } from "../database/idb-utils";
 
 type SourceRecord = Record<string, unknown>;
 type MigratedRecord = RecordEnvelope & Record<string, unknown>;
@@ -28,6 +30,20 @@ interface PreparedMigration {
   records: Map<MutableRecordStoreName, MigratedRecord[]>;
   deferredRecords: Array<{ collection: string; record: SourceRecord }>;
   dataQualityFindings: MigratedRecord[];
+  chemicalMappings: Array<{
+    sourceRecordId: string;
+    productId: string;
+    substanceId?: string;
+    sdsRevisionId?: string;
+    inventoryId?: string;
+    chemicalUseIds: string[];
+  }>;
+}
+
+interface ExistingChemicalIdentity {
+  substances: MigratedRecord[];
+  products: MigratedRecord[];
+  compositions: MigratedRecord[];
 }
 
 const LEGACY_LOCATION_TYPE_MAP: Record<string, string> = {
@@ -255,11 +271,18 @@ function createFinding(
     {
       title: message,
       code,
-      severity: "warning",
-      status: "open",
+      findingCode: code,
+      summary: message,
+      details: message,
+      recommendedResolution: "Review the preserved source evidence and confirm or correct the canonical mapping.",
+      severity: "Moderate",
+      status: "Open",
       recordType: collection,
       recordId: text(sourceRecord.id),
+      sourceRecordType: collection,
+      sourceRecordId: text(sourceRecord.id),
       sourceCollection: collection,
+      sourceEvidence: structuredClone(sourceRecord),
     },
   );
   output.dataQualityFindings.push(finding);
@@ -270,12 +293,14 @@ function prepareMigration(
   source: DetectedLegacySource,
   options: LegacyMigrationOptions,
   timestamp: string,
+  existingChemicalIdentity: ExistingChemicalIdentity = { substances: [], products: [], compositions: [] },
 ): PreparedMigration {
   const sourceInstallationId = `legacy:${source.kind}:${source.schemaVersion}`;
   const output: PreparedMigration = {
     records: new Map(),
     deferredRecords: [],
     dataQualityFindings: [],
+    chemicalMappings: [],
   };
   prepareLocations(source, output, options, timestamp, sourceInstallationId);
 
@@ -336,61 +361,210 @@ function prepareMigration(
     }));
   }
 
+  const substanceByCas = new Map<string, MigratedRecord>();
+  const substanceByName = new Map<string, MigratedRecord>();
+  const productByName = new Map<string, MigratedRecord>();
+  const compositionKeys = new Set<string>();
+  for (const substance of existingChemicalIdentity.substances) {
+    const cas = text(substance.casNumber);
+    if (cas) substanceByCas.set(cas, substance);
+    substanceByName.set(text(substance.canonicalName).trim().toLocaleLowerCase(), substance);
+  }
+  for (const product of existingChemicalIdentity.products) {
+    if (product.manufacturerUnknown === true || !text(product.manufacturerOrganizationId)) {
+      productByName.set(text(product.productName).trim().replace(/\s+/g, " ").toLocaleLowerCase(), product);
+    }
+  }
+  for (const composition of existingChemicalIdentity.compositions) {
+    compositionKeys.add(`${text(composition.productId)}\u0000${text(composition.substanceId)}`);
+  }
+
   for (const record of records(source, "chemicals")) {
     const sourceId = text(record.id);
-    const productId = sourceId;
-    const substanceId = `${sourceId}:substance`;
-    addRecord(output, "chemical_products", directRecord(record, options, timestamp, sourceInstallationId, "PROD", {
-      productName: text(record.name, text(record.title)),
-      manufacturer: text(record.manufacturer, text(record.supplier)),
-      status: "active",
-    }));
-    addRecord(output, "chemical_substances", deterministicDerivedRecord(record, "substance", "SUB", options, timestamp, sourceInstallationId, {
-      canonicalName: text(record.substanceName, text(record.name, text(record.title))),
-      casNumber: text(record.casNumber),
-      synonyms: [],
-    }));
-    addRecord(output, "chemical_product_substances", deterministicDerivedRecord(record, "product-substance", "PS", options, timestamp, sourceInstallationId, {
-      productId,
-      substanceId,
-    }));
+    const productName = text(record.name, text(record.title)).trim();
+    const supplierName = text(record.supplier).trim();
+    const explicitManufacturer = text(record.manufacturer).trim();
+    const productKey = productName.replace(/\s+/g, " ").toLocaleLowerCase();
+    let product = !explicitManufacturer ? productByName.get(productKey) : undefined;
+    if (!product) {
+      product = deterministicDerivedRecord(record, "product", "PROD", options, timestamp, sourceInstallationId, {
+        productName,
+        manufacturerOrganizationId: null,
+        manufacturerUnknown: !explicitManufacturer,
+        supplierOrganizationIds: [],
+        productCode: text(record.productCode) || undefined,
+        formulationType: text(record.formulationType, "Unknown"),
+        physicalState: text(record.physicalState, "Unknown"),
+        description: text(record.notes),
+        status: legacyLifecycle(record) === "archived" ? "Inactive" : "Active",
+        legacySupplierName: supplierName || undefined,
+        legacyManufacturerName: explicitManufacturer || undefined,
+      });
+      product.id = sourceId;
+      product.businessId = text(record.businessId, businessId("PROD", sourceId));
+      addRecord(output, "chemical_products", product);
+      if (!explicitManufacturer) productByName.set(productKey, product);
+    } else {
+      createFinding(output, record, "chemicals", "EXISTING_CANONICAL_PRODUCT_MATCH", `Legacy row matched canonical Product ${product.businessId}; no duplicate Product was created.`, options, timestamp, sourceInstallationId);
+    }
+    const productId = product.id;
+    if (!explicitManufacturer) {
+      createFinding(output, record, "chemicals", supplierName ? "SUPPLIER_NOT_CONFIRMED_MANUFACTURER" : "MANUFACTURER_MISSING", supplierName
+        ? "Legacy supplier text was preserved but not promoted to Manufacturer Organization."
+        : "Manufacturer identity is missing.", options, timestamp, sourceInstallationId);
+    }
+
+    let casNumber: string | undefined;
+    try { casNumber = normalizeCasNumber(text(record.casNumber)); }
+    catch {
+      createFinding(output, record, "chemicals", "CAS_MALFORMED", "Legacy CAS number is malformed and was not assigned to a canonical Substance.", options, timestamp, sourceInstallationId);
+    }
+    const substanceName = text(record.substanceName).trim() || (casNumber ? productName : "");
+    let substanceId: string | undefined;
+    if (substanceName) {
+      const substanceKey = substanceName.replace(/\s+/g, " ").toLocaleLowerCase();
+      let substance = (casNumber ? substanceByCas.get(casNumber) : undefined) ?? substanceByName.get(substanceKey);
+      if (!substance) {
+        substance = deterministicDerivedRecord(record, "substance", "SUB", options, timestamp, sourceInstallationId, {
+          canonicalName: substanceName,
+          casNumber,
+          synonyms: [],
+          substanceClassifications: [text(record.hazardClass, "Unknown")],
+          physicalForm: "Unknown",
+          description: "Migrated candidate; review Product versus Substance identity.",
+          status: legacyLifecycle(record) === "archived" ? "Inactive" : "Active",
+        });
+        addRecord(output, "chemical_substances", substance);
+        if (casNumber) substanceByCas.set(casNumber, substance);
+        substanceByName.set(substanceKey, substance);
+      } else if (casNumber && text(substance.canonicalName).replace(/\s+/g, " ").toLocaleLowerCase() !== substanceKey) {
+        createFinding(output, record, "chemicals", "CAS_IDENTITY_CONFLICT", `CAS ${casNumber} already maps to ${text(substance.canonicalName)}; the existing Substance was retained.`, options, timestamp, sourceInstallationId);
+      }
+      substanceId = substance.id;
+      const compositionKey = `${productId}\u0000${substanceId}`;
+      if (!compositionKeys.has(compositionKey)) {
+        addRecord(output, "chemical_product_substances", deterministicDerivedRecord(record, "product-substance", "COMP", options, timestamp, sourceInstallationId, {
+          productId,
+          substanceId,
+          componentRole: "Unknown",
+          concentrationUnit: "Not Disclosed",
+          tradeSecret: false,
+          compositionSource: "Legacy Record",
+          notes: "Composition requires confirmation from controlled evidence.",
+          status: "Active",
+        }));
+        compositionKeys.add(compositionKey);
+      }
+      if (!text(record.substanceName)) createFinding(output, record, "chemicals", "PRODUCT_SUBSTANCE_IDENTITY_UNCERTAIN", "Legacy Product and Substance identity requires review.", options, timestamp, sourceInstallationId);
+    } else {
+      createFinding(output, record, "chemicals", "COMPOSITION_UNDETERMINED", "No canonical Substance or Product composition was invented from the Product name alone.", options, timestamp, sourceInstallationId);
+    }
+    let sdsRevisionId: string | undefined;
     if (text(record.sdsReference) || text(record.sdsRevisionDate)) {
+      const documentId = `${sourceId}:sds-document`;
+      if (text(record.sdsReference)) {
+        addRecord(output, "document_references", deterministicDerivedRecord(record, "sds-document", "DOC", options, timestamp, sourceInstallationId, {
+          title: `${productName} Safety Data Sheet`,
+          documentType: "Safety Data Sheet",
+          fileName: text(record.sdsFileName) || undefined,
+          externalPath: text(record.sdsReference),
+          externalSystem: "Unknown",
+          documentDate: text(record.sdsRevisionDate) || undefined,
+          availabilityStatus: "Needs Verification",
+          notes: "External reference migrated from the legacy Chemical register.",
+        }));
+      }
       addRecord(output, "sds_revisions", deterministicDerivedRecord(record, "sds", "SDS", options, timestamp, sourceInstallationId, {
         productId,
-        manufacturer: text(record.manufacturer, text(record.supplier)),
-        revisionDate: text(record.sdsRevisionDate),
-        effectiveDate: text(record.sdsEffectiveDate),
-        documentReference: text(record.sdsReference),
-        currentStatus: "current",
+        manufacturerOrganizationId: null,
+        revisionDate: text(record.sdsRevisionDate) || undefined,
+        revisionDateUnknown: !text(record.sdsRevisionDate),
+        effectiveDate: text(record.sdsEffectiveDate) || undefined,
+        receivedDate: undefined,
+        language: text(record.sdsLanguage, "Unknown"),
+        jurisdiction: text(record.sdsJurisdiction, "Unknown"),
+        documentReferenceId: text(record.sdsReference) ? documentId : undefined,
+        currentStatus: "Pending Review",
+        reviewStatus: "Not Reviewed",
+        notes: "Current status was not inferred from legacy file presence.",
       }));
+      sdsRevisionId = `${sourceId}:sds`;
+      if (!text(record.sdsRevisionDate)) createFinding(output, record, "chemicals", "SDS_REVISION_DATE_MISSING", "SDS revision date is missing.", options, timestamp, sourceInstallationId);
+      createFinding(output, record, "chemicals", "SDS_CURRENT_STATUS_UNCERTAIN", "SDS current status requires review and was not invented during migration.", options, timestamp, sourceInstallationId);
+    } else {
+      createFinding(output, record, "chemicals", "SDS_MISSING", "No SDS reference is present in the legacy Chemical record.", options, timestamp, sourceInstallationId);
     }
     const storageLocationId = text(record.storageLocationId);
+    let inventoryId: string | undefined;
     if (storageLocationId) {
+      const quantityText = text(record.quantity).trim();
+      const quantity = quantityText && Number.isFinite(Number(quantityText)) ? Number(quantityText) : undefined;
+      const legacyUnit = text(record.quantityUnit, text(record.unit)).trim().toLowerCase();
+      const unitMap: Record<string, string> = { lb: "Pounds", lbs: "Pounds", pounds: "Pounds", kg: "Kilograms", kilogram: "Kilograms", kilograms: "Kilograms", gal: "Gallons", gallon: "Gallons", gallons: "Gallons", l: "Liters", liter: "Liters", liters: "Liters" };
+      const quantityUnit = unitMap[legacyUnit] ?? (quantity !== undefined ? "Unknown" : undefined);
+      const siteId = siteByLocation.get(storageLocationId);
       addRecord(output, "site_chemical_inventory", deterministicDerivedRecord(record, "inventory", "INV", options, timestamp, sourceInstallationId, {
         productId,
-        siteId: siteByLocation.get(storageLocationId) ?? null,
+        siteId: siteId ?? null,
         storageLocationId,
-        quantity: text(record.quantity),
-        unit: text(record.quantityUnit),
-        inventoryStatus: "active",
+        observedQuantity: quantity,
+        quantityUnit,
+        maximumInventory: undefined,
+        maximumInventoryUnit: undefined,
+        containerType: "Unknown",
+        containerCount: undefined,
+        inventoryStatus: "Needs Verification",
+        observationDate: undefined,
+        informationSource: "Legacy Record",
+        notes: text(record.notes),
       }));
+      inventoryId = `${sourceId}:inventory`;
+      if (!siteId) createFinding(output, record, "chemicals", "STORAGE_SITE_UNRESOLVED", "Storage Location could not resolve to a Site.", options, timestamp, sourceInstallationId);
+      if (quantityText && quantity === undefined) createFinding(output, record, "chemicals", "QUANTITY_UNCLEAR", "Legacy quantity is not a valid number.", options, timestamp, sourceInstallationId);
+      if (quantity !== undefined && !unitMap[legacyUnit]) createFinding(output, record, "chemicals", "QUANTITY_UNIT_UNCLEAR", "Legacy quantity unit requires review.", options, timestamp, sourceInstallationId);
     }
+    const sourceProcesses = records(source, "processes");
+    const chemicalUseIds: string[] = [];
     for (const processId of stringArray(record.processIds)) {
+      const process = sourceProcesses.find((candidate) => text(candidate.id) === processId);
+      if (!process) {
+        createFinding(output, record, "chemicals", "PROCESS_RELATIONSHIP_INVALID", `Legacy Process ${processId} was not found; no Chemical Use was created for that link.`, options, timestamp, sourceInstallationId);
+        continue;
+      }
+      const processLocationId = text(process.locationId);
+      const processSiteId = siteByLocation.get(processLocationId);
+      if (!processSiteId) {
+        createFinding(output, record, "chemicals", "PROCESS_SITE_UNRESOLVED", `Legacy Process ${processId} does not resolve to a Site.`, options, timestamp, sourceInstallationId);
+        continue;
+      }
       addRecord(output, "chemical_uses", deterministicDerivedRecord(record, `use:${slug(processId)}`, "USE", options, timestamp, sourceInstallationId, {
         productId,
+        siteId: processSiteId,
         processId,
-        taskId: null,
-        locationId: storageLocationId || null,
-        segId: null,
-        operatingCondition: "unspecified",
+        taskId: undefined,
+        locationId: processLocationId,
+        operatingCondition: "Unknown",
+        frequency: "Unknown",
+        duration: undefined,
+        durationUnit: "Unknown",
+        quantityScale: "Unknown",
+        applicationMethod: "Unknown",
+        controlIds: [],
+        deferredControlNotes: text(record.existingControls),
+        evidenceReferenceIds: [],
+        status: "Needs Verification",
+        notes: "Created from an explicit legacy Process link; operating details require review.",
       }));
       const added = output.records.get("chemical_uses")!.at(-1)!;
       added.id = `${sourceId}:use:${processId}`;
       added.businessId = businessId("USE", added.id);
+      chemicalUseIds.push(added.id);
+      createFinding(output, record, "chemicals", "CHEMICAL_USE_CONTEXT_INCOMPLETE", `Chemical Use for Process ${processId} requires Task and operating-condition review.`, options, timestamp, sourceInstallationId);
     }
-    if (text(record.exposureLimit)) {
+    if (["exposureLimit", "exposureLimitValue", "exposureLimitUnit", "exposureLimitSource", "exposureLimitAveragingPeriod"].some((field) => text(record[field]))) {
       createFinding(output, record, "chemicals", "CHEMICAL_OEL_REVIEW", "Legacy chemical exposure limit requires explicit agent, type, unit, basis, and source review.", options, timestamp, sourceInstallationId);
     }
+    output.chemicalMappings.push({ sourceRecordId: sourceId, productId, substanceId, sdsRevisionId, inventoryId, chemicalUseIds });
   }
 
   for (const record of records(source, "exposureMonitoring")) {
@@ -464,7 +638,23 @@ export async function migrateLegacyDatabase(
   const source = detectLegacySource(sourceValue);
   const timestamp = (options.now ?? (() => new Date()))().toISOString();
   const migrationRunId = options.migrationRunId ?? `migration:${source.kind}:${source.schemaVersion}:${timestamp}`;
-  const prepared = prepareMigration(source, options, timestamp);
+  const identityTransaction = database.transaction(
+    ["chemical_substances", "chemical_products", "chemical_product_substances"],
+    "readonly",
+  );
+  const identityCompletion = transactionToPromise(identityTransaction);
+  const [existingSubstances, existingProducts, existingCompositions] = await Promise.all([
+    requestToPromise<MigratedRecord[]>(identityTransaction.objectStore("chemical_substances").getAll()),
+    requestToPromise<MigratedRecord[]>(identityTransaction.objectStore("chemical_products").getAll()),
+    requestToPromise<MigratedRecord[]>(identityTransaction.objectStore("chemical_product_substances").getAll()),
+  ]);
+  const existingChemicalIdentity: ExistingChemicalIdentity = {
+    substances: existingSubstances,
+    products: existingProducts,
+    compositions: existingCompositions,
+  };
+  await identityCompletion;
+  const prepared = prepareMigration(source, options, timestamp, existingChemicalIdentity);
   const storeNames = [...prepared.records.keys()];
   const countsByStore = Object.fromEntries(
     [...prepared.records.entries()].map(([store, storeRecords]) => [store, storeRecords.length]),
@@ -514,6 +704,10 @@ export async function migrateLegacyDatabase(
         importedRecordCount,
         deferredRecordCount: prepared.deferredRecords.length,
         deferredRecords: prepared.deferredRecords,
+        sourceEvidence: {
+          chemicals: records(source, "chemicals").map((record) => structuredClone(record)),
+        },
+        chemicalMappings: prepared.chemicalMappings,
       });
       return result;
     },

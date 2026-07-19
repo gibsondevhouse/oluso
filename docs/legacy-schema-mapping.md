@@ -38,7 +38,7 @@ Native schema versions are defined by immutable files in `src-tauri/migrations` 
 | 2 | Corrective-action source/completion/verification fields | Preserve distinct completion/verification/closure data. |
 | 3 | Corrective-action evidence reference | Map to evidence reference. |
 | 4 | Equipment table | Map equipment and valid location/process links. |
-| 5 | Chemical SDS and exposure-limit fields | Split into product/SDS/inventory/use/agent/limit; do not retain OEL on inventory. |
+| 5 | Chemical SDS and exposure-limit fields | Split into product/composition/document/SDS/inventory/use; preserve legacy OEL text only as migration evidence for the later Exposure Agent/Limit campaign. |
 | 6 | Controls and risk assessments | Map controls; risk assessments require target review because they are not exposure assessments. |
 | 7 | Finding extensions plus exposure monitoring, incidents, compliance items | Map assurance; split monitoring; defer unsupported compliance scope. |
 | 8 | Location parent | Use hierarchy relationship when valid. |
@@ -68,7 +68,7 @@ Native versions 1–10 remain supported until representative migration and rollb
 | `processes` | `processes` | Preserve ID; derive resolved Site through mapped location. |
 | campaign `tasks` | `tasks` | Preserve ID and process/location links; missing process or Site is blocking. |
 | `equipment` | `equipment` | Preserve ID and valid location/process links; task link remains empty unless explicit. |
-| `chemicals` | `chemical_substances`, `chemical_products`, `sds_revisions`, `site_chemical_inventory`, `chemical_uses`, `exposure_agents`, `exposure_limits` | Split one row. Product retains legacy ID; derived IDs are deterministic. Ambiguous product/substance/manufacturer/formulation facts create findings. |
+| `chemicals` | `chemical_substances`, `chemical_products`, `chemical_product_substances`, `document_references`, `sds_revisions`, `site_chemical_inventory`, `chemical_uses`, `data_quality_findings` | Split one row. Product retains or maps to a canonical ID; derived evidence IDs are deterministic. Supplier text is not promoted to manufacturer. OEL text remains source evidence. Ambiguous identity, composition, SDS, quantity, Site, Process, and Task facts create findings. |
 | `hazards` | `hazards` | Preserve as typed hazard; chemical-exposure agents are separately canonicalized. |
 | `controls` | `controls` | Preserve reusable control; free-text verification history does not become a `ControlVerification` event without date/evidence. |
 | `riskAssessments` | migration evidence + `data_quality_findings` | Do not reinterpret generic risk assessment as occupational exposure assessment. |
