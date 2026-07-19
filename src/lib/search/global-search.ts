@@ -29,7 +29,7 @@ export interface GlobalSearchResult {
 }
 
 export const GLOBAL_SEARCH_REGISTER_KINDS: MvpRegisterKind[] = [
-  ...(Object.keys(REGISTER_CONFIGS) as MvpRegisterKind[]),
+  ...(Object.keys(REGISTER_CONFIGS) as MvpRegisterKind[]).filter((kind) => kind !== "chemicals"),
 ];
 
 function normalizeSearchText(value: string) {

@@ -1,12 +1,12 @@
 # Phase 1 persistence foundation status
 
-Status: foundation implemented; application cutover not complete  
+Status: foundation implemented; canonical Chemical slice cut over; remaining legacy slices not complete
 Last updated: 2026-07-18  
 Branch: `codex/adama-hse-migration`
 
 ## Outcome
 
-The repository now contains the bounded web-persistence foundation needed for the ADAMA HSE reset. It does not yet mean the legacy register UI has completed its runtime cutover. Current routes still use the legacy application adapter while typed screens and services are moved onto the new database.
+The repository contains the bounded web-persistence foundation needed for the ADAMA HSE reset. Canonical Chemical Substance, Product, composition, SDS, Site inventory, Document Reference, and Chemical Use workflows now operate through typed IndexedDB repositories and services. Other legacy register routes still use the legacy application adapter until their own controlled cutovers.
 
 ## Implemented
 
@@ -26,6 +26,9 @@ The repository now contains the bounded web-persistence foundation needed for th
 | PWA shell | The production build emits an install manifest, 192/512 icons, and a versioned offline application-shell service worker. |
 | Legacy detection and migration | Browser schemas 1–14 and native schemas 1–10 are detected. Representative browser v14/native v10 fixtures migrate atomically with revisions, archive evidence, deferred raw rows, and data-quality findings. |
 | Verification command | `npm run verify` currently runs type/Svelte checks, the full test suite, production build, and PWA artifact verification. |
+| Local actor hardening | New installations create dataset/installation identity without inventing a production actor; a named local profile is required before typed mutations and revisions preserve actor plus installation attribution. |
+| Canonical Chemical cutover | `/master/substances`, `/master/products`, `/master/inventory`, and `/master/chemical-uses` use typed IndexedDB-only workflows; `/hse/chemicals` redirects to Products. |
+| Chemical migration review | Legacy combined rows split into reviewable canonical targets, retain source evidence, and create data-quality findings without promoting supplier text or legacy OEL text into Product/inventory/use. |
 
 ## Migration behavior proved by tests
 
@@ -39,7 +42,7 @@ The repository now contains the bounded web-persistence foundation needed for th
 
 ## Deliberately not complete
 
-1. The current `olusoApplication` still delegates existing broad register screens to the legacy synchronous persistence adapter. The IndexedDB adapter becomes the sole production path only as typed foundation/IH routes replace those screens.
+1. The current `olusoApplication` still delegates non-Chemical broad register screens to the legacy synchronous persistence adapter. The canonical Chemical routes no longer use that adapter for production reads or writes.
 2. Browser schemas 1–14 and native schemas 1–10 have detection coverage, but the full version-by-version migration matrix with empty, invalid, orphaned, Unicode, and long-text cases is still open.
 3. Target schema version 1 is the only released IndexedDB version; upgrade sequencing is established but multi-version upgrade evidence cannot exist until version 2 is defined.
 4. Corruption is detected and reported, but guided recovery UI and user-accepted recovery exercises remain open.
@@ -49,4 +52,4 @@ The repository now contains the bounded web-persistence foundation needed for th
 
 ## Next implementation gate
 
-Complete the application cutover by building typed foundation repositories/services and migrating the first workflow slice—Organization, Person, Location, Process, and Task—onto `AdamaIndexedDbAdapter`. Do not recreate the legacy generic campaign adapter over the new database; that would preserve the modeling defect the reset is intended to remove.
+Complete the remaining typed Foundation route cutover for Organization, Person, Location, Process, and Task, then proceed to Exposure Agents and versioned Exposure Limits. Do not recreate the legacy generic campaign adapter over IndexedDB.
