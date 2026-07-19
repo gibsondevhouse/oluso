@@ -1,5 +1,4 @@
-// Tauri doesn't have a Node.js server to do proper SSR
-// so we use adapter-static with a fallback to index.html to put the site in SPA mode
+// ADAMA HSE is deployed as a static local-first PWA with no application server,
+// so the index fallback provides client-side routing after the first installed load.
 // See: https://svelte.dev/docs/kit/single-page-apps
-// See: https://v2.tauri.app/start/frontend/sveltekit/ for more info
 export const ssr = false;

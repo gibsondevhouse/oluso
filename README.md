@@ -22,7 +22,7 @@ Location
 
 The repository already contains a functional SvelteKit/Svelte 5 application shell, shared register CRUD patterns, local persistence implementations, archive/restore behavior, search, reports, exports, backup controls, and automated tests. It is not being rewritten from scratch.
 
-The current implementation is broader than the target and still contains a Tauri/Rust persistence path plus a browser `localStorage` path. Those are migration sources, not the target architecture.
+The current implementation is broader than the target and still contains a Tauri/Rust persistence path plus a browser `localStorage` path. Those are migration sources, not the target architecture. The migration branch now contains the target IndexedDB adapter, immutable revision transactions, legacy migration fixtures, backup/integrity services, browser diagnostics, and PWA shell; existing broad register routes have not completed their cutover yet.
 
 The active reset is:
 
@@ -54,9 +54,10 @@ npm run dev
 npm run check
 npm test
 npm run build
+npm run verify
 ```
 
-The planned `npm run verify` command will add formatting, lint, repository-contract, migration, exchange round-trip, and end-to-end checks. Until it exists, run the available commands above.
+`npm run verify` runs the current Svelte/type checks, complete unit/contract/migration tests, production build, and PWA artifact checks. Formatting, lint, exchange, end-to-end, accessibility, and installed-browser gates will be added before Phase 7 exit.
 
 ## Governing documentation
 
@@ -65,6 +66,7 @@ The planned `npm run verify` command will add formatting, lint, repository-contr
 - [Domain model](docs/04-domain-model.md)
 - [Build plan](docs/07-build-plan.md)
 - [Repository audit and reset record](docs/repository-audit-2026-07-18.md)
+- [Phase 1 persistence foundation status](docs/phase-1-persistence-foundation-status.md)
 - [Architecture decisions](docs/adr/README.md)
 
 Historical OLUSO campaign documents and desktop-era specifications are retained for implementation inventory and migration context. They do not override the current project brief, domain model, build plan, or accepted ADRs.

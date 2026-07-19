@@ -1,0 +1,347 @@
+{
+  "schemaVersion": 14,
+  "initializedAt": "2026-07-01T12:00:00.000Z",
+  "updatedAt": "2026-07-17T18:30:00.000Z",
+  "locations": [
+    {
+      "id": "legacy-site-tifton",
+      "name": "Tifton",
+      "type": "Facility",
+      "parentLocationId": "",
+      "country": "United States",
+      "stateProvince": "Georgia",
+      "description": "Tifton manufacturing site",
+      "lifecycleStatus": "Active",
+      "archivedAt": null,
+      "archivedReason": "",
+      "createdAt": "2026-07-01T12:00:00.000Z",
+      "updatedAt": "2026-07-01T12:00:00.000Z"
+    },
+    {
+      "id": "legacy-unit-7",
+      "name": "Unit 7",
+      "type": "Production Area",
+      "parentLocationId": "legacy-site-tifton",
+      "country": "United States",
+      "stateProvince": "Georgia",
+      "description": "Formulation unit",
+      "lifecycleStatus": "Active",
+      "archivedAt": null,
+      "archivedReason": "",
+      "createdAt": "2026-07-01T12:00:00.000Z",
+      "updatedAt": "2026-07-01T12:00:00.000Z"
+    }
+  ],
+  "processes": [
+    {
+      "id": "legacy-process-prodiamine",
+      "name": "Prodiamine WDG",
+      "category": "Production",
+      "locationId": "legacy-unit-7",
+      "description": "Routine enclosed formulation",
+      "lifecycleStatus": "Active",
+      "archivedAt": null,
+      "archivedReason": "",
+      "createdAt": "2026-07-02T12:00:00.000Z",
+      "updatedAt": "2026-07-02T12:00:00.000Z"
+    }
+  ],
+  "equipment": [
+    {
+      "id": "legacy-equipment-dust-collector",
+      "name": "Unit 7 dust collector",
+      "type": "Ventilation",
+      "locationId": "legacy-unit-7",
+      "processId": "legacy-process-prodiamine",
+      "description": "Local exhaust ventilation",
+      "lifecycleStatus": "Active",
+      "archivedAt": null,
+      "archivedReason": "",
+      "createdAt": "2026-07-02T12:00:00.000Z",
+      "updatedAt": "2026-07-02T12:00:00.000Z"
+    }
+  ],
+  "exposureMonitoring": [
+    {
+      "id": "legacy-monitoring-dust-1",
+      "title": "Unit 7 respirable particulate sample",
+      "sampleType": "Personal",
+      "contextType": "SEG",
+      "segId": "legacy-seg-unit-7-operators",
+      "locationId": "legacy-unit-7",
+      "processId": "legacy-process-prodiamine",
+      "agent": "Respirable particulate",
+      "result": "0.42",
+      "unit": "mg/m3",
+      "exposureLimit": "3",
+      "status": "Complete",
+      "sampledAt": "2026-07-15T14:00:00.000Z",
+      "notes": "Legacy result lacks sampling duration and method.",
+      "lifecycleStatus": "Active",
+      "archivedAt": null,
+      "archivedReason": "",
+      "createdAt": "2026-07-15T18:00:00.000Z",
+      "updatedAt": "2026-07-15T18:00:00.000Z"
+    }
+  ],
+  "chemicals": [
+    {
+      "id": "legacy-chemical-prodiamine",
+      "name": "Prodiamine WDG Product",
+      "casNumber": "29091-21-2",
+      "supplier": "Example Manufacturer",
+      "storageLocationId": "legacy-unit-7",
+      "processIds": ["legacy-process-prodiamine"],
+      "quantity": "1200",
+      "quantityUnit": "kg",
+      "sdsReference": "SDS-PROD-2026",
+      "sdsRevisionDate": "2026-01-15",
+      "exposureLimit": "3 mg/m3",
+      "lifecycleStatus": "Active",
+      "archivedAt": null,
+      "archivedReason": "",
+      "createdAt": "2026-07-03T12:00:00.000Z",
+      "updatedAt": "2026-07-03T12:00:00.000Z"
+    }
+  ],
+  "hazards": [
+    {
+      "id": "legacy-hazard-dust",
+      "name": "Respirable particulate",
+      "category": "Chemical",
+      "description": "Airborne dust during upset work",
+      "lifecycleStatus": "Active",
+      "archivedAt": null,
+      "archivedReason": "",
+      "createdAt": "2026-07-03T12:00:00.000Z",
+      "updatedAt": "2026-07-03T12:00:00.000Z"
+    }
+  ],
+  "controls": [
+    {
+      "id": "legacy-control-lev",
+      "name": "Local exhaust ventilation",
+      "type": "Engineering",
+      "status": "Active",
+      "description": "Dust collection at transfer points",
+      "lifecycleStatus": "Active",
+      "archivedAt": null,
+      "archivedReason": "",
+      "createdAt": "2026-07-03T12:00:00.000Z",
+      "updatedAt": "2026-07-03T12:00:00.000Z"
+    }
+  ],
+  "riskAssessments": [
+    {
+      "id": "legacy-risk-1",
+      "title": "Unit 7 broad risk review",
+      "status": "Complete",
+      "locationId": "legacy-unit-7",
+      "hazardIds": ["legacy-hazard-dust"],
+      "controlIds": ["legacy-control-lev"],
+      "lifecycleStatus": "Active",
+      "archivedAt": null,
+      "archivedReason": "",
+      "createdAt": "2026-07-04T12:00:00.000Z",
+      "updatedAt": "2026-07-04T12:00:00.000Z"
+    }
+  ],
+  "segs": [
+    {
+      "id": "legacy-seg-unit-7-operators",
+      "name": "Unit 7 operators",
+      "type": "Operations",
+      "locationId": "legacy-unit-7",
+      "processId": "legacy-process-prodiamine",
+      "exposureLevel": "Moderate",
+      "monitoringFrequency": "Annual",
+      "existingControls": "Local exhaust ventilation",
+      "lifecycleStatus": "Active",
+      "archivedAt": null,
+      "archivedReason": "",
+      "createdAt": "2026-07-04T12:00:00.000Z",
+      "updatedAt": "2026-07-04T12:00:00.000Z"
+    }
+  ],
+  "findings": [
+    {
+      "id": "legacy-finding-duct",
+      "title": "Duct blockage recurrence",
+      "type": "Observation",
+      "status": "Open",
+      "locationId": "legacy-unit-7",
+      "description": "Blockage clearing creates a distinct upset exposure scenario.",
+      "lifecycleStatus": "Active",
+      "archivedAt": null,
+      "archivedReason": "",
+      "createdAt": "2026-07-10T12:00:00.000Z",
+      "updatedAt": "2026-07-10T12:00:00.000Z"
+    }
+  ],
+  "incidents": [
+    {
+      "id": "legacy-incident-plume",
+      "title": "Unit 7 dust plume",
+      "type": "Near Miss",
+      "status": "Under Investigation",
+      "locationId": "legacy-unit-7",
+      "processId": "legacy-process-prodiamine",
+      "description": "Visible plume during blockage clearing.",
+      "lifecycleStatus": "Active",
+      "archivedAt": null,
+      "archivedReason": "",
+      "createdAt": "2026-07-11T12:00:00.000Z",
+      "updatedAt": "2026-07-11T12:00:00.000Z"
+    }
+  ],
+  "complianceItems": [],
+  "correctiveActions": [
+    {
+      "id": "legacy-action-duct-procedure",
+      "title": "Revise duct-clearing procedure",
+      "type": "Corrective",
+      "status": "In Progress",
+      "sourceType": "Incident",
+      "sourceRecordId": "legacy-incident-plume",
+      "dueDate": "2026-08-15",
+      "owner": "HSE Manager",
+      "lifecycleStatus": "Active",
+      "archivedAt": null,
+      "archivedReason": "",
+      "createdAt": "2026-07-12T12:00:00.000Z",
+      "updatedAt": "2026-07-12T12:00:00.000Z"
+    }
+  ],
+  "organizations": [
+    {
+      "id": "legacy-org-adama",
+      "businessId": "ORG-0001",
+      "title": "ADAMA US",
+      "type": "ADAMA Entity",
+      "status": "Active",
+      "summary": "Operating organization",
+      "lifecycleStatus": "Active",
+      "createdAt": "2026-07-01T12:00:00.000Z",
+      "updatedAt": "2026-07-01T12:00:00.000Z"
+    }
+  ],
+  "people": [
+    {
+      "id": "legacy-person-hse-manager",
+      "businessId": "PER-0001",
+      "title": "HSE Manager",
+      "type": "Employee",
+      "status": "Active",
+      "organizationId": "legacy-org-adama",
+      "primarySiteId": "legacy-site-tifton",
+      "lifecycleStatus": "Active",
+      "createdAt": "2026-07-01T12:00:00.000Z",
+      "updatedAt": "2026-07-01T12:00:00.000Z"
+    }
+  ],
+  "segMemberships": [
+    {
+      "id": "legacy-membership-1",
+      "businessId": "SEGM-0001",
+      "title": "HSE Manager field support",
+      "type": "Temporary Assignment",
+      "status": "Active",
+      "personId": "legacy-person-hse-manager",
+      "segId": "legacy-seg-unit-7-operators",
+      "effectiveFrom": "2026-07-01",
+      "effectiveTo": "",
+      "basis": "Field walkthrough support",
+      "lifecycleStatus": "Active",
+      "createdAt": "2026-07-01T12:00:00.000Z",
+      "updatedAt": "2026-07-01T12:00:00.000Z"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "legacy-task-duct-clearing",
+      "businessId": "TASK-0001",
+      "title": "Clear blocked duct",
+      "type": "Maintenance",
+      "status": "Active",
+      "processId": "legacy-process-prodiamine",
+      "locationId": "legacy-unit-7",
+      "equipmentIds": ["legacy-equipment-dust-collector"],
+      "chemicalIds": ["legacy-chemical-prodiamine"],
+      "hazardIds": ["legacy-hazard-dust"],
+      "controlIds": ["legacy-control-lev"],
+      "lifecycleStatus": "Active",
+      "createdAt": "2026-07-05T12:00:00.000Z",
+      "updatedAt": "2026-07-05T12:00:00.000Z"
+    }
+  ],
+  "contractorScopes": [],
+  "inspections": [],
+  "exposureAgents": [
+    {
+      "id": "legacy-agent-respirable-particulate",
+      "businessId": "AGT-0001",
+      "title": "Respirable particulate",
+      "type": "Particulate",
+      "status": "Active",
+      "lifecycleStatus": "Active",
+      "createdAt": "2026-07-05T12:00:00.000Z",
+      "updatedAt": "2026-07-05T12:00:00.000Z"
+    }
+  ],
+  "exposureLimits": [
+    {
+      "id": "legacy-limit-respirable-particulate",
+      "businessId": "OEL-0001",
+      "title": "Respirable particulate PEL",
+      "type": "TWA",
+      "status": "Active",
+      "exposureAgentId": "legacy-agent-respirable-particulate",
+      "limitValue": "3",
+      "unit": "mg/m3",
+      "source": "OSHA",
+      "effectiveFrom": "2026-01-01",
+      "lifecycleStatus": "Active",
+      "createdAt": "2026-07-05T12:00:00.000Z",
+      "updatedAt": "2026-07-05T12:00:00.000Z"
+    }
+  ],
+  "exposureAssessments": [
+    {
+      "id": "legacy-generic-assessment-1",
+      "businessId": "EA-0001",
+      "title": "Unit 7 dust assessment",
+      "type": "Qualitative",
+      "status": "Draft",
+      "segId": "legacy-seg-unit-7-operators",
+      "taskId": "legacy-task-duct-clearing",
+      "exposureAgentId": "legacy-agent-respirable-particulate",
+      "lifecycleStatus": "Active",
+      "createdAt": "2026-07-06T12:00:00.000Z",
+      "updatedAt": "2026-07-06T12:00:00.000Z"
+    }
+  ],
+  "exposureDeterminations": [],
+  "samplingCampaigns": [],
+  "controlVerifications": [],
+  "hsePrograms": [],
+  "programApplicabilities": [],
+  "medicalSurveillance": [],
+  "trainingCourses": [],
+  "trainingRequirements": [],
+  "trainingRecords": [],
+  "managementChanges": [],
+  "changeReviews": [],
+  "pssrs": [],
+  "regulatoryRequirements": [],
+  "permits": [],
+  "wasteStreams": [],
+  "wasteShipments": [],
+  "environmentalSources": [],
+  "environmentalInspections": [],
+  "environmentalEvents": [],
+  "documentReferences": [],
+  "dataQualityFindings": [],
+  "migrationMappings": [],
+  "importRuns": [],
+  "migrationBundles": []
+}
