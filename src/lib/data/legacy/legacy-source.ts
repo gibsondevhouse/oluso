@@ -17,11 +17,33 @@ export interface DetectedLegacySource {
     locationHasParent: boolean;
     locationHasGeography: boolean;
     hasCampaignCollections: boolean;
+    contentHash: string;
   };
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function stableSerialize(value: unknown): string {
+  if (value === null || typeof value === "boolean" || typeof value === "number" || typeof value === "string") {
+    return JSON.stringify(value);
+  }
+  if (Array.isArray(value)) return `[${value.map(stableSerialize).join(",")}]`;
+  if (isRecord(value)) {
+    return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${stableSerialize(value[key])}`).join(",")}}`;
+  }
+  return JSON.stringify(String(value));
+}
+
+function contentHash(value: unknown) {
+  const serialized = stableSerialize(value);
+  let hash = 0x811c9dc5;
+  for (let index = 0; index < serialized.length; index += 1) {
+    hash ^= serialized.charCodeAt(index);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return `fnv1a32:${(hash >>> 0).toString(16).padStart(8, "0")}`;
 }
 
 function assertSupportedVersion(kind: LegacySourceKind, schemaVersion: number) {
@@ -79,6 +101,7 @@ export function detectLegacySource(value: unknown): DetectedLegacySource {
       hasCampaignCollections: collections.some((name) =>
         ["organizations", "people", "exposureAgents", "migrationBundles"].includes(name),
       ),
+      contentHash: contentHash(database),
     },
   };
 }

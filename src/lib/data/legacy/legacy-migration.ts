@@ -5,6 +5,7 @@ import { detectLegacySource, type DetectedLegacySource } from "./legacy-source";
 import { LEGACY_COLLECTION_MAPPING } from "./legacy-mapping";
 import { normalizeCasNumber } from "$lib/domain/chemical";
 import { requestToPromise, transactionToPromise } from "../database/idb-utils";
+import { AdamaDatabaseError } from "../database/errors";
 
 type SourceRecord = Record<string, unknown>;
 type MigratedRecord = RecordEnvelope & Record<string, unknown>;
@@ -24,6 +25,7 @@ export interface LegacyMigrationResult {
   dataQualityFindingCount: number;
   deferredRecordCount: number;
   countsByStore: Record<string, number>;
+  alreadyApplied?: boolean;
 }
 
 interface PreparedMigration {
@@ -46,6 +48,18 @@ interface ExistingChemicalIdentity {
   compositions: MigratedRecord[];
 }
 
+interface AppliedMigrationRun {
+  id: string;
+  status: string;
+  sourceKind: DetectedLegacySource["kind"];
+  sourceSchemaVersion: number;
+  sourceFingerprint: DetectedLegacySource["fingerprint"];
+  importedRecordCount: number;
+  dataQualityFindingCount?: number;
+  deferredRecordCount: number;
+  countsByStore: Record<string, number>;
+}
+
 const LEGACY_LOCATION_TYPE_MAP: Record<string, string> = {
   Facility: "Site",
   "Production Area": "Unit",
@@ -58,6 +72,16 @@ const LEGACY_LOCATION_TYPE_MAP: Record<string, string> = {
 
 function isRecord(value: unknown): value is SourceRecord {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function fingerprintsMatch(
+  stored: unknown,
+  current: DetectedLegacySource["fingerprint"],
+) {
+  if (!isRecord(stored)) return false;
+  if (typeof stored.contentHash === "string") return stored.contentHash === current.contentHash;
+  const { contentHash: _contentHash, ...structuralFingerprint } = current;
+  return JSON.stringify(stored) === JSON.stringify(structuralFingerprint);
 }
 
 function records(source: DetectedLegacySource, collection: string) {
@@ -151,7 +175,7 @@ function directRecord(
     ...additional,
     ...envelope(record, options, timestamp, sourceInstallationId, {
       id,
-      businessId: text(record.businessId, businessId(prefix, id)),
+      businessId: text(record.businessId).trim() || businessId(prefix, id),
     }),
   };
 }
@@ -201,6 +225,7 @@ function prepareLocations(
   };
 
   const geography = new Map<string, { countryId: string; stateId: string }>();
+  const countryIds = new Set<string>();
   for (const record of sourceLocations) {
     const nodeType = LEGACY_LOCATION_TYPE_MAP[text(record.type)] ?? "Zone";
     if (nodeType !== "Site") continue;
@@ -210,16 +235,19 @@ function prepareLocations(
     if (geography.has(key)) continue;
     const countryId = `legacy-geography:country:${slug(country)}`;
     const stateId = `legacy-geography:state:${slug(country)}:${slug(state)}`;
-    addRecord(output, "locations", deterministicDerivedRecord(record, `country:${slug(country)}`, "LOC", options, timestamp, sourceInstallationId, {
-      id: countryId,
-      name: country,
-      nodeType: "Country",
-      parentId: null,
-      resolvedSiteId: null,
-    }));
-    const countryRecord = output.records.get("locations")!.at(-1)!;
-    countryRecord.id = countryId;
-    countryRecord.businessId = businessId("LOC", countryId);
+    if (!countryIds.has(countryId)) {
+      addRecord(output, "locations", deterministicDerivedRecord(record, `country:${slug(country)}`, "LOC", options, timestamp, sourceInstallationId, {
+        id: countryId,
+        name: country,
+        nodeType: "Country",
+        parentId: null,
+        resolvedSiteId: null,
+      }));
+      const countryRecord = output.records.get("locations")!.at(-1)!;
+      countryRecord.id = countryId;
+      countryRecord.businessId = businessId("LOC", countryId);
+      countryIds.add(countryId);
+    }
     addRecord(output, "locations", deterministicDerivedRecord(record, `state:${slug(country)}:${slug(state)}`, "LOC", options, timestamp, sourceInstallationId, {
       id: stateId,
       name: state,
@@ -401,7 +429,7 @@ function prepareMigration(
         legacyManufacturerName: explicitManufacturer || undefined,
       });
       product.id = sourceId;
-      product.businessId = text(record.businessId, businessId("PROD", sourceId));
+      product.businessId = text(record.businessId).trim() || businessId("PROD", sourceId);
       addRecord(output, "chemical_products", product);
       if (!explicitManufacturer) productByName.set(productKey, product);
     } else {
@@ -636,6 +664,30 @@ export async function migrateLegacyDatabase(
   options: LegacyMigrationOptions,
 ): Promise<LegacyMigrationResult> {
   const source = detectLegacySource(sourceValue);
+  const priorRunTransaction = database.transaction("migration_runs", "readonly");
+  const priorRunCompletion = transactionToPromise(priorRunTransaction);
+  const priorRuns = await requestToPromise<AppliedMigrationRun[]>(
+    priorRunTransaction.objectStore("migration_runs").getAll(),
+  );
+  await priorRunCompletion;
+  const priorRun = priorRuns.find(
+    (run) =>
+      run.status === "applied" &&
+      fingerprintsMatch(run.sourceFingerprint, source.fingerprint),
+  );
+  if (priorRun) {
+    return {
+      migrationRunId: priorRun.id,
+      sourceKind: priorRun.sourceKind,
+      sourceSchemaVersion: priorRun.sourceSchemaVersion,
+      importedRecordCount: priorRun.importedRecordCount,
+      dataQualityFindingCount:
+        priorRun.dataQualityFindingCount ?? priorRun.countsByStore.data_quality_findings ?? 0,
+      deferredRecordCount: priorRun.deferredRecordCount,
+      countsByStore: priorRun.countsByStore,
+      alreadyApplied: true,
+    };
+  }
   const timestamp = (options.now ?? (() => new Date()))().toISOString();
   const migrationRunId = options.migrationRunId ?? `migration:${source.kind}:${source.schemaVersion}:${timestamp}`;
   const identityTransaction = database.transaction(
@@ -687,7 +739,15 @@ export async function migrateLegacyDatabase(
     async (session) => {
       for (const [storeName, storeRecords] of prepared.records) {
         for (const record of storeRecords) {
-          await session.importRecord({ storeName, recordType: storeName, record });
+          try {
+            await session.importRecord({ storeName, recordType: storeName, record });
+          } catch (cause) {
+            throw new AdamaDatabaseError(
+              `Migration could not import ${storeName} record ${record.id} (${record.businessId}) because its identity conflicts with another record.`,
+              "MIGRATION_RECORD_CONFLICT",
+              cause,
+            );
+          }
         }
       }
       await session.putMigrationRun({
@@ -702,6 +762,7 @@ export async function migrateLegacyDatabase(
         installationId: options.installationId,
         countsByStore,
         importedRecordCount,
+        dataQualityFindingCount: prepared.dataQualityFindings.length,
         deferredRecordCount: prepared.deferredRecords.length,
         deferredRecords: prepared.deferredRecords,
         sourceEvidence: {

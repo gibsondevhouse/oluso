@@ -144,9 +144,11 @@ describe("legacy database migration", () => {
     const beforeIdentity = await getDatabaseIdentity(database);
     const beforeLocations = await getAll(database, "locations");
     const beforeRevisions = await getAll(database, "record_revisions");
+    const changedSource = structuredClone(browserV14) as unknown as Record<string, unknown>;
+    changedSource.updatedAt = "2026-07-18T19:00:00.000Z";
 
     await expect(
-      migrateLegacyDatabase(database, browserV14, {
+      migrateLegacyDatabase(database, changedSource, {
         ...migrationOptions,
         migrationRunId: "migration-browser-v14-retry",
       }),

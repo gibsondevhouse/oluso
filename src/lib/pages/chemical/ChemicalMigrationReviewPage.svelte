@@ -71,7 +71,9 @@
         installationId: installation.installationId,
         migrationRunId: `chemical-migration:${crypto.randomUUID()}`,
       });
-      message = `Migration applied atomically: ${result.importedRecordCount} records and ${result.dataQualityFindingCount} findings.`;
+      message = result.alreadyApplied
+        ? `This legacy source was already migrated; no records or dataset revisions were changed.`
+        : `Migration applied atomically: ${result.importedRecordCount} records and ${result.dataQualityFindingCount} findings.`;
       await load();
     } catch (cause) { error = cause instanceof Error ? cause.message : String(cause); }
     finally { migrating = false; }

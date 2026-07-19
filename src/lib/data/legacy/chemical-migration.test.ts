@@ -1,9 +1,18 @@
 import { afterEach, describe, expect, it } from "vitest";
 import browserV14 from "./__fixtures__/browser-v14.json";
 import { ChemicalApplication } from "$lib/application/chemical";
-import { deleteAdamaDatabase, initializeDatabaseIdentity, openAdamaDatabase } from "../database";
+import {
+  deleteAdamaDatabase,
+  getDatabaseIdentity,
+  initializeDatabaseIdentity,
+  openAdamaDatabase,
+} from "../database";
 import { requestToPromise, transactionToPromise } from "../database/idb-utils";
 import { migrateLegacyDatabase } from "./legacy-migration";
+import {
+  localPersistenceRepository,
+  resetPersistenceStoresForTest,
+} from "$lib/persistence/local-persistence";
 
 const databases: IDBDatabase[] = [];
 const names: string[] = [];
@@ -35,6 +44,8 @@ const options = { actorId: "user-hse", installationId: "installation-hse", now: 
 afterEach(async () => {
   for (const database of databases.splice(0)) database.close();
   for (const name of names.splice(0)) await deleteAdamaDatabase(name);
+  localStorage.clear();
+  resetPersistenceStoresForTest();
 });
 
 describe("canonical legacy Chemical migration", () => {
@@ -114,5 +125,57 @@ describe("canonical legacy Chemical migration", () => {
     expect(await all<Record<string, unknown>>(database, "data_quality_findings")).toEqual(
       expect.arrayContaining([expect.objectContaining({ findingCode: "QUANTITY_UNIT_UNCLEAR" })]),
     );
+  });
+
+  it("generates unique business IDs when seeded legacy records contain blank identifiers", async () => {
+    const database = await setup("blank-business-ids");
+    const snapshot = source() as unknown as Record<string, unknown> & {
+      inspections: Array<Record<string, unknown>>;
+    };
+    snapshot.inspections = [
+      { id: "legacy-inspection-a", businessId: "", title: "Inspection A" },
+      { id: "legacy-inspection-b", businessId: "   ", title: "Inspection B" },
+    ];
+
+    await migrateLegacyDatabase(database, snapshot, {
+      ...options,
+      migrationRunId: "chemical-blank-business-ids",
+    });
+
+    expect((await all<Record<string, unknown>>(database, "inspections")).map((record) => record.businessId)).toEqual([
+      "MIG-INSP-LEGACY-INSPECTION-A",
+      "MIG-INSP-LEGACY-INSPECTION-B",
+    ]);
+  });
+
+  it("migrates the actual seeded browser database used by the review screen", async () => {
+    localStorage.clear();
+    resetPersistenceStoresForTest();
+    await localPersistenceRepository.initialize();
+    const snapshot = await localPersistenceRepository.exportDatabase();
+    const database = await setup("seeded-browser-database");
+    const application = new ChemicalApplication(database);
+    await application.products.create({
+      productName: "Campaign QA Product",
+      manufacturerUnknown: true,
+      formulationType: "Unknown",
+      physicalState: "Unknown",
+    });
+
+    const result = await migrateLegacyDatabase(database, snapshot, {
+      ...options,
+      migrationRunId: "chemical-seeded-browser-database",
+    });
+    const datasetRevision = (await getDatabaseIdentity(database))!.dataset.datasetRevision;
+    const retry = await migrateLegacyDatabase(database, snapshot, {
+      ...options,
+      migrationRunId: "chemical-seeded-browser-database-retry",
+    });
+
+    expect(result.importedRecordCount).toBeGreaterThan(0);
+    expect(retry).toEqual({ ...result, alreadyApplied: true });
+    expect(await all(database, "chemical_products")).toHaveLength(3);
+    expect(await all(database, "migration_runs")).toHaveLength(1);
+    expect((await getDatabaseIdentity(database))!.dataset.datasetRevision).toBe(datasetRevision);
   });
 });
