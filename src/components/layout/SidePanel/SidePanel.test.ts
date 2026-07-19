@@ -23,7 +23,11 @@ describe("SidePanel", () => {
       "Locations",
       "Processes",
       "Equipment",
-      "Chemicals",
+      "Products",
+      "Substances",
+      "Site Inventory",
+      "Chemical Uses",
+      "Migration Review",
       "Hazards",
       "Controls",
       "Risk Assessments",
@@ -35,6 +39,8 @@ describe("SidePanel", () => {
       "Compliance Support",
       "Exports",
       "Settings",
+      "Local Profile",
+      "Installation",
     ]) {
       expect(screen.getByRole("link", { name: item })).toBeInTheDocument();
     }

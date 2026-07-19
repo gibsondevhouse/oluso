@@ -1,6 +1,6 @@
 # Chemicals, SDS, inventory, and use page specification
 
-Status: Governing target
+Status: Implemented canonical slice
 Canonical routes: `/master/substances`, `/master/products`, `/master/inventory`, `/master/chemical-uses`
 Last updated: 2026-07-18
 
@@ -44,3 +44,11 @@ Product, location, process, task, SEG where applicable, frequency, duration, ope
 - One product supports multiple sites/storage locations/uses.
 - Multiple SDS revisions and related substances are represented without overwriting history.
 - Legacy combined chemical records migrate or create reviewable mapping findings.
+
+## Implemented application states and routes
+
+- List, create, detail, edit, archive, restore, missing relationship, validation failure, stale revision, and database-unavailable states are represented on the canonical screens.
+- SDS add/detail/edit and atomic Mark Current flows are nested under `/master/products/:productId/sds`.
+- Migration evidence and finding disposition are available at `/migration/chemicals`.
+- `/hse/chemicals` is a compatibility redirect to `/master/products`; the combined CRUD route is no longer registered.
+- Typed Chemical domain, application, repository, and production UI modules are guarded by a static legacy-import boundary test.
