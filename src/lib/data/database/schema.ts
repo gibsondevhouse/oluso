@@ -132,16 +132,26 @@ function addSystemIndexes(name: SystemStoreName, store: IDBObjectStore) {
 
 function addDomainIndexes(name: CurrentRecordStoreName, store: IDBObjectStore) {
   switch (name) {
+    case "organizations":
+      createIndex(store, "byPrimaryContact", "primaryContactPersonId");
+      break;
+    case "people":
+      createIndex(store, "byOrganization", "organizationId");
+      createIndex(store, "bySupervisor", "supervisorPersonId");
+      createIndex(store, "byPrimarySite", "primarySiteId");
+      break;
     case "locations":
       createIndex(store, "byParent", "parentId");
       createIndex(store, "byNodeType", "nodeType");
       createIndex(store, "byResolvedSite", "resolvedSiteId");
       break;
     case "processes":
+      createIndex(store, "byPrimaryLocation", "primaryLocationId");
       createIndex(store, "byResolvedSite", "resolvedSiteId");
       break;
     case "tasks":
       createIndex(store, "byProcess", "processId");
+      createIndex(store, "byLocation", "locationId");
       createIndex(store, "byResolvedSite", "resolvedSiteId");
       break;
     case "equipment":

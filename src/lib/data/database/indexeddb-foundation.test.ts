@@ -84,6 +84,21 @@ describe("IndexedDB foundation", () => {
     );
   });
 
+  it("upgrades an existing version 1 database with typed foundation relationship indexes", async () => {
+    const name = nextName("schema-upgrade");
+    const versionOne = await openAdamaDatabase({ name, version: 1 });
+    versionOne.close();
+    const upgraded = await openAdamaDatabase({ name });
+    databases.push(upgraded);
+
+    const transaction = upgraded.transaction(["people", "processes", "tasks"], "readonly");
+    expect(Array.from(transaction.objectStore("people").indexNames)).toEqual(
+      expect.arrayContaining(["byOrganization", "bySupervisor", "byPrimarySite"]),
+    );
+    expect(Array.from(transaction.objectStore("processes").indexNames)).toContain("byPrimaryLocation");
+    expect(Array.from(transaction.objectStore("tasks").indexNames)).toContain("byLocation");
+  });
+
   it("initializes stable dataset, installation, and local-user identity", async () => {
     const database = await createDatabase("identity");
     const first = await initialize(database);

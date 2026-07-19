@@ -3,6 +3,7 @@
   import { goto } from "$app/navigation";
   import { onMount } from "svelte";
   import { olusoApplication } from "../application/oluso-application";
+  import { foundationApplication } from "$lib/application/foundation";
   import AppShell from "../components/layout/AppShell.svelte";
   import { getBrowserDatabase } from "$lib/data/database";
   import "../app.css";
@@ -29,7 +30,16 @@
   onMount(() => {
     const handleIdentityReady = () => { identityState = "ready"; };
     window.addEventListener("adama-identity-ready", handleIdentityReady);
-    void olusoApplication.initialize().catch(() => {
+    const initialization = [
+      "/people/organizations",
+      "/people/workers",
+      "/operations/locations",
+      "/operations/processes",
+      "/operations/tasks",
+    ].some((path) => currentPath === path || currentPath.startsWith(`${path}/`))
+      ? foundationApplication.initialize()
+      : olusoApplication.initialize();
+    void initialization.catch(() => {
       // The repository publishes visible diagnostics for initialization failures.
     });
     void getBrowserDatabase()

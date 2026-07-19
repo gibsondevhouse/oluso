@@ -1,12 +1,12 @@
 # Phase 1 persistence foundation status
 
-Status: foundation implemented; canonical Chemical slice cut over; remaining legacy slices not complete
-Last updated: 2026-07-18  
-Branch: `codex/adama-hse-migration`
+Status: foundation application cutover complete; canonical Chemical slice cut over; remaining legacy slices not complete
+Last updated: 2026-07-19
+Branch: `main`
 
 ## Outcome
 
-The repository contains the bounded web-persistence foundation needed for the ADAMA HSE reset. Canonical Chemical Substance, Product, composition, SDS, Site inventory, Document Reference, and Chemical Use workflows now operate through typed IndexedDB repositories and services. Other legacy register routes still use the legacy application adapter until their own controlled cutovers.
+The repository contains the bounded web-persistence foundation and the first typed application slices. Organization, Person, Location, Process, Task, canonical Chemical Substance, Product, composition, SDS, Site inventory, Document Reference, and Chemical Use workflows now operate through typed domain contracts, dedicated repositories, application services, and IndexedDB. Other broad and deferred modules remain on the legacy adapter until their own controlled cutovers.
 
 ## Implemented
 
@@ -25,6 +25,10 @@ The repository contains the bounded web-persistence foundation needed for the AD
 | Browser diagnostics | Settings exposes IndexedDB, service-worker, storage-quota, and durable-storage availability with visible failures. |
 | PWA shell | The production build emits an install manifest, 192/512 icons, and a versioned offline application-shell service worker. |
 | Legacy detection and migration | Browser schemas 1–14 and native schemas 1–10 are detected. Representative browser v14/native v10 fixtures migrate atomically with revisions, archive evidence, deferred raw rows, and data-quality findings. |
+| Typed foundation domain | Organization, Person, Location, Process, and Task have explicit contracts, field validation, named errors, and cross-record invariants outside UI components. |
+| Foundation repositories and services | Five dedicated repositories and services enforce business-ID uniqueness, active dependencies, hierarchy legality, Site resolution, expected revisions, archive/restore, and atomic subtree moves. |
+| Foundation route cutover | `/people/organizations`, `/people/workers`, `/operations/locations`, `/operations/processes`, and `/operations/tasks` use the typed IndexedDB application. Their list/create/detail/edit/archive/restore flows no longer initialize or call legacy record persistence. |
+| Cutover enforcement | Static architecture tests prohibit legacy persistence, campaign adapters, and Tauri imports from typed foundation code. Migrated entities are absent from generic campaign definitions. |
 | Verification command | `npm run verify` currently runs type/Svelte checks, the full test suite, production build, and PWA artifact verification. |
 | Local actor hardening | New installations create dataset/installation identity without inventing a production actor; a named local profile is required before typed mutations and revisions preserve actor plus installation attribution. |
 | Canonical Chemical cutover | `/master/substances`, `/master/products`, `/master/inventory`, and `/master/chemical-uses` use typed IndexedDB-only workflows; `/hse/chemicals` redirects to Products. |
@@ -39,12 +43,14 @@ The repository contains the bounded web-persistence foundation needed for the AD
 - Deferred campaign and generic assessment records remain inside the immutable migration-run evidence and create explicit data-quality findings.
 - A duplicate/retried migration rolls back all domain records, revisions, migration history, and dataset revision.
 - Archived native records retain archive time and reason.
+- Legacy Organization, Person, Location, Process, and Task records are normalized into typed field shapes and render in typed screens.
+- Location moves reject cycles and atomically recalculate Site resolution for every descendant.
 
 ## Deliberately not complete
 
-1. The current `olusoApplication` still delegates non-Chemical broad register screens to the legacy synchronous persistence adapter. The canonical Chemical routes no longer use that adapter for production reads or writes.
+1. Equipment, exposure monitoring, compliance, hazards, controls, risk assessments, SEGs, findings, incidents, corrective actions, dashboard aggregation, global search, reports, and deferred campaign modules still use the legacy synchronous adapter. Foundation and canonical Chemical routes no longer use that adapter for production reads or writes.
 2. Browser schemas 1–14 and native schemas 1–10 have detection coverage, but the full version-by-version migration matrix with empty, invalid, orphaned, Unicode, and long-text cases is still open.
-3. Target schema version 1 is the only released IndexedDB version; upgrade sequencing is established but multi-version upgrade evidence cannot exist until version 2 is defined.
+3. Target schema version 2 adds typed foundation relationship indexes. The ordered upgrade registry is tested; realistic long-lived browser upgrade exercises remain open.
 4. Corruption is detected and reported, but guided recovery UI and user-accepted recovery exercises remain open.
 5. The PWA artifact is build-verified; manual installed/offline tests in every supported corporate browser remain open.
 6. Exchange staging exists, but manifest validation, dry-run classifications, side-by-side conflict resolution, tombstones, idempotent apply, and rollback packages remain Phase 4.
@@ -52,4 +58,4 @@ The repository contains the bounded web-persistence foundation needed for the AD
 
 ## Next implementation gate
 
-Complete the remaining typed Foundation route cutover for Organization, Person, Location, Process, and Task, then proceed to Exposure Agents and versioned Exposure Limits. Do not recreate the legacy generic campaign adapter over IndexedDB.
+Proceed to Exposure Agents and versioned Exposure Limits. Preserve the completed foundation and canonical Chemical boundaries, and do not route these records back through generic campaign operations.

@@ -21,12 +21,13 @@
     placeholder?: string;
     options?: RecordFormFieldOption[];
     rows?: number;
+    disabled?: boolean;
   }
 
   interface Props {
     title: string;
     ariaLabel: string;
-    fields: RecordFormField[];
+    fields: RecordFormField[] | ((values: RecordFormValues) => RecordFormField[]);
     initialValues: RecordFormValues;
     onSave: (values: RecordFormValues) => void | Promise<void>;
     onCancel: () => void;
@@ -58,8 +59,10 @@
   let isSaving = $state(false);
   let showDiscardDialog = $state(false);
   let pendingHref = $state<string | null>(null);
+  let formElement: HTMLFormElement | null = null;
 
   const isDirty = $derived(JSON.stringify(values) !== initialSnapshot);
+  const resolvedFields = $derived(typeof fields === "function" ? fields(values) : fields);
 
   function getNormalizedInitialValues() {
     return normalizeValues(initialValues);
@@ -106,7 +109,7 @@
       formError = "Validation could not complete. Review the fields and try again.";
     }
 
-    for (const field of fields) {
+    for (const field of resolvedFields) {
       if (field.required && !nextValues[field.name]?.trim() && !nextErrors[field.name]) {
         nextErrors[field.name] = `${field.label} is required.`;
       }
@@ -168,6 +171,7 @@
 
     if (Object.keys(nextErrors).length > 0) {
       formError = validationSummary;
+      focusFirstInvalidField();
       return;
     }
 
@@ -178,9 +182,28 @@
       initialSnapshot = JSON.stringify(normalizeValues(values));
     } catch (error) {
       formError = error instanceof Error ? error.message : String(error);
+      const semanticError = error as {
+        field?: string;
+        issues?: Array<{ field: string; message: string }>;
+      };
+      if (semanticError.issues?.length) {
+        fieldErrors = {
+          ...fieldErrors,
+          ...Object.fromEntries(semanticError.issues.map((issue) => [issue.field, issue.message])),
+        };
+      } else if (semanticError.field) {
+        fieldErrors = { ...fieldErrors, [semanticError.field]: formError };
+      }
+      focusFirstInvalidField();
     } finally {
       isSaving = false;
     }
+  }
+
+  function focusFirstInvalidField() {
+    queueMicrotask(() => {
+      formElement?.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus();
+    });
   }
 
   function requestCancel() {
@@ -254,6 +277,7 @@
 </script>
 
 <form
+  bind:this={formElement}
   class="record-form"
   aria-label={ariaLabel}
   onsubmit={(event) => {
@@ -275,7 +299,7 @@
     <p class="error-message" role="alert">{formError}</p>
   {/if}
 
-  {#each fields as field (field.name)}
+  {#each resolvedFields as field (field.name)}
     {@const fieldId = getFieldId(field)}
     <div class="record-form-field" class:errorState={Boolean(fieldErrors[field.name])}>
       {#if field.type !== "checkbox"}
@@ -299,7 +323,7 @@
             id={fieldId}
             name={field.name}
             type="checkbox"
-            disabled={isSaving}
+            disabled={isSaving || field.disabled}
             checked={values[field.name] === "true"}
             aria-invalid={fieldErrors[field.name] ? "true" : "false"}
             aria-describedby={getDescribedBy(field)}
@@ -314,7 +338,7 @@
           name={field.name}
           aria-label={field.label}
           rows={field.rows ?? 4}
-          disabled={isSaving}
+          disabled={isSaving || field.disabled}
           placeholder={field.placeholder}
           value={values[field.name] ?? ""}
           aria-invalid={fieldErrors[field.name] ? "true" : "false"}
@@ -328,7 +352,7 @@
           id={fieldId}
           name={field.name}
           aria-label={field.label}
-          disabled={isSaving}
+          disabled={isSaving || field.disabled}
           value={values[field.name] ?? ""}
           aria-invalid={fieldErrors[field.name] ? "true" : "false"}
           aria-describedby={getDescribedBy(field)}
@@ -345,7 +369,7 @@
           id={fieldId}
           name={field.name}
           aria-label={field.label}
-          disabled={isSaving}
+          disabled={isSaving || field.disabled}
           multiple
           aria-invalid={fieldErrors[field.name] ? "true" : "false"}
           aria-describedby={getDescribedBy(field)}
@@ -362,7 +386,7 @@
           id={fieldId}
           name={field.name}
           aria-label={field.label}
-          disabled={isSaving}
+          disabled={isSaving || field.disabled}
           placeholder={field.placeholder}
           value={values[field.name] ?? ""}
           aria-invalid={fieldErrors[field.name] ? "true" : "false"}

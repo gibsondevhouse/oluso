@@ -20,7 +20,7 @@ export const TARGET_SCHEMA_MIGRATIONS: readonly TargetSchemaMigration[] = [
   {
     version: 2,
     description:
-      "Add local-profile identity and canonical chemical relationship indexes without rewriting existing records.",
+      "Add local-profile identity, typed foundation relationship, and canonical chemical relationship indexes without rewriting existing records.",
     apply: upgradeFoundationHardeningSchema,
   },
 ] as const;

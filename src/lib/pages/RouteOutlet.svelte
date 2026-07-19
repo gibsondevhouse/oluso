@@ -1,9 +1,10 @@
 <script lang="ts">
   import type { AppRoute } from "$lib/navigation/route-registry";
-  import { isRegisterRouteKind } from "$lib/navigation/route-registry";
+  import { isFoundationRouteKind, isRegisterRouteKind } from "$lib/navigation/route-registry";
   import DashboardPage from "./DashboardPage.svelte";
   import ErrorPage from "./ErrorPage.svelte";
   import GlobalSearchPage from "./GlobalSearchPage.svelte";
+  import FoundationCrudPage from "./FoundationCrudPage.svelte";
   import NotFoundPage from "./NotFoundPage.svelte";
   import RegisterCrudPage from "./RegisterCrudPage.svelte";
   import ReportsExportsPage from "./ReportsExportsPage.svelte";
@@ -24,6 +25,8 @@
   <DashboardPage />
 {:else if route.kind === "global-search"}
   <GlobalSearchPage />
+{:else if isFoundationRouteKind(route.kind)}
+  <FoundationCrudPage {route} />
 {:else if isRegisterRouteKind(route.kind)}
   <RegisterCrudPage {route} />
 {:else if route.kind === "exports"}

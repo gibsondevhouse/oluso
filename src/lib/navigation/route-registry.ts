@@ -4,6 +4,8 @@ import {
   type CampaignRegisterKind,
 } from "$lib/persistence/campaign-register.types";
 
+export type FoundationRouteKind = "organizations" | "people" | "locations" | "processes" | "tasks";
+
 export type RouteKind =
   | "dashboard"
   | "global-search"
@@ -32,6 +34,7 @@ export type RouteKind =
   | "placeholder"
   | "not-found"
   | "error"
+  | FoundationRouteKind
   | CampaignRegisterKind;
 
 export type RegisterRouteKind = Extract<
@@ -49,6 +52,7 @@ export type RegisterRouteKind = Extract<
   | "incidents"
   | "compliance-items"
   | "corrective-actions"
+  | FoundationRouteKind
   | CampaignRegisterKind
 >;
 
@@ -85,6 +89,24 @@ export const APP_ROUTES: AppRoute[] = [
     summary: "Search active and archived records across all registers.",
     section: "Dashboard",
     kind: "global-search",
+  },
+  {
+    path: "/people/organizations",
+    title: "Organizations",
+    summary: "Manage typed organizations and their HSE relationships in IndexedDB.",
+    section: "People & Work",
+    kind: "organizations",
+    mode: "list",
+    basePath: "/people/organizations",
+  },
+  {
+    path: "/people/workers",
+    title: "People",
+    summary: "Manage typed people, organization assignments, supervisors, and primary Sites.",
+    section: "People & Work",
+    kind: "people",
+    mode: "list",
+    basePath: "/people/workers",
   },
   {
     path: "/master/substances",
@@ -146,6 +168,15 @@ export const APP_ROUTES: AppRoute[] = [
     kind: "processes",
     mode: "list",
     basePath: "/operations/processes",
+  },
+  {
+    path: "/operations/tasks",
+    title: "Tasks",
+    summary: "Manage typed operational tasks under valid Site-resolved processes.",
+    section: "Operations",
+    kind: "tasks",
+    mode: "list",
+    basePath: "/operations/tasks",
   },
   {
     path: "/operations/equipment",
@@ -331,7 +362,11 @@ export function isRegisterRouteKind(kind: RouteKind): kind is RegisterRouteKind 
     "incidents",
     "compliance-items",
     "corrective-actions",
-  ].includes(kind) || isCampaignRegisterKind(kind);
+  ].includes(kind) || isFoundationRouteKind(kind) || isCampaignRegisterKind(kind);
+}
+
+export function isFoundationRouteKind(kind: RouteKind): kind is FoundationRouteKind {
+  return ["organizations", "people", "locations", "processes", "tasks"].includes(kind);
 }
 
 function getRegisterRoutes(): Array<AppRoute & { kind: RegisterRouteKind; basePath: string }> {

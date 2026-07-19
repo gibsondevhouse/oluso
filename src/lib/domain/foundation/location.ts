@@ -1,4 +1,12 @@
-import type { RecordEnvelope } from "$lib/data/database";
+import {
+  FOUNDATION_RECORD_STATUSES,
+  requiredChoice,
+  requiredText,
+  result,
+  validateBusinessId,
+  type FoundationRecordMetadata,
+  type FoundationRecordStatus,
+} from "./validation";
 
 export const LOCATION_NODE_TYPES = [
   "Country",
@@ -16,20 +24,11 @@ export const LOCATION_NODE_TYPES = [
 
 export type LocationNodeType = (typeof LOCATION_NODE_TYPES)[number];
 
-export interface FoundationLocation extends RecordEnvelope {
-  name: string;
-  nodeType: LocationNodeType;
-  parentId: string | null;
-  resolvedSiteId: string | null;
-  status?: string;
-  description?: string;
-}
-
-const VALID_PARENTS: Record<LocationNodeType, readonly LocationNodeType[]> = {
+export const LOCATION_PARENT_TYPES: Record<LocationNodeType, readonly LocationNodeType[]> = {
   Country: [],
   StateOrRegion: ["Country"],
   Site: ["StateOrRegion"],
-  Building: ["Site"],
+  Building: ["Site", "Building"],
   Unit: ["Site", "Building"],
   Zone: ["Site", "Building", "Unit"],
   Subzone: ["Zone", "Unit"],
@@ -39,12 +38,55 @@ const VALID_PARENTS: Record<LocationNodeType, readonly LocationNodeType[]> = {
   MobileArea: ["Site"],
 };
 
+export interface FoundationLocation extends FoundationRecordMetadata {
+  name: string;
+  nodeType: LocationNodeType;
+  parentId: string | null;
+  resolvedSiteId: string | null;
+  description?: string;
+  status?: FoundationRecordStatus;
+}
+
+export interface Location extends FoundationLocation {
+  description: string;
+  status: FoundationRecordStatus;
+}
+
+export interface LocationFields {
+  businessId?: string;
+  name: string;
+  nodeType: LocationNodeType;
+  parentId?: string | null;
+  description?: string;
+  status: FoundationRecordStatus;
+}
+
+export function validateLocation(input: LocationFields) {
+  const issues = [
+    ...validateBusinessId(input.businessId),
+    ...requiredText(input.name, "name", "Name"),
+    ...requiredChoice(input.nodeType, LOCATION_NODE_TYPES, "nodeType", "Node type"),
+    ...requiredChoice(input.status, FOUNDATION_RECORD_STATUSES, "status", "Status"),
+  ];
+  if (input.nodeType === "Country" && input.parentId) {
+    issues.push({ field: "parentId", message: "A Country cannot have a parent.", code: "INVALID_PARENT" });
+  }
+  if (input.nodeType !== "Country" && !input.parentId?.trim()) {
+    issues.push({ field: "parentId", message: "Parent location is required.", code: "REQUIRED" });
+  }
+  return result(issues);
+}
+
+export function isOperationalLocation(nodeType: LocationNodeType) {
+  return !["Country", "StateOrRegion"].includes(nodeType);
+}
+
 export function isValidLocationParent(
   nodeType: LocationNodeType,
   parent: FoundationLocation | null,
 ) {
   if (nodeType === "Country") return parent === null;
-  return Boolean(parent && VALID_PARENTS[nodeType].includes(parent.nodeType));
+  return Boolean(parent && LOCATION_PARENT_TYPES[nodeType].includes(parent.nodeType));
 }
 
 export function resolveSiteForLocation(
@@ -53,6 +95,6 @@ export function resolveSiteForLocation(
   parent: FoundationLocation | null,
 ) {
   if (nodeType === "Site") return id;
-  if (nodeType === "Country" || nodeType === "StateOrRegion") return null;
+  if (!isOperationalLocation(nodeType)) return null;
   return parent?.nodeType === "Site" ? parent.id : parent?.resolvedSiteId ?? null;
 }
