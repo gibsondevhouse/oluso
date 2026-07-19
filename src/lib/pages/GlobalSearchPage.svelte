@@ -2,16 +2,21 @@
   import { onMount } from "svelte";
   import { Archive, RefreshCw, Search, SlidersHorizontal } from "lucide-svelte";
   import RegisterState from "$lib/components/register/RegisterState.svelte";
-  import { REGISTER_CONFIGS, type MvpRegisterKind } from "$lib/components/register/register-config";
+  import { REGISTER_CONFIGS } from "$lib/components/register/register-config";
   import StatusPill from "$lib/components/ui/StatusPill.svelte";
   import { olusoApplication } from "../../application/oluso-application";
+  import { foundationApplication } from "$lib/application/foundation";
   import {
     GLOBAL_SEARCH_REGISTER_KINDS,
+    TYPED_ENTERPRISE_SEARCH_OPTIONS,
     searchAllRegisters,
+    searchTypedEnterpriseRecords,
+    type GlobalSearchResultKind,
     type GlobalSearchResult,
+    type TypedEnterpriseSearchContext,
   } from "$lib/search/global-search";
 
-  type RegisterFilter = MvpRegisterKind | "all";
+  type RegisterFilter = GlobalSearchResultKind | "all";
 
   let searchQuery = $state("");
   let registerFilter = $state<RegisterFilter>("all");
@@ -20,12 +25,17 @@
   let errorMessage = $state<string | null>(null);
   let searchError = $state<string | null>(null);
   let results = $state<GlobalSearchResult[]>([]);
+  let typedContext = $state<TypedEnterpriseSearchContext>({
+    organizations: [], people: [], locations: [], operationalFunctions: [], processes: [], tasks: [],
+  });
   let refreshNonce = $state(0);
 
-  const registerOptions = GLOBAL_SEARCH_REGISTER_KINDS.map((kind) => ({
-    kind,
-    label: REGISTER_CONFIGS[kind].title,
-  }));
+  const registerOptions = [
+    ...TYPED_ENTERPRISE_SEARCH_OPTIONS,
+    ...GLOBAL_SEARCH_REGISTER_KINDS
+      .filter((kind) => !TYPED_ENTERPRISE_SEARCH_OPTIONS.some((option) => option.kind === kind))
+      .map((kind) => ({ kind, label: REGISTER_CONFIGS[kind].title })),
+  ];
   const hasQuery = $derived(Boolean(searchQuery.trim()));
   const resultCount = $derived(results.length);
   const resultCountLabel = $derived(
@@ -46,7 +56,12 @@
     }
 
     try {
-      const nextResults = searchAllRegisters(olusoApplication, searchQuery, { includeArchived });
+      const typedResults = searchTypedEnterpriseRecords(typedContext, searchQuery, { includeArchived });
+      const nextResults = [
+        ...typedResults,
+        ...searchAllRegisters(olusoApplication, searchQuery, { includeArchived })
+          .filter((result) => !typedResults.some((typedResult) => typedResult.href === result.href)),
+      ];
       results =
         registerFilter === "all"
           ? nextResults
@@ -69,6 +84,12 @@
 
     try {
       await olusoApplication.initialize();
+      const services = await foundationApplication.services();
+      const [organizations, people, locations, operationalFunctions, processes, tasks] = await Promise.all([
+        services.organizations.list(true), services.people.list(true), services.locations.list(true),
+        services.operationalFunctions.list(true), services.processes.list(true), services.tasks.list(true),
+      ]);
+      typedContext = { organizations, people, locations, operationalFunctions, processes, tasks };
       refreshNonce += 1;
     } catch (error) {
       errorMessage = serializeError(error);

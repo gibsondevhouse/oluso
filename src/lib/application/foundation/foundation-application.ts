@@ -7,11 +7,20 @@ import {
 } from "$lib/data/database";
 import {
   LocationRepository,
-  OrganizationRepository,
   PersonRepository,
   ProcessRepository,
   TaskRepository,
 } from "$lib/data/repositories/foundation";
+import {
+  OrganizationFunctionResponsibilityRepository,
+  OrganizationLocationAssignmentRepository,
+  OrganizationRepository,
+} from "$lib/data/repositories/enterprise";
+import {
+  LocationFunctionAssignmentRepository,
+  OperationalFunctionRepository,
+  ProcessLocationAssignmentRepository,
+} from "$lib/data/repositories/operations";
 import { RevisionRepository } from "$lib/data/revisions";
 import { LocationService } from "./location-service";
 import { OrganizationService } from "./organization-service";
@@ -19,12 +28,26 @@ import { PersonService } from "./person-service";
 import { ProcessService } from "./process-service";
 import { TaskService } from "./task-service";
 import { DatabaseUnavailableError } from "$lib/domain/foundation";
+import {
+  OrganizationFunctionResponsibilityService,
+  OrganizationLocationAssignmentService,
+} from "$lib/application/enterprise";
+import {
+  LocationFunctionAssignmentService,
+  OperationalFunctionService,
+  ProcessLocationAssignmentService,
+} from "$lib/application/operations";
 
 export interface FoundationServices {
   organizations: OrganizationService;
   people: PersonService;
   locations: LocationService;
+  operationalFunctions: OperationalFunctionService;
+  locationFunctionAssignments: LocationFunctionAssignmentService;
+  organizationLocationAssignments: OrganizationLocationAssignmentService;
+  organizationFunctionResponsibilities: OrganizationFunctionResponsibilityService;
   processes: ProcessService;
+  processLocationAssignments: ProcessLocationAssignmentService;
   tasks: TaskService;
 }
 
@@ -91,6 +114,11 @@ export class FoundationApplication {
       const locations = new LocationRepository(adapter.database);
       const processes = new ProcessRepository(adapter.database);
       const tasks = new TaskRepository(adapter.database);
+      const operationalFunctions = new OperationalFunctionRepository(adapter.database);
+      const locationFunctionAssignments = new LocationFunctionAssignmentRepository(adapter.database);
+      const organizationLocationAssignments = new OrganizationLocationAssignmentRepository(adapter.database);
+      const organizationFunctionResponsibilities = new OrganizationFunctionResponsibilityRepository(adapter.database);
+      const processLocationAssignments = new ProcessLocationAssignmentRepository(adapter.database);
       const serviceOptions = {
         context: () => ({
           actorId: identity.localUser.id,
@@ -104,7 +132,22 @@ export class FoundationApplication {
         organizations: new OrganizationService(organizations, people, serviceOptions),
         people: new PersonService(people, organizations, locations, serviceOptions),
         locations: new LocationService(locations, processes, tasks, serviceOptions),
-        processes: new ProcessService(processes, locations, serviceOptions),
+        operationalFunctions: new OperationalFunctionService(operationalFunctions, serviceOptions),
+        locationFunctionAssignments: new LocationFunctionAssignmentService(
+          locationFunctionAssignments, locations, operationalFunctions, organizations, people, serviceOptions,
+        ),
+        organizationLocationAssignments: new OrganizationLocationAssignmentService(
+          organizationLocationAssignments, organizations, locations, serviceOptions,
+        ),
+        organizationFunctionResponsibilities: new OrganizationFunctionResponsibilityService(
+          organizationFunctionResponsibilities, organizations, operationalFunctions, locations, serviceOptions,
+        ),
+        processes: new ProcessService(
+          processes, locations, operationalFunctions, locationFunctionAssignments, processLocationAssignments, serviceOptions,
+        ),
+        processLocationAssignments: new ProcessLocationAssignmentService(
+          processLocationAssignments, processes, locations, serviceOptions,
+        ),
         tasks: new TaskService(tasks, processes, locations, serviceOptions),
       };
       return this.serviceSet;

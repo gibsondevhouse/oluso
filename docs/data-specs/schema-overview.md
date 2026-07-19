@@ -1,7 +1,7 @@
 # Target schema overview
 
-Status: Conceptual; physical IndexedDB keys/indexes are finalized with implementation
-Last updated: 2026-07-18
+Status: Implemented target schema (IndexedDB version 3)
+Last updated: 2026-07-19
 
 ## System stores
 
@@ -19,7 +19,12 @@ Last updated: 2026-07-18
 organizations
 people
 locations
+operational_functions
+location_function_assignments
+organization_location_assignments
+organization_function_responsibilities
 processes
+process_location_assignments
 tasks
 equipment
 chemical_substances
@@ -88,11 +93,14 @@ Physical index design must support:
 
 - Entity ID and business ID.
 - Active/archive/superseded status.
-- Site resolution and location parent/ancestry queries.
+- Global geography resolution and Location parent/ancestry queries.
+- Organization hierarchy by parent, type, and country.
+- Operational Function catalog and effective Location assignment queries.
+- Organization–Location and Organization–Function relationship queries.
 - Process/task/location relationships.
 - Product, site, inventory, and chemical-use relationships.
 - SEG membership by person/SEG/effective dates.
-- Scenario by Site, SEG, process, task, agent, condition, and status.
+- Scenario by resolved Site, Operational Function, SEG, process, task, agent, condition, and status.
 - Assessment/determination current and superseded states.
 - Sampling by plan/event/scenario/worker/date/agent.
 - Actions by source, responsible party, due date, and status.
@@ -106,6 +114,10 @@ IndexedDB does not enforce foreign keys. Domain services and repository transact
 - Required dependency existence.
 - Site resolution and hierarchy rules.
 - No circular location parents.
+- No circular Organization parents and valid Organization parent types.
+- Physical-only Location Function assignments with effective-dated history.
+- Explicit Organization–Location and Organization–Function relationships.
+- Process Function and multi-Location compatibility, with exactly one active Primary assignment.
 - Process/task/location compatibility.
 - Assessment → Scenario.
 - Determination → Assessment.

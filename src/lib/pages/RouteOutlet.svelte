@@ -13,6 +13,7 @@
   import LocalIdentitySettingsPage from "./LocalIdentitySettingsPage.svelte";
   import ChemicalMasterDataPage from "./chemical/ChemicalMasterDataPage.svelte";
   import ChemicalMigrationReviewPage from "./chemical/ChemicalMigrationReviewPage.svelte";
+  import EnterpriseNavigatorPage from "./EnterpriseNavigatorPage.svelte";
 
   interface Props {
     route: AppRoute;
@@ -25,6 +26,8 @@
   <DashboardPage />
 {:else if route.kind === "global-search"}
   <GlobalSearchPage />
+{:else if route.kind === "enterprise-navigator"}
+  <EnterpriseNavigatorPage />
 {:else if isFoundationRouteKind(route.kind)}
   <FoundationCrudPage {route} />
 {:else if isRegisterRouteKind(route.kind)}

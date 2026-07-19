@@ -99,6 +99,13 @@ export const SIDEBAR_CONFIG: SidebarConfig = {
       defaultExpanded: true,
       children: [
         {
+          id: "enterprise-navigator",
+          title: "Enterprise Navigator",
+          route: "/enterprise/navigator",
+          icon: "MapPinned",
+          routeType: "landing",
+        },
+        {
           id: "organizations",
           title: "Organizations",
           route: "/people/organizations",

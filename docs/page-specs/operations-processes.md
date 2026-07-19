@@ -2,7 +2,7 @@
 
 Status: Governing target
 Active canonical routes: `/operations/processes`, `/operations/tasks`
-Last updated: 2026-07-18
+Last updated: 2026-07-19
 
 ## Purpose
 
@@ -11,7 +11,9 @@ Maintain reusable process definitions and discrete work tasks without collapsing
 ## Process fields
 
 - Business ID, name, description, owner, status.
-- One or more valid operational locations/Site scope.
+- Required primary Operational Function.
+- Required Site and compatible primary physical Location.
+- One active Primary Process Location assignment plus effective-dated same-Site supporting Locations.
 - Procedure/document references.
 - Related tasks and equipment.
 
@@ -20,14 +22,16 @@ Maintain reusable process definitions and discrete work tasks without collapsing
 - Business ID, name, description, status.
 - Required parent process.
 - Default/more-specific operational location.
-- Task type, routine status, and operating condition classification.
+- Task type and descriptive routine classification.
 - Related equipment and chemical uses.
 
-Task operating condition provides reusable operational classification. Frequency, duration, controls, exposure routes, and scenario-specific deviations belong on `ExposureScenario`/relationships rather than one flattened process conclusion.
+Task routine classification describes whether the activity is normally routine, normally non-routine, variable, emergency-only, or unknown. Operating condition, frequency, duration, controls, exposure routes, and deviations belong on Chemical Use, `ExposureScenario`, sampling, or event context.
 
 ## Interface
 
 - Process register and detail with nested task list.
+- Site → Location → assigned Function Process-create sequence.
+- Process Location panel for Source, Destination, Transfer Path, Supporting, Storage, Staging, Waste, Emergency, and other same-Site relationships.
 - Create task in current Process/Unit context.
 - Relationship panels for chemical use, scenarios, controls, assurance, and data gaps.
 - Archive/history/package attribution.
@@ -35,6 +39,8 @@ Task operating condition provides reusable operational classification. Frequency
 ## Validation
 
 - Task requires an active or historically valid process.
+- Process primary Location requires the selected active Operational Function assignment.
+- Every Process has exactly one active Primary Location assignment; active supporting Locations resolve to the same Site.
 - Task location resolves to the same compatible Site scope as its process unless explicitly modeled as a multi-site process.
 - Process archive impact identifies active tasks/scenarios before confirmation.
 

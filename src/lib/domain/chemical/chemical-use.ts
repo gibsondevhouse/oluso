@@ -17,6 +17,7 @@ export interface ChemicalUse extends RecordEnvelope {
   locationId: string;
   processId: string;
   taskId?: string;
+  operationalFunctionId: string;
   operatingCondition: ChemicalOperatingCondition;
   frequency: ChemicalUseFrequency;
   duration?: number;
@@ -30,10 +31,11 @@ export interface ChemicalUse extends RecordEnvelope {
   notes: string;
 }
 
-export interface ChemicalUseInput extends Omit<ChemicalUse, keyof RecordEnvelope | "notes" | "controlIds" | "evidenceReferenceIds" | "deferredControlNotes"> {
+export interface ChemicalUseInput extends Omit<ChemicalUse, keyof RecordEnvelope | "notes" | "controlIds" | "evidenceReferenceIds" | "deferredControlNotes" | "operationalFunctionId"> {
   businessId?: string;
   controlIds?: string[];
   deferredControlNotes?: string;
   evidenceReferenceIds?: string[];
   notes?: string;
+  operationalFunctionId?: string;
 }

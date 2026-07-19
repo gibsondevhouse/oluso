@@ -1,7 +1,7 @@
 # Entity field specification index
 
-Status: Reset baseline
-Last updated: 2026-07-18
+Status: Implemented Foundation and enterprise baseline
+Last updated: 2026-07-19
 
 The former broad campaign-era field list is superseded. Canonical entity responsibilities and required relationships are defined in [04-domain-model.md](../04-domain-model.md).
 
@@ -18,15 +18,19 @@ Implementation field schemas must be added per bounded domain and include:
 
 Required schema groups, in build order:
 
-1. Organization, Person, Location.
-2. Process, Task, Equipment.
-3. ChemicalSubstance, ChemicalProduct, SDSRevision, SiteChemicalInventory, ChemicalUse.
-4. ExposureAgent, ExposureLimit, Control, DocumentReference.
-5. SEG, SEGMembership, ExposureScenario.
-6. ExposureAssessment, ExposureDetermination.
-7. SamplingPlan, SamplingEvent, Sample, LaboratoryResult, ExposureLimitComparison, ProfessionalInterpretation.
-8. ControlVerification, ProgramApplicability, MedicalSurveillanceRequirement.
-9. Assurance/action/verification entities.
-10. RecordRevision, Review, Approval, ExchangePackage, ImportRun, ConflictResolution, DataQualityFinding.
+1. Organization, OrganizationLocationAssignment, and OrganizationFunctionResponsibility.
+2. Person plus reserved PersonLocationAssignment and PersonFunctionAssignment contracts.
+3. Global geographic/physical Location, OperationalFunction, and LocationFunctionAssignment.
+4. Process, ProcessLocationAssignment, Task, and Equipment.
+5. ChemicalSubstance, ChemicalProduct, SDSRevision, SiteChemicalInventory, ChemicalUse.
+6. ExposureAgent, ExposureLimit, Control, DocumentReference.
+7. SEG, SEGMembership, ExposureScenario.
+8. ExposureAssessment, ExposureDetermination.
+9. SamplingPlan, SamplingEvent, Sample, LaboratoryResult, ExposureLimitComparison, ProfessionalInterpretation.
+10. ControlVerification, ProgramApplicability, MedicalSurveillanceRequirement.
+11. Assurance/action/verification entities.
+12. RecordRevision, Review, Approval, ExchangePackage, ImportRun, ConflictResolution, DataQualityFinding.
+
+The implemented enterprise baseline deliberately keeps Organization hierarchy, geographic hierarchy, physical Location hierarchy, and Operational Function assignments in separate typed entities. A reusable Task carries `routineClassification`; scenario operating condition remains on Chemical Use, Exposure Scenario, sampling, and event context.
 
 Do not restore a single catch-all campaign field schema for these groups.

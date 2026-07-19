@@ -7,9 +7,9 @@ export interface LegacyCollectionMapping {
 }
 
 export const LEGACY_COLLECTION_MAPPING: Record<string, LegacyCollectionMapping> = {
-  locations: { targets: ["locations"], disposition: "split", note: "Creates geography nodes and operational hierarchy." },
-  processes: { targets: ["processes"], disposition: "map", note: "Requires mapped Site-resolvable location." },
-  tasks: { targets: ["tasks"], disposition: "map", note: "Requires valid process and location." },
+  locations: { targets: ["locations", "data_quality_findings"], disposition: "split", note: "Creates only explicit geography and physical nodes; unknown municipality context becomes a finding." },
+  processes: { targets: ["processes", "operational_functions", "location_function_assignments", "process_location_assignments", "data_quality_findings"], disposition: "split", note: "Preserves the Process and primary Location; creates Function relationships only from explicit process types." },
+  tasks: { targets: ["tasks", "data_quality_findings"], disposition: "split", note: "Preserves valid Process and Location links; fixed operating condition is retained as migration evidence." },
   equipment: { targets: ["equipment"], disposition: "map", note: "Preserves valid context links." },
   chemicals: {
     targets: ["chemical_substances", "chemical_products", "chemical_product_substances", "document_references", "sds_revisions", "site_chemical_inventory", "chemical_uses", "data_quality_findings"],
@@ -29,7 +29,7 @@ export const LEGACY_COLLECTION_MAPPING: Record<string, LegacyCollectionMapping> 
     note: "No automatic comparison, interpretation, or determination.",
   },
   complianceItems: { targets: ["migration_runs", "data_quality_findings"], disposition: "defer", note: "Broad compliance scope deferred." },
-  organizations: { targets: ["organizations"], disposition: "map", note: "Canonical organization." },
+  organizations: { targets: ["organizations", "data_quality_findings"], disposition: "conditional", note: "Preserves canonical identity; adds hierarchy only when explicit and flags ambiguous classification." },
   people: { targets: ["people"], disposition: "map", note: "Canonical person; clinical data prohibited." },
   segMemberships: { targets: ["seg_memberships"], disposition: "map", note: "Effective dates and dependencies validated." },
   contractorScopes: { targets: ["migration_runs"], disposition: "defer", note: "Future Module." },

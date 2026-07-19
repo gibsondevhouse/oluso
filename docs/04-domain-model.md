@@ -1,7 +1,7 @@
 # 04 — ADAMA HSE domain model
 
 Status: Governing conceptual model
-Last updated: 2026-07-18
+Last updated: 2026-07-19
 
 ## Purpose
 
@@ -10,7 +10,7 @@ This document defines the durable entities, relationships, and invariants for th
 ## Governing traceability chain
 
 ```text
-Location
+Organization + global geography + physical Location + Operational Function
   → Process
   → Task
   → SEG
@@ -47,15 +47,19 @@ The current record is a projection of its accepted revisions. It is not the full
 
 ### Organization and Person
 
-`Organization` represents ADAMA, sites, employers, contractors, laboratories, manufacturers, or other parties.
+`Organization` represents ADAMA corporate, regional, legal, country, business, Site, Department, employer, contractor, laboratory, manufacturer, provider, vendor, or regulatory parties. It is never a geographic or physical Location.
 
 `Person` represents a worker, manager, reviewer, assessor, sampler, or responsible party. Authentication is not required to preserve actor identity; local user profiles provide explicit attribution.
 
 Rules:
 
+- Internal Organizations form an explicit, cycle-free hierarchy. External Organizations may remain outside it.
+- Organization–Location assignments express Owns, Leases, Operates, Manages, Occupies, Supports, jurisdiction, or another controlled relationship without treating geography as an owned asset.
+- Organization–Function responsibilities express accountable, responsible, supporting, oversight, operator, provider, or authority roles at an optional Location scope.
 - Clinical medical data is never stored on `Person`.
 - A deactivated person remains available to historical records.
 - Person and organization identifiers must not be inferred from free text when a canonical relationship exists.
+- Person Location and Function assignment contracts are reserved for workers with several effective-dated work contexts.
 
 ### Location
 
@@ -65,9 +69,13 @@ Allowed node types:
 
 ```text
 Country
-StateOrRegion
+StateOrProvince
+CountyOrDistrict
+CityOrMunicipality
 Site
+Facility
 Building
+Floor
 Unit
 Zone
 Subzone
@@ -80,17 +88,27 @@ MobileArea
 Rules:
 
 - Country has no parent.
-- StateOrRegion has a Country parent.
-- Site has a StateOrRegion parent.
-- Building, Unit, Zone, StorageArea, OutdoorArea, and MobileArea must resolve to a Site through ancestry.
-- Subzone and Room require a compatible operational parent and must resolve to a Site.
+- StateOrProvince has a Country parent; CountyOrDistrict has a StateOrProvince parent.
+- CityOrMunicipality has a StateOrProvince or CountyOrDistrict parent.
+- Site has a CityOrMunicipality parent, or CountyOrDistrict when no municipality applies.
+- Facility and lower physical nodes follow the controlled parent matrix and resolve to exactly one Site through ancestry.
 - A node cannot be its own ancestor or descendant.
 - Every operational record must resolve to exactly one Site, even when its immediate location is more specific.
 - Archived locations remain resolvable from historical records and cannot silently detach children.
+- Resolved Country, State/Province, County/District, City/Municipality, and Site fields are recalculated with dependent records in one atomic move transaction.
+- Operational purpose is never encoded as a Location node type. A Building named “Warehouse” is still a Building.
+
+### Operational Function and assignments
+
+`OperationalFunction` is a reusable controlled enterprise capability such as Manufacturing, Tolling, Packaging, Warehousing, Laboratory, Maintenance, Utilities, HSE, or Administration.
+
+`LocationFunctionAssignment` is the effective-dated many-to-many relationship between a physical Location and an Operational Function. One physical Location may support several Functions, and one Function may occur at several Locations. Primary is non-exclusive, assignment history is retained, and an assignment does not create Processes, SEGs, Chemical Uses, or Exposure Scenarios automatically.
+
+Functions are globally reusable identities; they are not duplicated per Site and are not inferred from Location names.
 
 ### Process, Task, and Equipment
 
-`Process` describes a repeatable operational process at one or more valid locations.
+`Process` describes a repeatable operational workflow under one primary Operational Function and one Site-resolved primary Location.
 
 `Task` describes a discrete activity within a process. Routine operation, maintenance, line breaking, duct clearing, cleanup, sampling, and upset response are separate tasks where exposure conditions differ.
 
@@ -99,8 +117,10 @@ Rules:
 Rules:
 
 - A task belongs to a process.
+- Process creation requires an active Function explicitly assigned to its primary Location.
+- `ProcessLocationAssignment` retains one active Primary relationship plus effective-dated Source, Destination, Transfer Path, Supporting, Storage, Staging, Waste, Emergency, or other same-Site Locations.
 - A task may specify a more precise location than the process but must resolve to a compatible Site.
-- Scenario-specific conditions do not belong on the reusable Process or Task definition.
+- A reusable Task carries descriptive routine classification; scenario-specific operating condition does not belong on the Process, Function, Location, or Task definition.
 - Equipment history remains visible after retirement or archive.
 
 ### Chemical model
@@ -113,7 +133,7 @@ Rules:
 
 `SiteChemicalInventory` stores the presence and amount of a product at a site/storage location.
 
-`ChemicalUse` stores product use within process/task/location/SEG context, including frequency, duration, and operating condition.
+`ChemicalUse` stores product use within Site/process/task/location context, including the Process-derived Operational Function, frequency, duration, and scenario-specific operating condition.
 
 Rules:
 
@@ -121,6 +141,7 @@ Rules:
 - Multiple SDS revisions are retained; exactly one may be designated current for a product/manufacturer context at a time.
 - Inventory quantity and storage are not properties of the product.
 - Chemical use is distinct from inventory.
+- Chemical Use requires Site, Location, Process, optional Task, and Function compatibility; its Location must have the active Process Function assignment.
 - Exposure limits never belong to product inventory records.
 
 ### ExposureAgent and ExposureLimit
@@ -174,6 +195,7 @@ Required context:
 
 - SEG.
 - Site-resolvable location.
+- Operational Function.
 - Process.
 - Task.
 - Exposure agent.

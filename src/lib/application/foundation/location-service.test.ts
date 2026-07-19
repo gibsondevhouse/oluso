@@ -18,6 +18,10 @@ const context: MutationContext = {
   installationId: "installation-hse",
   source: "local",
 };
+const locationBase = {
+  countryCode: "", stateOrProvinceCode: "", postalCode: "", latitude: null, longitude: null,
+  addressLine1: "", addressLine2: "", resolvedCountyOrDistrictId: null,
+} as const;
 
 async function setup(label: string) {
   const name = `location-reclassify-${label}-${crypto.randomUUID()}`;
@@ -36,31 +40,41 @@ async function setup(label: string) {
   const repository = new IndexedDbRecordRepository<FoundationLocation>(database, "locations", {
     recordType: "Location",
     createId: (() => {
-      const ids = ["country", "region", "site", "building", "leaf", "child"];
+      const ids = ["country", "region", "city", "site", "building", "leaf", "child"];
       return () => ids.shift() ?? crypto.randomUUID();
     })(),
   });
   const country = await repository.create({
+    ...locationBase,
     businessId: "LOC-US", name: "United States", nodeType: "Country", parentId: null,
-    resolvedSiteId: null,
+    resolvedCountryId: "country", resolvedStateOrProvinceId: null, resolvedCityOrMunicipalityId: null, resolvedSiteId: null,
   }, context);
   const region = await repository.create({
-    businessId: "LOC-GA", name: "Georgia", nodeType: "StateOrRegion", parentId: country.id,
-    resolvedSiteId: null,
+    ...locationBase,
+    businessId: "LOC-GA", name: "Georgia", nodeType: "StateOrProvince", parentId: country.id,
+    resolvedCountryId: country.id, resolvedStateOrProvinceId: "region", resolvedCityOrMunicipalityId: null, resolvedSiteId: null,
+  }, context);
+  const city = await repository.create({
+    ...locationBase,
+    businessId: "LOC-CITY", name: "Tifton", nodeType: "CityOrMunicipality", parentId: region.id,
+    resolvedCountryId: country.id, resolvedStateOrProvinceId: region.id, resolvedCityOrMunicipalityId: "city", resolvedSiteId: null,
   }, context);
   const site = await repository.create({
-    businessId: "LOC-TIF", name: "Tifton", nodeType: "Site", parentId: region.id,
-    resolvedSiteId: "site",
+    ...locationBase,
+    businessId: "LOC-TIF", name: "Tifton Campus", nodeType: "Site", parentId: city.id,
+    resolvedCountryId: country.id, resolvedStateOrProvinceId: region.id, resolvedCityOrMunicipalityId: city.id, resolvedSiteId: "site",
   }, context);
   const building = await repository.create({
+    ...locationBase,
     businessId: "LOC-BLDG", name: "Unit 7", nodeType: "Building", parentId: site.id,
-    resolvedSiteId: site.id,
+    resolvedCountryId: country.id, resolvedStateOrProvinceId: region.id, resolvedCityOrMunicipalityId: city.id, resolvedSiteId: site.id,
   }, context);
   const leaf = await repository.create({
+    ...locationBase,
     businessId: "LOC-LEAF", name: "Storage", nodeType: "Unit", parentId: building.id,
-    resolvedSiteId: site.id,
+    resolvedCountryId: country.id, resolvedStateOrProvinceId: region.id, resolvedCityOrMunicipalityId: city.id, resolvedSiteId: site.id,
   }, context);
-  return { database, repository, country, region, site, building, leaf };
+  return { database, repository, country, region, city, site, building, leaf };
 }
 
 afterEach(async () => {
@@ -79,10 +93,11 @@ describe("Location leaf reclassification", () => {
   });
 
   it("rejects a change when an active child exists", async () => {
-    const { database, repository, leaf } = await setup("child");
+    const { database, repository, country, region, city, leaf } = await setup("child");
     await repository.create({
+      ...locationBase,
       businessId: "LOC-CHILD", name: "Room", nodeType: "Room", parentId: leaf.id,
-      resolvedSiteId: "site",
+      resolvedCountryId: country.id, resolvedStateOrProvinceId: region.id, resolvedCityOrMunicipalityId: city.id, resolvedSiteId: "site",
     }, context);
     await expect(new FoundationLocationService(database).reclassifyLeaf(
       leaf.id, "StorageArea", leaf.revision, context,

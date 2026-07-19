@@ -1,5 +1,6 @@
 import { runMutationTransaction } from "$lib/data/revisions";
-import type { MutationContext } from "$lib/data/database";
+import type { MutationContext, MutableRecordStoreName, RecordEnvelope } from "$lib/data/database";
+import { requestToPromise, transactionToPromise } from "$lib/data/database/idb-utils";
 import type { Location, Process, Task } from "$lib/domain/foundation";
 import type { ListRecordOptions } from "../record-repository";
 import { FoundationRepository } from "./foundation-repository";
@@ -18,6 +19,24 @@ export interface ProcessSiteMutation {
 export interface TaskSiteMutation {
   record: Task;
   resolvedSiteId: string;
+}
+
+export interface LocationDependentMutation {
+  storeName: MutableRecordStoreName;
+  recordType: string;
+  record: RecordEnvelope;
+  patch: LocationDependentPatch;
+}
+
+export interface LocationDependentPatch {
+  [key: string]: unknown;
+  siteId?: string;
+  resolvedSiteId?: string;
+  resolvedCountryId?: string | null;
+  resolvedStateOrProvinceId?: string | null;
+  resolvedCountyOrDistrictId?: string | null;
+  resolvedCityOrMunicipalityId?: string | null;
+  operationalFunctionId?: string;
 }
 
 export class LocationRepository extends FoundationRepository<Location> {
@@ -67,16 +86,25 @@ export class LocationRepository extends FoundationRepository<Location> {
     return descendants;
   }
 
+  async listStoreRecords<TRecord>(storeName: MutableRecordStoreName) {
+    const transaction = this.database.transaction(storeName, "readonly");
+    const completion = transactionToPromise(transaction);
+    const records = await requestToPromise<TRecord[]>(transaction.objectStore(storeName).getAll());
+    await completion;
+    return records;
+  }
+
   async updateHierarchy(
     mutations: LocationMutation[],
     processMutations: ProcessSiteMutation[],
     taskMutations: TaskSiteMutation[],
+    dependentMutations: LocationDependentMutation[],
     context: MutationContext,
   ) {
     try {
       return await runMutationTransaction(
         this.database,
-        ["locations", "processes", "tasks"],
+        ["locations", "processes", "tasks", ...new Set(dependentMutations.map((mutation) => mutation.storeName))],
         context,
         async (session) => {
           const changed: Location[] = [];
@@ -107,6 +135,15 @@ export class LocationRepository extends FoundationRepository<Location> {
               id: mutation.record.id,
               expectedRevision: mutation.record.revision,
               patch: { resolvedSiteId: mutation.resolvedSiteId },
+            });
+          }
+          for (const mutation of dependentMutations) {
+            await session.updateRecord<RecordEnvelope, LocationDependentPatch>({
+              storeName: mutation.storeName,
+              recordType: mutation.recordType,
+              id: mutation.record.id,
+              expectedRevision: mutation.record.revision,
+              patch: mutation.patch,
             });
           }
           return changed;

@@ -1,5 +1,5 @@
 export const ADAMA_DATABASE_NAME = "adama-hse";
-export const ADAMA_DATABASE_VERSION = 2;
+export const ADAMA_DATABASE_VERSION = 3;
 
 export const SYSTEM_STORE_NAMES = [
   "dataset_metadata",
@@ -13,7 +13,12 @@ export const FOUNDATION_STORE_NAMES = [
   "organizations",
   "people",
   "locations",
+  "operational_functions",
+  "location_function_assignments",
+  "organization_location_assignments",
+  "organization_function_responsibilities",
   "processes",
+  "process_location_assignments",
   "tasks",
   "equipment",
   "chemical_substances",
@@ -134,6 +139,9 @@ function addDomainIndexes(name: CurrentRecordStoreName, store: IDBObjectStore) {
   switch (name) {
     case "organizations":
       createIndex(store, "byPrimaryContact", "primaryContactPersonId");
+      createIndex(store, "byParentOrganization", "parentOrganizationId");
+      createIndex(store, "byOrganizationType", "organizationType");
+      createIndex(store, "byCountryCode", "countryCode");
       break;
     case "people":
       createIndex(store, "byOrganization", "organizationId");
@@ -143,11 +151,46 @@ function addDomainIndexes(name: CurrentRecordStoreName, store: IDBObjectStore) {
     case "locations":
       createIndex(store, "byParent", "parentId");
       createIndex(store, "byNodeType", "nodeType");
+      createIndex(store, "byResolvedCountry", "resolvedCountryId");
+      createIndex(store, "byResolvedStateOrProvince", "resolvedStateOrProvinceId");
+      createIndex(store, "byResolvedCountyOrDistrict", "resolvedCountyOrDistrictId");
+      createIndex(store, "byResolvedCityOrMunicipality", "resolvedCityOrMunicipalityId");
       createIndex(store, "byResolvedSite", "resolvedSiteId");
       break;
+    case "operational_functions":
+      createIndex(store, "byName", "name");
+      createIndex(store, "byFunctionCategory", "functionCategory");
+      break;
+    case "location_function_assignments":
+      createIndex(store, "byLocation", "locationId");
+      createIndex(store, "byFunction", "operationalFunctionId");
+      createIndex(store, "byLocationAndFunction", ["locationId", "operationalFunctionId"]);
+      createIndex(store, "byResponsibleOrganization", "responsibleOrganizationId");
+      createIndex(store, "byEffectiveFrom", "effectiveFrom");
+      createIndex(store, "byStatus", "status");
+      break;
+    case "organization_location_assignments":
+      createIndex(store, "byOrganization", "organizationId");
+      createIndex(store, "byLocation", "locationId");
+      createIndex(store, "byRelationshipType", "relationshipType");
+      createIndex(store, "byOrganizationAndLocation", ["organizationId", "locationId"]);
+      break;
+    case "organization_function_responsibilities":
+      createIndex(store, "byOrganization", "organizationId");
+      createIndex(store, "byFunction", "operationalFunctionId");
+      createIndex(store, "byLocation", "locationId");
+      createIndex(store, "byResponsibilityType", "responsibilityType");
+      break;
     case "processes":
+      createIndex(store, "byOperationalFunction", "operationalFunctionId");
       createIndex(store, "byPrimaryLocation", "primaryLocationId");
       createIndex(store, "byResolvedSite", "resolvedSiteId");
+      break;
+    case "process_location_assignments":
+      createIndex(store, "byProcess", "processId");
+      createIndex(store, "byLocation", "locationId");
+      createIndex(store, "byRelationshipType", "relationshipType");
+      createIndex(store, "byProcessAndLocation", ["processId", "locationId"]);
       break;
     case "tasks":
       createIndex(store, "byProcess", "processId");
@@ -196,6 +239,7 @@ function addDomainIndexes(name: CurrentRecordStoreName, store: IDBObjectStore) {
       createIndex(store, "byProcess", "processId");
       createIndex(store, "byTask", "taskId");
       createIndex(store, "byLocation", "locationId");
+      createIndex(store, "byOperationalFunction", "operationalFunctionId");
       createIndex(store, "byOperatingCondition", "operatingCondition");
       createIndex(store, "byStatus", "status");
       break;
@@ -217,6 +261,8 @@ function addDomainIndexes(name: CurrentRecordStoreName, store: IDBObjectStore) {
     case "exposure_scenarios":
       createIndex(store, "bySeg", "segId");
       createIndex(store, "byLocation", "locationId");
+      createIndex(store, "byResolvedSite", "resolvedSiteId");
+      createIndex(store, "byOperationalFunction", "operationalFunctionId");
       createIndex(store, "byProcess", "processId");
       createIndex(store, "byTask", "taskId");
       createIndex(store, "byAgent", "exposureAgentId");
@@ -348,5 +394,20 @@ export function upgradeFoundationHardeningSchema(
     const store = transaction.objectStore(name);
     addRecordIndexes(store);
     addDomainIndexes(name, store);
+  }
+}
+
+export function upgradeEnterpriseLocationFunctionsSchema(
+  database: IDBDatabase,
+  transaction: IDBTransaction,
+) {
+  for (const name of CURRENT_RECORD_STORE_NAMES) {
+    const store = createStore(database, name) ?? transaction.objectStore(name);
+    addRecordIndexes(store);
+    addDomainIndexes(name, store);
+  }
+  for (const name of GOVERNANCE_STORE_NAMES) {
+    const store = createStore(database, name) ?? transaction.objectStore(name);
+    addGovernanceIndexes(name, store);
   }
 }

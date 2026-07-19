@@ -71,10 +71,11 @@ const LEGACY_LOCATION_TYPE_MAP: Record<string, string> = {
 };
 
 const FOUNDATION_STATUSES = new Set(["Draft", "Active", "Inactive"]);
-const ORGANIZATION_TYPES = new Set([
-  "ADAMA Entity", "Department", "Contractor", "Temporary Agency", "Laboratory",
-  "Waste Vendor", "Service Vendor", "Regulator", "Medical Provider", "Other",
-]);
+const ORGANIZATION_TYPE_MAP: Record<string, string> = {
+  Department: "Department", Contractor: "Contractor", "Temporary Agency": "Temporary Agency",
+  Laboratory: "Laboratory Provider", "Waste Vendor": "Waste Vendor", "Service Vendor": "Service Vendor",
+  Regulator: "Regulator", "Medical Provider": "Medical Provider", Other: "Other",
+};
 const PERSON_TYPES = new Set([
   "Employee", "Contractor", "Temporary Worker", "Inspector", "Investigator", "Owner", "External Contact",
 ]);
@@ -91,6 +92,10 @@ const PROCESS_TYPE_MAP: Record<string, string> = {
   Utilities: "Utilities",
   Administrative: "Administrative",
   Emergency: "Emergency",
+};
+const PROCESS_FUNCTION_MAP: Record<string, string> = {
+  Production: "Manufacturing", Warehouse: "Warehousing", Laboratory: "Laboratory",
+  Maintenance: "Maintenance", Utilities: "Utilities", Administrative: "Administration",
 };
 
 function isRecord(value: unknown): value is SourceRecord {
@@ -257,14 +262,21 @@ function prepareLocations(
   };
 
   const geography = new Map<string, { countryId: string; stateId: string }>();
+  const geographyBySite = new Map<string, {
+    countryId: string;
+    stateId: string;
+    countyId: string | null;
+    cityId: string | null;
+  }>();
   const countryIds = new Set<string>();
+  const countyIds = new Set<string>();
+  const cityIds = new Set<string>();
   for (const record of sourceLocations) {
     const nodeType = LEGACY_LOCATION_TYPE_MAP[text(record.type)] ?? "Zone";
     if (nodeType !== "Site") continue;
     const country = text(record.country, "Unknown country");
     const state = text(record.stateProvince, "Unknown region");
     const key = `${country}\u0000${state}`;
-    if (geography.has(key)) continue;
     const countryId = `legacy-geography:country:${slug(country)}`;
     const stateId = `legacy-geography:state:${slug(country)}:${slug(state)}`;
     if (!countryIds.has(countryId)) {
@@ -273,6 +285,17 @@ function prepareLocations(
         name: country,
         nodeType: "Country",
         parentId: null,
+        countryCode: "",
+        stateOrProvinceCode: "",
+        postalCode: "",
+        latitude: null,
+        longitude: null,
+        addressLine1: "",
+        addressLine2: "",
+        resolvedCountryId: countryId,
+        resolvedStateOrProvinceId: null,
+        resolvedCountyOrDistrictId: null,
+        resolvedCityOrMunicipalityId: null,
         resolvedSiteId: null,
         description: "",
         status: "Active",
@@ -282,38 +305,102 @@ function prepareLocations(
       countryRecord.businessId = businessId("LOC", countryId);
       countryIds.add(countryId);
     }
-    addRecord(output, "locations", deterministicDerivedRecord(record, `state:${slug(country)}:${slug(state)}`, "LOC", options, timestamp, sourceInstallationId, {
-      id: stateId,
-      name: state,
-      nodeType: "StateOrRegion",
-      parentId: countryId,
-      resolvedSiteId: null,
-      description: "",
-      status: "Active",
-    }));
-    const stateRecord = output.records.get("locations")!.at(-1)!;
-    stateRecord.id = stateId;
-    stateRecord.businessId = businessId("LOC", stateId);
-    geography.set(key, { countryId, stateId });
+    if (!geography.has(key)) {
+      addRecord(output, "locations", deterministicDerivedRecord(record, `state:${slug(country)}:${slug(state)}`, "LOC", options, timestamp, sourceInstallationId, {
+        id: stateId,
+        name: state,
+        nodeType: "StateOrProvince",
+        parentId: countryId,
+        countryCode: "",
+        stateOrProvinceCode: "",
+        postalCode: "",
+        latitude: null,
+        longitude: null,
+        addressLine1: "",
+        addressLine2: "",
+        resolvedCountryId: countryId,
+        resolvedStateOrProvinceId: stateId,
+        resolvedCountyOrDistrictId: null,
+        resolvedCityOrMunicipalityId: null,
+        resolvedSiteId: null,
+        description: "",
+        status: "Active",
+      }));
+      const stateRecord = output.records.get("locations")!.at(-1)!;
+      stateRecord.id = stateId;
+      stateRecord.businessId = businessId("LOC", stateId);
+      geography.set(key, { countryId, stateId });
+    }
+
+    const county = text(record.countyOrDistrict, text(record.county, text(record.district))).trim();
+    const city = text(record.cityOrMunicipality, text(record.city, text(record.municipality))).trim();
+    const countyId = county
+      ? `legacy-geography:county:${slug(country)}:${slug(state)}:${slug(county)}`
+      : null;
+    if (countyId && !countyIds.has(countyId)) {
+      addRecord(output, "locations", deterministicDerivedRecord(record, `county:${slug(country)}:${slug(state)}:${slug(county)}`, "LOC", options, timestamp, sourceInstallationId, {
+        name: county, nodeType: "CountyOrDistrict", parentId: stateId,
+        countryCode: "", stateOrProvinceCode: "", postalCode: "", latitude: null, longitude: null,
+        addressLine1: "", addressLine2: "", resolvedCountryId: countryId,
+        resolvedStateOrProvinceId: stateId, resolvedCountyOrDistrictId: countyId,
+        resolvedCityOrMunicipalityId: null, resolvedSiteId: null, description: "", status: "Active",
+      }));
+      const countyRecord = output.records.get("locations")!.at(-1)!;
+      countyRecord.id = countyId;
+      countyRecord.businessId = businessId("LOC", countyId);
+      countyIds.add(countyId);
+    }
+    const cityId = city
+      ? `legacy-geography:city:${slug(country)}:${slug(state)}:${slug(county)}:${slug(city)}`
+      : null;
+    if (cityId && !cityIds.has(cityId)) {
+      addRecord(output, "locations", deterministicDerivedRecord(record, `city:${slug(country)}:${slug(state)}:${slug(county)}:${slug(city)}`, "LOC", options, timestamp, sourceInstallationId, {
+        name: city, nodeType: "CityOrMunicipality", parentId: countyId ?? stateId,
+        countryCode: "", stateOrProvinceCode: "", postalCode: "", latitude: null, longitude: null,
+        addressLine1: "", addressLine2: "", resolvedCountryId: countryId,
+        resolvedStateOrProvinceId: stateId, resolvedCountyOrDistrictId: countyId,
+        resolvedCityOrMunicipalityId: cityId, resolvedSiteId: null, description: "", status: "Active",
+      }));
+      const cityRecord = output.records.get("locations")!.at(-1)!;
+      cityRecord.id = cityId;
+      cityRecord.businessId = businessId("LOC", cityId);
+      cityIds.add(cityId);
+    }
+    geographyBySite.set(text(record.id), { countryId, stateId, countyId, cityId });
   }
 
   for (const record of sourceLocations) {
     const id = text(record.id);
     const nodeType = LEGACY_LOCATION_TYPE_MAP[text(record.type)] ?? "Zone";
     let parentId: string | null = text(record.parentLocationId) || null;
+    const siteId = nodeType === "Site" ? id : resolveSite(record) || null;
+    const resolvedGeography = siteId ? geographyBySite.get(siteId) : undefined;
     if (nodeType === "Site") {
-      const key = `${text(record.country, "Unknown country")}\u0000${text(record.stateProvince, "Unknown region")}`;
-      parentId = geography.get(key)?.stateId ?? null;
+      parentId = resolvedGeography?.cityId ?? resolvedGeography?.countyId ?? resolvedGeography?.stateId ?? null;
     }
     addRecord(output, "locations", directRecord(record, options, timestamp, sourceInstallationId, "LOC", {
       name: text(record.name, text(record.title)),
       nodeType,
       parentId,
-      resolvedSiteId: nodeType === "Site" ? id : resolveSite(record) || null,
+      countryCode: "",
+      stateOrProvinceCode: "",
+      postalCode: text(record.postalCode),
+      latitude: null,
+      longitude: null,
+      addressLine1: text(record.addressLine1),
+      addressLine2: text(record.addressLine2),
+      resolvedCountryId: resolvedGeography?.countryId ?? null,
+      resolvedStateOrProvinceId: resolvedGeography?.stateId ?? null,
+      resolvedCountyOrDistrictId: resolvedGeography?.countyId ?? null,
+      resolvedCityOrMunicipalityId: resolvedGeography?.cityId ?? null,
+      resolvedSiteId: siteId,
       description: text(record.description),
       status: foundationStatus(record),
       legacyLocationType: text(record.type),
     }));
+    if (nodeType === "Site" && !resolvedGeography?.cityId) {
+      createFinding(output, record, "locations", "SITE_CITY_UNKNOWN", "Legacy Site has no explicit City, Municipality, County, or District; no geography was invented.", options, timestamp, sourceInstallationId);
+    }
   }
 }
 
@@ -398,11 +485,18 @@ function prepareMigration(
     const legacyType = text(record.organizationType, text(record.type, "Other"));
     addRecord(output, "organizations", directRecord(record, options, timestamp, sourceInstallationId, "ORG", {
       name: text(record.name, text(record.title)),
-      organizationType: ORGANIZATION_TYPES.has(legacyType) ? legacyType : "Other",
+      organizationType: ORGANIZATION_TYPE_MAP[legacyType] ?? "Other",
+      parentOrganizationId: text(record.parentOrganizationId) || null,
+      organizationCode: text(record.organizationCode),
+      legalEntityCode: text(record.legalEntityCode),
+      countryCode: text(record.countryCode),
       status: foundationStatus(record),
       description: text(record.description, text(record.summary)),
       primaryContactPersonId: text(record.primaryContactPersonId) || null,
     }));
+    if (legacyType === "ADAMA Entity" || !ORGANIZATION_TYPE_MAP[legacyType]) {
+      createFinding(output, record, "organizations", "ORGANIZATION_CLASSIFICATION_AMBIGUOUS", "Legacy Organization requires confirmation of its internal or external type and hierarchy.", options, timestamp, sourceInstallationId);
+    }
   }
 
   for (const record of records(source, "people")) {
@@ -431,25 +525,51 @@ function prepareMigration(
     }
   }
 
+  const migratedLocationFunctionKeys = new Set<string>();
+  const processFunctionById = new Map<string, string>();
   for (const record of records(source, "processes")) {
     const locationId = text(record.locationId);
     const legacyType = text(record.processType, text(record.category));
+    const processType = PROCESS_TYPE_MAP[legacyType] ?? "Other";
+    const functionName = PROCESS_FUNCTION_MAP[processType];
+    const operationalFunctionId = functionName ? `operational-function:${slug(functionName)}` : "";
+    if (operationalFunctionId) processFunctionById.set(text(record.id), operationalFunctionId);
     addRecord(output, "processes", directRecord(record, options, timestamp, sourceInstallationId, "PROC", {
       name: text(record.name, text(record.title)),
-      processType: PROCESS_TYPE_MAP[legacyType] ?? "Other",
+      processType,
+      operationalFunctionId,
       primaryLocationId: locationId,
       resolvedSiteId: siteByLocation.get(locationId) ?? null,
       description: text(record.description, text(record.summary)),
       status: foundationStatus(record),
     }));
+    addRecord(output, "process_location_assignments", deterministicDerivedRecord(record, "primary-location", "PLA", options, timestamp, sourceInstallationId, {
+      processId: text(record.id), locationId, relationshipType: "Primary", sequence: null,
+      effectiveFrom: null, effectiveTo: null, status: foundationStatus(record),
+      notes: "Created from the preserved legacy Process primary Location.",
+    }));
+    if (operationalFunctionId) {
+      const key = `${locationId}\u0000${operationalFunctionId}`;
+      if (!migratedLocationFunctionKeys.has(key)) {
+        migratedLocationFunctionKeys.add(key);
+        addRecord(output, "location_function_assignments", deterministicDerivedRecord(record, `location-function:${slug(locationId)}:${slug(functionName!)}`, "LFA", options, timestamp, sourceInstallationId, {
+          locationId, operationalFunctionId, assignmentType: "Primary Function", effectiveFrom: null, effectiveTo: null,
+          isPrimary: true, scopeDescription: "Migrated from an explicit legacy Process type and primary Location.",
+          responsibleOrganizationId: null, responsiblePersonId: null, status: foundationStatus(record),
+          notes: "Review migrated Function scope and effective period.",
+        }));
+      }
+    } else {
+      createFinding(output, record, "processes", "PROCESS_FUNCTION_AMBIGUOUS", "Legacy Process type does not provide an explicit Operational Function mapping.", options, timestamp, sourceInstallationId);
+    }
   }
   for (const record of records(source, "tasks")) {
     const locationId = text(record.locationId);
     const legacyType = text(record.taskType, text(record.type, "Other"));
     const taskType = TASK_TYPES.has(legacyType) ? legacyType : "Other";
-    const operatingCondition = ["Startup", "Shutdown", "Maintenance", "Emergency"].includes(taskType)
-      ? taskType
-      : "Routine";
+    const routineClassification = taskType === "Emergency Response" ? "Emergency Only"
+      : ["Maintenance", "Troubleshooting", "Startup", "Shutdown"].includes(taskType) ? "Normally Non-Routine"
+      : taskType === "Routine Operation" ? "Normally Routine" : "May Be Routine or Non-Routine";
     addRecord(output, "tasks", directRecord(record, options, timestamp, sourceInstallationId, "TASK", {
       name: text(record.name, text(record.title)),
       taskType,
@@ -457,10 +577,12 @@ function prepareMigration(
       locationId,
       resolvedSiteId: siteByLocation.get(locationId) ?? null,
       description: text(record.description, text(record.summary)),
-      routineStatus: operatingCondition === "Routine" ? "Routine" : "Non-Routine",
-      operatingCondition,
+      routineClassification,
       status: foundationStatus(record),
     }));
+    if (record.operatingCondition !== undefined || record.routineStatus !== undefined) {
+      createFinding(output, record, "tasks", "TASK_OPERATING_CONDITION_MIGRATED", "Legacy fixed Task condition was preserved as migration evidence and removed from the reusable Task definition.", options, timestamp, sourceInstallationId);
+    }
   }
   for (const record of records(source, "equipment")) {
     addRecord(output, "equipment", directRecord(record, options, timestamp, sourceInstallationId, "EQ", {
@@ -652,6 +774,7 @@ function prepareMigration(
         processId,
         taskId: undefined,
         locationId: processLocationId,
+        operationalFunctionId: processFunctionById.get(processId) ?? "",
         operatingCondition: "Unknown",
         frequency: "Unknown",
         duration: undefined,
@@ -668,6 +791,11 @@ function prepareMigration(
       added.id = `${sourceId}:use:${processId}`;
       added.businessId = businessId("USE", added.id);
       chemicalUseIds.push(added.id);
+      if (!processFunctionById.has(processId)) {
+        createFinding(output, record, "chemicals", "CHEMICAL_USE_FUNCTION_UNRESOLVED", `Chemical Use for Process ${processId} could not derive an Operational Function.`, options, timestamp, sourceInstallationId);
+      } else if (!migratedLocationFunctionKeys.has(`${processLocationId}\u0000${processFunctionById.get(processId)}`)) {
+        createFinding(output, record, "chemicals", "CHEMICAL_USE_FUNCTION_ASSIGNMENT_MISSING", `Chemical Use for Process ${processId} lacks a compatible Location Function assignment.`, options, timestamp, sourceInstallationId);
+      }
       createFinding(output, record, "chemicals", "CHEMICAL_USE_CONTEXT_INCOMPLETE", `Chemical Use for Process ${processId} requires Task and operating-condition review.`, options, timestamp, sourceInstallationId);
     }
     if (["exposureLimit", "exposureLimitValue", "exposureLimitUnit", "exposureLimitSource", "exposureLimitAveragingPeriod"].some((field) => text(record[field]))) {
@@ -847,6 +975,7 @@ export async function migrateLegacyDatabase(
         deferredRecordCount: prepared.deferredRecords.length,
         deferredRecords: prepared.deferredRecords,
         sourceEvidence: {
+          locations: records(source, "locations").map((record) => structuredClone(record)),
           chemicals: records(source, "chemicals").map((record) => structuredClone(record)),
         },
         chemicalMappings: prepared.chemicalMappings,

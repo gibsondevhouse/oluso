@@ -34,6 +34,7 @@ describe("foundation domain validation", () => {
       issuesByField(validateProcess({
         name: "Packaging",
         processType: "Production",
+        operationalFunctionId: "",
         primaryLocationId: "",
         status: "Active",
       })),
@@ -44,10 +45,9 @@ describe("foundation domain validation", () => {
         taskType: "Routine Operation",
         processId: "process-1",
         locationId: "location-1",
-        routineStatus: "Routine",
-        operatingCondition: "" as never,
+        routineClassification: "" as never,
         status: "Active",
       })),
-    ).toHaveProperty("operatingCondition");
+    ).toHaveProperty("routineClassification");
   });
 });

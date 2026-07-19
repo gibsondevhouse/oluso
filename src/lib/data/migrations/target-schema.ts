@@ -1,8 +1,10 @@
 import {
   ADAMA_DATABASE_VERSION,
   createInitialAdamaSchema,
+  upgradeEnterpriseLocationFunctionsSchema,
   upgradeFoundationHardeningSchema,
 } from "../database/schema";
+import { migrateEnterpriseLocationFunctionRecords } from "./enterprise-location-functions-upgrade";
 
 export interface TargetSchemaMigration {
   version: number;
@@ -22,6 +24,15 @@ export const TARGET_SCHEMA_MIGRATIONS: readonly TargetSchemaMigration[] = [
     description:
       "Add local-profile identity, typed foundation relationship, and canonical chemical relationship indexes without rewriting existing records.",
     apply: upgradeFoundationHardeningSchema,
+  },
+  {
+    version: 3,
+    description:
+      "Add hierarchical enterprise and global Location fields, reusable Operational Functions, assignment stores, and atomic v2 record migration.",
+    apply(database, transaction) {
+      upgradeEnterpriseLocationFunctionsSchema(database, transaction);
+      migrateEnterpriseLocationFunctionRecords(transaction);
+    },
   },
 ] as const;
 

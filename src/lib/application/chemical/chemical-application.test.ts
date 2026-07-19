@@ -20,6 +20,17 @@ interface FoundationRecord extends RecordEnvelope {
   resolvedSiteId?: string | null;
   locationId?: string;
   processId?: string;
+  operationalFunctionId?: string;
+  primaryLocationId?: string;
+  processType?: string;
+  assignmentType?: string;
+  effectiveFrom?: string | null;
+  effectiveTo?: string | null;
+  isPrimary?: boolean;
+  scopeDescription?: string;
+  responsibleOrganizationId?: string | null;
+  responsiblePersonId?: string | null;
+  notes?: string;
 }
 
 const databases: IDBDatabase[] = [];
@@ -30,7 +41,7 @@ let chemicals: ChemicalApplication;
 let ids: Record<string, string>;
 
 async function foundation(
-  storeName: "organizations" | "people" | "locations" | "processes" | "tasks" | "controls",
+  storeName: "organizations" | "people" | "locations" | "processes" | "tasks" | "controls" | "location_function_assignments",
   id: string,
   businessId: string,
   data: Omit<FoundationRecord, keyof RecordEnvelope>,
@@ -68,7 +79,16 @@ beforeEach(async () => {
   await foundation("locations", ids.site, "LOC-TIF", { name: "Tifton", status: "active", nodeType: "Site", parentId: ids.region, resolvedSiteId: ids.site });
   await foundation("locations", ids.storage, "LOC-U7", { name: "Unit 7 Warehouse", status: "active", nodeType: "StorageArea", parentId: ids.site, resolvedSiteId: ids.site });
   await foundation("locations", ids.work, "LOC-FEED", { name: "Feeder deck", status: "active", nodeType: "Unit", parentId: ids.site, resolvedSiteId: ids.site });
-  await foundation("processes", ids.process, "PROC-WDG", { name: "Prodiamine WDG", status: "active", locationId: ids.work, resolvedSiteId: ids.site });
+  const operationalFunctionId = "operational-function:manufacturing";
+  await foundation("location_function_assignments", "lfa-work-manufacturing", "LFA-WORK-MANUFACTURING", {
+    name: "Manufacturing at feeder deck", status: "Active", locationId: ids.work, operationalFunctionId,
+    assignmentType: "Primary Function", effectiveFrom: null, effectiveTo: null, isPrimary: true,
+    scopeDescription: "", responsibleOrganizationId: null, responsiblePersonId: null, notes: "",
+  });
+  await foundation("processes", ids.process, "PROC-WDG", {
+    name: "Prodiamine WDG", status: "active", locationId: ids.work, primaryLocationId: ids.work,
+    processType: "Production", operationalFunctionId, resolvedSiteId: ids.site,
+  });
   await foundation("tasks", ids.task, "TASK-FEED", { name: "Feeder loading", status: "active", processId: ids.process, locationId: ids.work, resolvedSiteId: ids.site });
   await foundation("controls", ids.control, "CTL-LEV", { name: "Local exhaust", status: "active" });
   chemicals = new ChemicalApplication(database);
@@ -218,7 +238,10 @@ describe("canonical Chemical master data", () => {
 
   it("rejects Task/Process incompatibility and cross-Site relationships", async () => {
     const product = await createProduct();
-    const otherProcess = await foundation("processes", "process-other", "PROC-OTHER", { name: "Other", status: "active", locationId: ids.work, resolvedSiteId: ids.site });
+    const otherProcess = await foundation("processes", "process-other", "PROC-OTHER", {
+      name: "Other", status: "active", locationId: ids.work, primaryLocationId: ids.work,
+      processType: "Production", operationalFunctionId: "operational-function:manufacturing", resolvedSiteId: ids.site,
+    });
     await expect(chemicals.uses.create({
       productId: product.id, siteId: ids.site, locationId: ids.work, processId: otherProcess.id, taskId: ids.task,
       operatingCondition: "Routine", frequency: "Daily", durationUnit: "Unknown", quantityScale: "Unknown",

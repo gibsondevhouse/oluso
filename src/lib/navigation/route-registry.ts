@@ -9,6 +9,7 @@ export type FoundationRouteKind = "organizations" | "people" | "locations" | "pr
 export type RouteKind =
   | "dashboard"
   | "global-search"
+  | "enterprise-navigator"
   | "locations"
   | "findings"
   | "processes"
@@ -89,6 +90,13 @@ export const APP_ROUTES: AppRoute[] = [
     summary: "Search active and archived records across all registers.",
     section: "Dashboard",
     kind: "global-search",
+  },
+  {
+    path: "/enterprise/navigator",
+    title: "Enterprise Navigator",
+    summary: "Navigate explicit Organization, geographic, physical Location, and Operational Function relationships.",
+    section: "People & Work",
+    kind: "enterprise-navigator",
   },
   {
     path: "/people/organizations",

@@ -1,7 +1,7 @@
 # Repository query patterns
 
 Status: Governing target
-Last updated: 2026-07-18
+Last updated: 2026-07-19
 
 ## Principles
 
@@ -19,7 +19,11 @@ Use cursor/keyset pagination for large revision/sample stores. Offset pagination
 
 ## Hierarchy queries
 
-Location operations support immediate children, ancestors, descendants, and resolved Site. Cycle validation uses the same canonical ancestry rules as writes. A cached ancestry projection includes source revision metadata and is rebuilt on reparent.
+Organization and Location operations support immediate children and descendants. Location ancestry resolves Country, State or Province, County or District, City or Municipality, and Site. Cycle validation uses the same canonical ancestry rules as writes, and a reparent recalculates dependent context atomically.
+
+## Enterprise and Function queries
+
+Operational Functions query by name and controlled category. Location Function assignments query by Location, Function, Location-plus-Function, responsible Organization, effective date, and status. Organization–Location and Organization–Function relationships query from either side. Process Location assignments query by Process, Location, relationship type, and Process-plus-Location.
 
 ## Effective-date queries
 
@@ -34,7 +38,7 @@ Boundary inclusivity is consistent and tested.
 
 ## Exposure queries
 
-Scenarios query by Site/Unit, SEG, process, task, agent, operating condition, status, review, and data quality.
+Scenarios query by resolved Site, Operational Function, Location, SEG, process, task, agent, operating condition, status, review, and data quality.
 
 Assessments/determinations query current and superseded records separately. Sampling queries preserve the Plan → Event → Sample → Result chain rather than returning a flattened mutable exposure row.
 

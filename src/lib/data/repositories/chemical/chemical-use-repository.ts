@@ -11,4 +11,5 @@ export class ChemicalUseRepository extends ChemicalRecordRepository<ChemicalUse>
   listByLocation(id: string) { return this.queryIndex("byLocation", id); }
   listByProcess(id: string) { return this.queryIndex("byProcess", id); }
   listByTask(id: string) { return this.queryIndex("byTask", id); }
+  listByOperationalFunction(id: string) { return this.queryIndex("byOperationalFunction", id); }
 }

@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
+import { OPERATIONAL_FUNCTION_CATEGORIES } from "$lib/domain/operations";
 import browserV14 from "./__fixtures__/browser-v14.json";
 import nativeV10 from "./__fixtures__/native-v10.json";
 import {
@@ -79,7 +80,7 @@ describe("legacy database migration", () => {
           resolvedSiteId: "legacy-site-tifton",
         }),
         expect.objectContaining({ nodeType: "Country", name: "United States" }),
-        expect.objectContaining({ nodeType: "StateOrRegion", name: "Georgia" }),
+        expect.objectContaining({ nodeType: "StateOrProvince", name: "Georgia" }),
       ]),
     );
 
@@ -112,7 +113,9 @@ describe("legacy database migration", () => {
       ]),
     );
 
-    expect(await getAll(database, "record_revisions")).toHaveLength(result.importedRecordCount);
+    expect(await getAll(database, "record_revisions")).toHaveLength(
+      result.importedRecordCount + OPERATIONAL_FUNCTION_CATEGORIES.length,
+    );
     expect((await getDatabaseIdentity(database))?.dataset.datasetRevision).toBe(1);
   });
 
@@ -136,6 +139,36 @@ describe("legacy database migration", () => {
     });
     expect(await getAll(database, "chemical_products")).toHaveLength(1);
     expect(await getAll(database, "sds_revisions")).toHaveLength(1);
+  });
+
+  it("creates only explicit County and City geography and parents the Site beneath it", async () => {
+    const database = await createDatabase("explicit-geography");
+    const source = structuredClone(browserV14) as unknown as Record<string, unknown> & {
+      locations: Array<Record<string, unknown> & { id: string; county?: string; city?: string }>;
+    };
+    const site = source.locations.find((record) => record.id === "legacy-site-tifton")!;
+    site.county = "Tift County";
+    site.city = "Tifton";
+
+    await migrateLegacyDatabase(database, source, {
+      ...migrationOptions,
+      migrationRunId: "migration-explicit-geography",
+    });
+
+    const locations = await getAll<Record<string, unknown> & { id: string }>(database, "locations");
+    const county = locations.find((record) => record.nodeType === "CountyOrDistrict")!;
+    const city = locations.find((record) => record.nodeType === "CityOrMunicipality")!;
+    const migratedSite = locations.find((record) => record.id === "legacy-site-tifton")!;
+    expect(county).toMatchObject({ name: "Tift County", resolvedCountyOrDistrictId: county.id });
+    expect(city).toMatchObject({ name: "Tifton", parentId: county.id, resolvedCityOrMunicipalityId: city.id });
+    expect(migratedSite).toMatchObject({
+      parentId: city.id,
+      resolvedCountyOrDistrictId: county.id,
+      resolvedCityOrMunicipalityId: city.id,
+    });
+    expect(await getAll<Record<string, unknown>>(database, "data_quality_findings")).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ findingCode: "SITE_CITY_UNKNOWN", recordId: migratedSite.id })]),
+    );
   });
 
   it("rolls back every target and governance write when a migration cannot commit", async () => {

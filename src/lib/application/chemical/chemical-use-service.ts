@@ -6,6 +6,8 @@ import {
   type ChemicalUseInput,
 } from "$lib/domain/chemical";
 import type { FoundationLocation } from "$lib/domain/foundation";
+import { assignmentIsEffective, type LocationFunctionAssignment, type OperationalFunction } from "$lib/domain/operations";
+import { requestToPromise, transactionToPromise } from "$lib/data/database/idb-utils";
 import { ChemicalService, type FoundationProcess, type FoundationTask } from "./chemical-service";
 
 export class ChemicalUseService extends ChemicalService {
@@ -23,6 +25,24 @@ export class ChemicalUseService extends ChemicalService {
     if (location.id !== site.id && location.resolvedSiteId !== site.id) throw new ChemicalRelationshipError("Location does not resolve to the selected Site.");
     const process = await this.getFoundation<FoundationProcess>("processes", input.processId, "Process");
     if (process.resolvedSiteId !== site.id) throw new ChemicalRelationshipError("Process does not resolve to the selected Site.");
+    if (!process.operationalFunctionId) throw new ChemicalRelationshipError("Process does not have an Operational Function.");
+    if (input.operationalFunctionId && input.operationalFunctionId !== process.operationalFunctionId) {
+      throw new ChemicalRelationshipError("Chemical Use Function must match the selected Process Function.");
+    }
+    const operationalFunction = await this.getFoundation<OperationalFunction>("operational_functions", process.operationalFunctionId, "Operational Function");
+    if (operationalFunction.status !== "Active") {
+      throw new ChemicalRelationshipError("Operational Function is inactive.");
+    }
+    const assignmentTransaction = this.database.transaction("location_function_assignments", "readonly");
+    const assignmentCompletion = transactionToPromise(assignmentTransaction);
+    const assignments = await requestToPromise<LocationFunctionAssignment[]>(
+      assignmentTransaction.objectStore("location_function_assignments").index("byLocationAndFunction")
+        .getAll(IDBKeyRange.only([location.id, process.operationalFunctionId])),
+    );
+    await assignmentCompletion;
+    if (!assignments.some((assignment) => assignmentIsEffective(assignment))) {
+      throw new ChemicalRelationshipError("Location does not have an active assignment for the selected Process Function.");
+    }
     const taskId = optionalText(input.taskId);
     if (taskId) {
       const task = await this.getFoundation<FoundationTask>("tasks", taskId, "Task");
@@ -38,6 +58,7 @@ export class ChemicalUseService extends ChemicalService {
     if (duration !== undefined && durationUnit === "Unknown") throw new ChemicalValidationError("Select a duration unit when duration is supplied.");
     return {
       productId: input.productId, siteId: site.id, locationId: location.id, processId: process.id, taskId,
+      operationalFunctionId: process.operationalFunctionId,
       operatingCondition: assertEnum(input.operatingCondition, CHEMICAL_OPERATING_CONDITIONS, "Operating condition"),
       frequency: assertEnum(input.frequency, CHEMICAL_USE_FREQUENCIES, "Frequency"), duration, durationUnit,
       quantityScale: assertEnum(input.quantityScale, QUANTITY_SCALES, "Quantity scale"),

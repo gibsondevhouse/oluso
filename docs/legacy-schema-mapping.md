@@ -1,7 +1,7 @@
 # Legacy-to-target schema mapping
 
 Status: Phase 0 migration contract
-Last updated: 2026-07-18
+Last updated: 2026-07-19
 
 ## Supported source families
 
@@ -43,7 +43,7 @@ Native schema versions are defined by immutable files in `src-tauri/migrations` 
 | 7 | Finding extensions plus exposure monitoring, incidents, compliance items | Map assurance; split monitoring; defer unsupported compliance scope. |
 | 8 | Location parent | Use hierarchy relationship when valid. |
 | 9 | Generic `campaign_records` table | Dispatch by campaign collection and mapping disposition. |
-| 10 | Location country/state fields | Create Country and StateOrRegion nodes and attach Site roots. |
+| 10 | Location country/state fields | Create Country and StateOrProvince nodes; create County/City only from explicit source values and attach Site roots. |
 
 Native versions 1–10 remain supported until representative migration and rollback evidence permits native removal.
 
@@ -64,9 +64,9 @@ Native versions 1–10 remain supported until representative migration and rollb
 
 | Legacy collection/table | Target | Disposition and required review |
 | --- | --- | --- |
-| `locations` | `locations` | Create Country → StateOrRegion → Site hierarchy. Root Facility becomes Site; other legacy types use the node mapping below. Invalid/orphan/cyclic relationships block the affected record and create a finding. |
-| `processes` | `processes` | Preserve ID; derive resolved Site through mapped location. |
-| campaign `tasks` | `tasks` | Preserve ID and process/location links; missing process or Site is blocking. |
+| `locations` | `locations`, `data_quality_findings` | Create explicit Country → StateOrProvince → optional CountyOrDistrict → optional CityOrMunicipality → Site hierarchy. Root Facility becomes Site; other legacy types use the node mapping below. Missing municipality context creates a finding; County or City is never invented. |
+| `processes` | `processes`, `operational_functions`, `location_function_assignments`, `process_location_assignments`, `data_quality_findings` | Preserve ID and primary Location; map explicit process types to reusable Functions and create the Primary assignment. Ambiguous Function mapping produces a finding. |
+| campaign `tasks` | `tasks`, `data_quality_findings` | Preserve ID and process/location links; replace fixed condition with descriptive routine classification while retaining the old condition as evidence. |
 | `equipment` | `equipment` | Preserve ID and valid location/process links; task link remains empty unless explicit. |
 | `chemicals` | `chemical_substances`, `chemical_products`, `chemical_product_substances`, `document_references`, `sds_revisions`, `site_chemical_inventory`, `chemical_uses`, `data_quality_findings` | Split one row. Product retains or maps to a canonical ID; derived evidence IDs are deterministic. Supplier text is not promoted to manufacturer. OEL text remains source evidence. Ambiguous identity, composition, SDS, quantity, Site, Process, and Task facts create findings. |
 | `hazards` | `hazards` | Preserve as typed hazard; chemical-exposure agents are separately canonicalized. |
@@ -78,7 +78,7 @@ Native versions 1–10 remain supported until representative migration and rollb
 | `correctiveActions` | `corrective_actions` | Preserve completion/verification/closure distinction and source links. |
 | `exposureMonitoring` | `sampling_plans`, `sampling_events`, `samples`, `laboratory_results`; migration findings | Preserve numeric result when valid. Missing duration/method/agent basis blocks comparison. Never create interpretation or determination automatically. |
 | `complianceItems` | migration evidence; selected document/action targets only after review | Training/permit broad scope remains deferred. |
-| campaign `organizations` | `organizations` | Preserve ID/business ID. |
+| campaign `organizations` | `organizations`, `data_quality_findings` | Preserve ID/business ID and explicit parent only; ambiguous internal/external type or hierarchy produces a finding. |
 | campaign `people` | `people` and optional local-user candidate | Preserve ID/business ID; no clinical fields. |
 | campaign `segMemberships` | `seg_memberships` | Preserve effective dates and basis; validate overlap and dependencies. |
 | campaign `inspections` | `inspections` | Preserve assurance context. |
@@ -98,7 +98,7 @@ Native versions 1–10 remain supported until representative migration and rollb
 
 | Legacy type | Target candidate | Rule |
 | --- | --- | --- |
-| Root `Facility` | `Site` | Must receive Country and StateOrRegion parent. |
+| Root `Facility` | `Site` | Receives explicit Country/State/County/City ancestry; unknown City produces a finding rather than invented geography. |
 | Child `Facility` | `Building` | Flag if the source semantics suggest another Site. |
 | `Production Area` | `Unit` | Flag for Zone review when ambiguous. |
 | `Storage` | `StorageArea` | Preserve parent and Site resolution. |

@@ -1,7 +1,7 @@
 # Validation rules
 
 Status: Governing baseline
-Last updated: 2026-07-18
+Last updated: 2026-07-19
 
 ## Validation layers
 
@@ -26,18 +26,32 @@ UI validation improves feedback but never replaces domain-service enforcement.
 ## Location rules
 
 - Country has no parent.
-- StateOrRegion parent is Country.
-- Site parent is StateOrRegion.
-- Operational node types resolve to Site.
+- StateOrProvince parent is Country.
+- CountyOrDistrict parent is StateOrProvince.
+- CityOrMunicipality parent is StateOrProvince or CountyOrDistrict.
+- Site parent is CityOrMunicipality, or CountyOrDistrict where no municipality applies.
+- Facility and lower physical node types follow the controlled parent matrix and resolve to exactly one Site.
 - Parent links cannot create cycles.
-- Reparent/archive operations identify affected descendants and references before apply.
+- Reparent operations identify all affected descendants and dependent records before apply, then commit all recalculated geography/Site fields atomically or roll back.
+- Location node type describes geography or physical structure, never Packaging, Laboratory, Tolling, Manufacturing, Warehousing, or another operational purpose.
+
+## Organization and Operational Function rules
+
+- Internal Organization types follow the controlled parent matrix; self-parenting and descendant cycles are prohibited.
+- Archived ancestors remain historically resolvable, but cannot receive new active relationships.
+- Operational Function identity is reusable globally and is not duplicated per Site.
+- A physical Location may have several effective Operational Function assignments, and one Function may be assigned to several Locations.
+- Overlapping active Location–Function assignments with the same scope are prohibited; meaningful scope or period history is retained.
+- Geographic Locations cannot receive Operational Functions, and Owns/Leases Organization relationships cannot target geography.
+- A Process requires one active Operational Function, a compatible primary Location Function assignment, one active Primary Process Location assignment, and only same-Site supporting Locations.
+- A reusable Task stores descriptive routine classification and never stores a fixed scenario operating condition.
 
 ## Chemical rules
 
 - Substance identity is distinct from product identity.
 - SDS belongs to a product/manufacturer context and retains revision/effective dates.
 - Inventory requires product, Site, storage location, quantity, and compatible unit.
-- Chemical use requires product, process/task/location context, frequency/duration/condition as appropriate.
+- Chemical use requires product, Site, Location, Process, optional Task, derived Process Function, frequency/duration/condition, and an active compatible Location Function assignment.
 - Exposure limit belongs to an agent, not inventory or product.
 - Current/superseded limit and SDS designations are internally consistent.
 

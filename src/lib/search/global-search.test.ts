@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { olusoApplication } from "../../application/oluso-application";
 import { resetPersistenceStoresForTest } from "$lib/persistence/local-persistence";
-import { searchAllRegisters } from "./global-search";
+import { searchAllRegisters, searchTypedEnterpriseRecords } from "./global-search";
 
 describe("global register search", () => {
   beforeEach(() => {
@@ -38,5 +38,22 @@ describe("global register search", () => {
         }),
       ]),
     );
+  });
+
+  it("searches canonical enterprise records and Operational Functions", () => {
+    const envelope = {
+      businessId: "TEST-1", revision: 1, createdAt: "2026-07-19T00:00:00.000Z", createdBy: "user",
+      updatedAt: "2026-07-19T00:00:00.000Z", updatedBy: "user", originInstallationId: "installation",
+      lifecycleStatus: "active" as const, archivedAt: null, archivedBy: null, archiveReason: null, archivedReason: null,
+    };
+    const results = searchTypedEnterpriseRecords({
+      organizations: [{ ...envelope, id: "org-1", name: "ADAMA North America", organizationType: "Regional Entity", parentOrganizationId: null, organizationCode: "", legalEntityCode: "", countryCode: "", primaryContactPersonId: null, status: "Active", description: "" }],
+      people: [], locations: [], processes: [], tasks: [],
+      operationalFunctions: [{ ...envelope, id: "func-1", name: "Tolling", functionCategory: "Tolling", status: "Active", description: "" }],
+    }, "tolling");
+
+    expect(results).toEqual([
+      expect.objectContaining({ kind: "operational-functions", recordTitle: "Tolling", href: "/enterprise/navigator" }),
+    ]);
   });
 });

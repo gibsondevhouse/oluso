@@ -6,6 +6,9 @@ import type {
   PersistedRegisterRecord,
   RegisterCollectionName,
 } from "$lib/persistence/local-persistence";
+import type { Organization, Person } from "$lib/domain/foundation";
+import type { Location } from "$lib/domain/location";
+import type { OperationalFunction, Process, Task } from "$lib/domain/operations";
 
 interface GlobalSearchApplication {
   listRegisterRecords(
@@ -16,7 +19,7 @@ interface GlobalSearchApplication {
 
 export interface GlobalSearchResult {
   id: string;
-  kind: MvpRegisterKind;
+  kind: GlobalSearchResultKind;
   registerTitle: string;
   recordTitle: string;
   statusLabel: string;
@@ -27,6 +30,26 @@ export interface GlobalSearchResult {
   linkedReferenceCount: number;
   updatedAt: string;
 }
+
+export type GlobalSearchResultKind = MvpRegisterKind | "organizations" | "people" | "tasks" | "operational-functions";
+
+export interface TypedEnterpriseSearchContext {
+  organizations: Organization[];
+  people: Person[];
+  locations: Location[];
+  operationalFunctions: OperationalFunction[];
+  processes: Process[];
+  tasks: Task[];
+}
+
+export const TYPED_ENTERPRISE_SEARCH_OPTIONS: Array<{ kind: GlobalSearchResultKind; label: string }> = [
+  { kind: "organizations", label: "Organizations" },
+  { kind: "people", label: "People" },
+  { kind: "locations", label: "Locations" },
+  { kind: "operational-functions", label: "Operational Functions" },
+  { kind: "processes", label: "Processes" },
+  { kind: "tasks", label: "Tasks" },
+];
 
 export const GLOBAL_SEARCH_REGISTER_KINDS: MvpRegisterKind[] = [
   ...(Object.keys(REGISTER_CONFIGS) as MvpRegisterKind[]).filter((kind) => kind !== "chemicals"),
@@ -100,6 +123,70 @@ function linkedReferenceCount(record: PersistedRegisterRecord) {
     if (Array.isArray(value)) return total + value.filter((item) => typeof item === "string" && item.trim()).length;
     return total + (typeof value === "string" && value.trim() ? 1 : 0);
   }, 0);
+}
+
+function typedLinkedReferenceCount(record: object) {
+  return Object.entries(record).reduce((total, [key, value]) => {
+    if (key === "id" || (!key.endsWith("Id") && !key.endsWith("Ids"))) return total;
+    if (Array.isArray(value)) return total + value.filter((item) => typeof item === "string" && item.trim()).length;
+    return total + (typeof value === "string" && value.trim() ? 1 : 0);
+  }, 0);
+}
+
+type TypedEnterpriseRecord = Organization | Person | Location | OperationalFunction | Process | Task;
+
+interface TypedSearchEntry {
+  kind: GlobalSearchResultKind;
+  registerTitle: string;
+  record: TypedEnterpriseRecord;
+  recordTitle: string;
+  recordType: string;
+  href: string;
+}
+
+export function searchTypedEnterpriseRecords(
+  context: TypedEnterpriseSearchContext,
+  query: string,
+  options: { includeArchived?: boolean } = {},
+): GlobalSearchResult[] {
+  const normalizedQuery = normalizeSearchText(query);
+  if (!normalizedQuery) return [];
+
+  const entries: TypedSearchEntry[] = [
+    ...context.organizations.map((record) => ({ kind: "organizations" as const, registerTitle: "Organizations", record, recordTitle: record.name, recordType: record.organizationType, href: `/people/organizations/${encodeURIComponent(record.id)}` })),
+    ...context.people.map((record) => ({ kind: "people" as const, registerTitle: "People", record, recordTitle: record.displayName, recordType: record.personType, href: `/people/workers/${encodeURIComponent(record.id)}` })),
+    ...context.locations.map((record) => ({ kind: "locations" as const, registerTitle: "Locations", record, recordTitle: record.name, recordType: record.nodeType, href: `/operations/locations/${encodeURIComponent(record.id)}` })),
+    ...context.operationalFunctions.map((record) => ({ kind: "operational-functions" as const, registerTitle: "Operational Functions", record, recordTitle: record.name, recordType: record.functionCategory, href: "/enterprise/navigator" })),
+    ...context.processes.map((record) => ({ kind: "processes" as const, registerTitle: "Processes", record, recordTitle: record.name, recordType: record.processType, href: `/operations/processes/${encodeURIComponent(record.id)}` })),
+    ...context.tasks.map((record) => ({ kind: "tasks" as const, registerTitle: "Tasks", record, recordTitle: record.name, recordType: record.taskType, href: `/operations/tasks/${encodeURIComponent(record.id)}` })),
+  ];
+
+  return entries.flatMap((entry) => {
+    const { record } = entry;
+    if (!options.includeArchived && record.lifecycleStatus === "archived") return [];
+    const statusLabel = record.lifecycleStatus === "archived" ? "Archived" : record.status;
+    const segments = uniqueSegments([
+      entry.registerTitle,
+      entry.recordTitle,
+      entry.recordType,
+      statusLabel,
+      ...collectSearchSegments(record),
+    ]);
+    if (!normalizeSearchText(segments.join(" ")).includes(normalizedQuery)) return [];
+    return [{
+      id: `typed:${entry.kind}:${record.id}`,
+      kind: entry.kind,
+      registerTitle: entry.registerTitle,
+      recordTitle: entry.recordTitle,
+      statusLabel,
+      statusTone: record.lifecycleStatus === "archived" || record.status === "Inactive" ? "inactive" : record.status === "Active" ? "positive" : "review",
+      matchedText: findMatchedText(segments, normalizedQuery, entry.recordTitle),
+      href: entry.href,
+      archived: record.lifecycleStatus === "archived",
+      linkedReferenceCount: typedLinkedReferenceCount(record),
+      updatedAt: record.updatedAt,
+    } satisfies GlobalSearchResult];
+  });
 }
 
 export function searchAllRegisters(

@@ -4,7 +4,12 @@ import {
   type MutationContext,
   type RecordEnvelope,
 } from "$lib/data/database";
-import { LocationRepository, ProcessRepository, TaskRepository } from "$lib/data/repositories/foundation";
+import {
+  LocationRepository,
+  ProcessRepository,
+  TaskRepository,
+  type LocationDependentMutation,
+} from "$lib/data/repositories/foundation";
 import { runMutationTransaction } from "$lib/data/revisions";
 import {
   CircularHierarchyError,
@@ -15,17 +20,24 @@ import {
   assertValid,
   isOperationalLocation,
   isValidLocationParent,
+  resolveLocationAncestry,
   resolveSiteForLocation,
   validateLocation,
   type FoundationLocation,
   type Location,
   type LocationFields,
   type LocationNodeType,
+  type ResolvedLocationAncestry,
 } from "$lib/domain/foundation";
+import { assignmentIsEffective, type LocationFunctionAssignment, type ProcessLocationAssignment } from "$lib/domain/operations";
 import { FoundationService, type FoundationServiceOptions } from "./foundation-service";
 
 const DEPENDENCY_STORES = [
+  "location_function_assignments",
+  "organization_location_assignments",
+  "organization_function_responsibilities",
   "processes",
+  "process_location_assignments",
   "tasks",
   "equipment",
   "site_chemical_inventory",
@@ -39,6 +51,24 @@ const DEPENDENCY_STORES = [
   "incidents",
   "corrective_actions",
 ] as const satisfies readonly AdamaStoreName[];
+
+const DEPENDENT_MUTATION_STORES = [
+  "location_function_assignments",
+  "organization_location_assignments",
+  "organization_function_responsibilities",
+  "process_location_assignments",
+  "equipment",
+  "site_chemical_inventory",
+  "chemical_uses",
+  "segs",
+  "exposure_scenarios",
+  "sampling_plans",
+  "sampling_events",
+  "samples",
+  "findings",
+  "incidents",
+  "corrective_actions",
+] as const satisfies readonly import("$lib/data/database").MutableRecordStoreName[];
 
 const LOCATION_REFERENCE_FIELDS = new Set([
   "locationId",
@@ -59,6 +89,14 @@ interface LocationDependencyRecord extends RecordEnvelope {
   resolvedSiteId?: LocationReferenceValue;
   sourceLocationId?: LocationReferenceValue;
   targetLocationId?: LocationReferenceValue;
+  processId?: string;
+  taskId?: string;
+  operationalFunctionId?: string;
+  relationshipType?: string;
+  resolvedCountryId?: string | null;
+  resolvedStateOrProvinceId?: string | null;
+  resolvedCountyOrDistrictId?: string | null;
+  resolvedCityOrMunicipalityId?: string | null;
 }
 
 type LocationReclassificationPatch = Pick<FoundationLocation, "nodeType" | "resolvedSiteId">;
@@ -155,8 +193,21 @@ export class LocationService extends FoundationService<Location> {
     return this.create({ ...input, nodeType: "Country", parentId: null });
   }
 
+  createStateOrProvince(input: Omit<LocationFields, "nodeType"> & { parentId: string }) {
+    return this.create({ ...input, nodeType: "StateOrProvince" });
+  }
+
+  /** @deprecated Use createStateOrProvince. */
   createStateOrRegion(input: Omit<LocationFields, "nodeType"> & { parentId: string }) {
-    return this.create({ ...input, nodeType: "StateOrRegion" });
+    return this.createStateOrProvince(input);
+  }
+
+  createCountyOrDistrict(input: Omit<LocationFields, "nodeType"> & { parentId: string }) {
+    return this.create({ ...input, nodeType: "CountyOrDistrict" });
+  }
+
+  createCityOrMunicipality(input: Omit<LocationFields, "nodeType"> & { parentId: string }) {
+    return this.create({ ...input, nodeType: "CityOrMunicipality" });
   }
 
   createSite(input: Omit<LocationFields, "nodeType"> & { parentId: string }) {
@@ -164,7 +215,7 @@ export class LocationService extends FoundationService<Location> {
   }
 
   createOperationalNode(
-    input: Omit<LocationFields, "nodeType"> & { nodeType: Exclude<LocationNodeType, "Country" | "StateOrRegion" | "Site">; parentId: string },
+    input: Omit<LocationFields, "nodeType"> & { nodeType: Exclude<LocationNodeType, "Country" | "StateOrProvince" | "CountyOrDistrict" | "CityOrMunicipality" | "Site">; parentId: string },
   ) {
     return this.create(input);
   }
@@ -173,8 +224,8 @@ export class LocationService extends FoundationService<Location> {
     assertValid(validateLocation(input));
     const id = this.options.createId?.() ?? crypto.randomUUID();
     const parent = await this.validateParent(input.nodeType, input.parentId || null);
-    const resolvedSiteId = this.resolveFromParent(input.nodeType, id, parent);
-    if (isOperationalLocation(input.nodeType) && !resolvedSiteId) {
+    const resolved = resolveLocationAncestry(input.nodeType, id, parent);
+    if (isOperationalLocation(input.nodeType) && !resolved.resolvedSiteId) {
       throw new ValidationError([{ field: "parentId", message: "Operational locations must resolve to exactly one Site.", code: "UNRESOLVED_SITE" }]);
     }
     return (this.repository as LocationRepository).createWithId(
@@ -184,7 +235,14 @@ export class LocationService extends FoundationService<Location> {
         name: input.name.trim(),
         nodeType: input.nodeType,
         parentId: input.parentId || null,
-        resolvedSiteId,
+        countryCode: input.countryCode?.trim().toUpperCase() ?? "",
+        stateOrProvinceCode: input.stateOrProvinceCode?.trim().toUpperCase() ?? "",
+        postalCode: input.postalCode?.trim() ?? "",
+        latitude: input.latitude ?? null,
+        longitude: input.longitude ?? null,
+        addressLine1: input.addressLine1?.trim() ?? "",
+        addressLine2: input.addressLine2?.trim() ?? "",
+        ...resolved,
         description: input.description?.trim() ?? "",
         status: input.status,
       },
@@ -203,11 +261,27 @@ export class LocationService extends FoundationService<Location> {
         description: merged.description,
         status: merged.status,
         nodeType: merged.nodeType,
+        countryCode: merged.countryCode?.trim().toUpperCase() ?? "",
+        stateOrProvinceCode: merged.stateOrProvinceCode?.trim().toUpperCase() ?? "",
+        postalCode: merged.postalCode?.trim() ?? "",
+        latitude: merged.latitude ?? null,
+        longitude: merged.longitude ?? null,
+        addressLine1: merged.addressLine1?.trim() ?? "",
+        addressLine2: merged.addressLine2?.trim() ?? "",
       });
     }
     return this.repository.update(
       id,
-      { name: merged.name.trim(), description: merged.description?.trim() ?? "", status: merged.status },
+      {
+        name: merged.name.trim(), description: merged.description?.trim() ?? "", status: merged.status,
+        countryCode: merged.countryCode?.trim().toUpperCase() ?? "",
+        stateOrProvinceCode: merged.stateOrProvinceCode?.trim().toUpperCase() ?? "",
+        postalCode: merged.postalCode?.trim() ?? "",
+        latitude: merged.latitude ?? null,
+        longitude: merged.longitude ?? null,
+        addressLine1: merged.addressLine1?.trim() ?? "",
+        addressLine2: merged.addressLine2?.trim() ?? "",
+      },
       expectedRevision,
       this.options.context(),
     );
@@ -217,7 +291,10 @@ export class LocationService extends FoundationService<Location> {
     id: string,
     parentId: string | null,
     expectedRevision: number,
-    rootPatch: Partial<Pick<Location, "name" | "description" | "status" | "nodeType">> = {},
+    rootPatch: Partial<Pick<Location,
+      "name" | "description" | "status" | "nodeType" | "countryCode" | "stateOrProvinceCode" |
+      "postalCode" | "latitude" | "longitude" | "addressLine1" | "addressLine2"
+    >> = {},
   ) {
     const root = await this.requireMutable(id);
     if (parentId === id) throw new CircularHierarchyError(id, id);
@@ -226,39 +303,49 @@ export class LocationService extends FoundationService<Location> {
       throw new CircularHierarchyError(id, parentId);
     }
     const nodeType = rootPatch.nodeType ?? root.nodeType;
+    const nodeTypeChanged = nodeType !== root.nodeType;
     const parent = await this.validateParent(nodeType, parentId);
-    const nextSiteById = new Map<string, string | null>();
-    nextSiteById.set(root.id, this.resolveFromParent(nodeType, root.id, parent));
+    const nextAncestryById = new Map<string, ResolvedLocationAncestry>();
+    nextAncestryById.set(root.id, resolveLocationAncestry(nodeType, root.id, parent));
 
-    for (const descendant of descendants) {
-      const parentSite = descendant.parentId === root.id
-        ? nextSiteById.get(root.id) ?? null
-        : nextSiteById.get(descendant.parentId ?? "") ?? descendant.resolvedSiteId;
-      nextSiteById.set(
-        descendant.id,
-        descendant.nodeType === "Site"
-          ? descendant.id
-          : isOperationalLocation(descendant.nodeType)
-            ? parentSite
-            : null,
-      );
+    const allLocations = await (this.repository as LocationRepository).list({ includeArchived: true });
+    const locationById = new Map(allLocations.map((location) => [location.id, location]));
+
+    if (nodeTypeChanged && descendants.length > 0) {
+      throw new ValidationError([{
+        field: "nodeType",
+        message: "Location type cannot change while child Locations exist.",
+        code: "LOCATION_RECLASSIFICATION_BLOCKED",
+      }]);
     }
 
-    if (isOperationalLocation(nodeType) && !nextSiteById.get(root.id)) {
+    for (const descendant of descendants) {
+      const parentRecord = descendant.parentId ? locationById.get(descendant.parentId) ?? null : null;
+      const parentAncestry = descendant.parentId ? nextAncestryById.get(descendant.parentId) : undefined;
+      const effectiveParent = parentRecord && parentAncestry ? { ...parentRecord, ...parentAncestry } : parentRecord;
+      nextAncestryById.set(descendant.id, resolveLocationAncestry(descendant.nodeType, descendant.id, effectiveParent));
+    }
+
+    if (isOperationalLocation(nodeType) && !nextAncestryById.get(root.id)?.resolvedSiteId) {
       throw new ValidationError([{ field: "parentId", message: "Operational locations must resolve to exactly one Site.", code: "UNRESOLVED_SITE" }]);
     }
 
     const movedLocationIds = new Set([root.id, ...descendants.map((location) => location.id)]);
-    const allLocations = await (this.repository as LocationRepository).list({ includeArchived: true });
-    const locationById = new Map(allLocations.map((location) => [location.id, location]));
     const activeProcesses = (await this.processes.list({ includeArchived: true })).filter(
       (process) => process.lifecycleStatus === "active",
     );
+    if (nodeTypeChanged && activeProcesses.some((process) => process.primaryLocationId === root.id)) {
+      throw new ValidationError([{
+        field: "nodeType",
+        message: "Location type cannot change while active Process dependencies exist.",
+        code: "LOCATION_RECLASSIFICATION_BLOCKED",
+      }]);
+    }
     const processMutations = activeProcesses
       .filter((process) => movedLocationIds.has(process.primaryLocationId))
       .map((process) => ({
         record: process,
-        resolvedSiteId: nextSiteById.get(process.primaryLocationId)!,
+        resolvedSiteId: nextAncestryById.get(process.primaryLocationId)!.resolvedSiteId!,
       }));
     const processSiteById = new Map(
       activeProcesses.map((process) => [
@@ -269,18 +356,124 @@ export class LocationService extends FoundationService<Location> {
     const activeTasks = (await this.tasks.list({ includeArchived: true })).filter(
       (task) => task.lifecycleStatus === "active",
     );
+    if (nodeTypeChanged && activeTasks.some((task) => task.locationId === root.id)) {
+      throw new ValidationError([{
+        field: "nodeType",
+        message: "Location type cannot change while active Task dependencies exist.",
+        code: "LOCATION_RECLASSIFICATION_BLOCKED",
+      }]);
+    }
     const taskMutations = activeTasks
       .filter((task) => movedLocationIds.has(task.locationId) || processMutations.some((mutation) => mutation.record.id === task.processId))
       .map((task) => {
         const processSiteId = processSiteById.get(task.processId) ?? task.resolvedSiteId;
         const locationSiteId = movedLocationIds.has(task.locationId)
-          ? nextSiteById.get(task.locationId)
+          ? nextAncestryById.get(task.locationId)?.resolvedSiteId
           : locationById.get(task.locationId)?.resolvedSiteId;
         if (!locationSiteId || processSiteId !== locationSiteId) {
           throw new CrossSiteRelationshipError("Task", processSiteId, locationSiteId ?? "an unresolved Site");
         }
         return { record: task, resolvedSiteId: processSiteId };
       });
+
+    const processById = new Map(activeProcesses.map((process) => [process.id, process]));
+    const effectiveProcessSite = (processId?: string) => {
+      if (!processId) return null;
+      return processSiteById.get(processId) ?? processById.get(processId)?.resolvedSiteId ?? null;
+    };
+    const ancestryForLocation = (locationId?: string | null) => {
+      if (!locationId) return null;
+      return nextAncestryById.get(locationId) ?? locationById.get(locationId) ?? null;
+    };
+
+    const dependencyRecords = new Map<string, LocationDependencyRecord[]>();
+    for (const storeName of DEPENDENT_MUTATION_STORES) {
+      dependencyRecords.set(
+        storeName,
+        await (this.repository as LocationRepository).listStoreRecords<LocationDependencyRecord>(storeName),
+      );
+    }
+    if (nodeTypeChanged) {
+      for (const [storeName, records] of dependencyRecords) {
+        if (records.some((record) => isActive(record) && referencesLocation(record, root.id))) {
+          throw new ValidationError([{
+            field: "nodeType",
+            message: `Location type cannot change while active ${storeName.replaceAll("_", " ")} dependencies exist.`,
+            code: "LOCATION_RECLASSIFICATION_BLOCKED",
+          }]);
+        }
+      }
+    }
+    const functionAssignments = (dependencyRecords.get("location_function_assignments") ?? []) as LocationFunctionAssignment[];
+    const dependentMutations: LocationDependentMutation[] = [];
+
+    for (const assignment of (dependencyRecords.get("process_location_assignments") ?? []) as ProcessLocationAssignment[]) {
+      if (assignment.lifecycleStatus !== "active" || assignment.status !== "Active") continue;
+      const processSiteId = effectiveProcessSite(assignment.processId);
+      const locationSiteId = ancestryForLocation(assignment.locationId)?.resolvedSiteId ?? null;
+      if (!processSiteId || processSiteId !== locationSiteId) {
+        throw new CrossSiteRelationshipError("Process Location Assignment", processSiteId ?? "an unresolved Site", locationSiteId ?? "an unresolved Site");
+      }
+    }
+
+    for (const [storeName, records] of dependencyRecords) {
+      if (["location_function_assignments", "organization_location_assignments", "organization_function_responsibilities", "process_location_assignments"].includes(storeName)) continue;
+      for (const record of records) {
+        if (!isActive(record)) continue;
+        const locationId = typeof record.locationId === "string" ? record.locationId
+          : typeof record.storageLocationId === "string" ? record.storageLocationId
+          : typeof record.siteId === "string" ? record.siteId
+          : typeof record.sourceLocationId === "string" ? record.sourceLocationId
+          : typeof record.targetLocationId === "string" ? record.targetLocationId
+          : null;
+        const locationMoved = Boolean(locationId && movedLocationIds.has(locationId));
+        const processMoved = Boolean(record.processId && processMutations.some((mutation) => mutation.record.id === record.processId));
+        if (!locationMoved && !processMoved) continue;
+        const ancestry = ancestryForLocation(locationId);
+        const locationSiteId = ancestry?.resolvedSiteId ?? null;
+        const processSiteId = effectiveProcessSite(record.processId);
+        if (record.processId && (!locationSiteId || !processSiteId || locationSiteId !== processSiteId)) {
+          throw new CrossSiteRelationshipError(storeName.replaceAll("_", " "), processSiteId ?? "an unresolved Site", locationSiteId ?? "an unresolved Site");
+        }
+        if (storeName === "chemical_uses") {
+          const process = record.processId ? processById.get(record.processId) : null;
+          if (!process || !locationId || !locationSiteId) {
+            throw new CrossSiteRelationshipError("Chemical Use", processSiteId ?? "an unresolved Site", locationSiteId ?? "an unresolved Site");
+          }
+          if (record.operationalFunctionId && record.operationalFunctionId !== process.operationalFunctionId) {
+            throw new ValidationError([{ field: "operationalFunctionId", message: "Chemical Use Function must match its Process Function after the Location move.", code: "FUNCTION_MISMATCH" }]);
+          }
+          const compatible = functionAssignments.some((assignment) =>
+            assignment.locationId === locationId && assignment.operationalFunctionId === process.operationalFunctionId && assignmentIsEffective(assignment));
+          if (!compatible) {
+            throw new ValidationError([{ field: "locationId", message: "Chemical Use Location lacks the active Process Function assignment after the move.", code: "LOCATION_FUNCTION_REQUIRED" }]);
+          }
+        }
+        if (storeName === "exposure_scenarios" && record.operationalFunctionId) {
+          const process = record.processId ? processById.get(record.processId) : null;
+          if (process && process.operationalFunctionId !== record.operationalFunctionId) {
+            throw new ValidationError([{ field: "operationalFunctionId", message: "Exposure Scenario Function must match its Process Function after the Location move.", code: "FUNCTION_MISMATCH" }]);
+          }
+          if (!locationId || !functionAssignments.some((assignment) =>
+            assignment.locationId === locationId && assignment.operationalFunctionId === record.operationalFunctionId && assignmentIsEffective(assignment))) {
+            throw new ValidationError([{ field: "locationId", message: "Exposure Scenario Location lacks the active Operational Function assignment after the move.", code: "LOCATION_FUNCTION_REQUIRED" }]);
+          }
+        }
+        const patch: LocationDependentMutation["patch"] = {};
+        if ("siteId" in record && locationSiteId) patch.siteId = locationSiteId;
+        if ("resolvedSiteId" in record && locationSiteId) patch.resolvedSiteId = locationSiteId;
+        if ("resolvedCountryId" in record) patch.resolvedCountryId = ancestry?.resolvedCountryId ?? null;
+        if ("resolvedStateOrProvinceId" in record) patch.resolvedStateOrProvinceId = ancestry?.resolvedStateOrProvinceId ?? null;
+        if ("resolvedCountyOrDistrictId" in record) patch.resolvedCountyOrDistrictId = ancestry?.resolvedCountyOrDistrictId ?? null;
+        if ("resolvedCityOrMunicipalityId" in record) patch.resolvedCityOrMunicipalityId = ancestry?.resolvedCityOrMunicipalityId ?? null;
+        if (storeName === "chemical_uses" && record.processId) {
+          patch.operationalFunctionId = processById.get(record.processId)!.operationalFunctionId;
+        }
+        if (Object.keys(patch).length) {
+          dependentMutations.push({ storeName: storeName as import("$lib/data/database").MutableRecordStoreName, recordType: storeName, record, patch });
+        }
+      }
+    }
 
     const changed = await (this.repository as LocationRepository).updateHierarchy(
       [
@@ -289,17 +482,18 @@ export class LocationService extends FoundationService<Location> {
           expectedRevision,
           patch: {
             parentId,
-            resolvedSiteId: nextSiteById.get(root.id) ?? null,
+            ...nextAncestryById.get(root.id)!,
             ...rootPatch,
           },
         },
         ...descendants.map((record) => ({
           record,
-          patch: { resolvedSiteId: nextSiteById.get(record.id) ?? null },
+          patch: { ...nextAncestryById.get(record.id)! },
         })),
       ],
       processMutations,
       taskMutations,
+      dependentMutations,
       this.options.context(),
     );
     return changed[0] as Location;

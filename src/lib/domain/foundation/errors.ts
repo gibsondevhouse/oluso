@@ -4,6 +4,7 @@ export type FoundationErrorCode =
   | "ARCHIVED_RELATIONSHIP"
   | "INVALID_PARENT_TYPE"
   | "CIRCULAR_HIERARCHY"
+  | "CIRCULAR_ORGANIZATION_HIERARCHY"
   | "CROSS_SITE_RELATIONSHIP"
   | "VALIDATION_FAILED"
   | "STALE_REVISION"
@@ -78,6 +79,17 @@ export class CircularHierarchyError extends FoundationError {
       "CIRCULAR_HIERARCHY",
     );
     this.name = "CircularHierarchyError";
+  }
+}
+
+export class CircularOrganizationHierarchyError extends FoundationError {
+  readonly field = "parentOrganizationId";
+  constructor(readonly organizationId: string, readonly parentOrganizationId: string) {
+    super(
+      `Organization ${organizationId} cannot be placed under ${parentOrganizationId} because that would create a circular hierarchy.`,
+      "CIRCULAR_ORGANIZATION_HIERARCHY",
+    );
+    this.name = "CircularOrganizationHierarchyError";
   }
 }
 

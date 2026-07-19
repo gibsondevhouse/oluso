@@ -17,16 +17,19 @@ let application: FoundationApplication;
 let services: FoundationServices;
 let databaseName: string;
 let locationIds: string[];
+let manufacturingFunctionId: string;
 
 beforeEach(async () => {
   databaseName = `foundation-services-${crypto.randomUUID()}`;
   locationIds = [
     "country-us",
     "state-ga",
+    "city-tifton",
     "site-tifton",
     "building-a",
     "unit-1",
     "state-nc",
+    "city-raleigh",
     "site-raleigh",
     "building-b",
   ];
@@ -44,6 +47,7 @@ beforeEach(async () => {
     createId: () => locationIds.shift()!,
   });
   services = await application.initialize();
+  manufacturingFunctionId = (await services.operationalFunctions.list()).find((item) => item.name === "Manufacturing")!.id;
 });
 
 afterEach(async () => {
@@ -53,16 +57,17 @@ afterEach(async () => {
 
 async function hierarchy() {
   const country = await services.locations.createCountry({ name: "United States", status: "Active" });
-  const state = await services.locations.createStateOrRegion({
+  const state = await services.locations.createStateOrProvince({
     name: "Georgia",
     parentId: country.id,
     status: "Active",
   });
-  const site = await services.locations.createSite({
+  const city = await services.locations.createCityOrMunicipality({
     name: "Tifton",
     parentId: state.id,
     status: "Active",
   });
+  const site = await services.locations.createSite({ name: "Tifton Campus", parentId: city.id, status: "Active" });
   const building = await services.locations.createOperationalNode({
     name: "Building A",
     nodeType: "Building",
@@ -75,7 +80,11 @@ async function hierarchy() {
     parentId: building.id,
     status: "Active",
   });
-  return { country, state, site, building, unit };
+  await services.locationFunctionAssignments.create({
+    locationId: unit.id, operationalFunctionId: manufacturingFunctionId,
+    assignmentType: "Primary Function", isPrimary: true, status: "Active",
+  });
+  return { country, state, city, site, building, unit };
 }
 
 describe("typed foundation services", () => {
@@ -90,6 +99,7 @@ describe("typed foundation services", () => {
       "United States",
       "Georgia",
       "Tifton",
+      "Tifton Campus",
       "Building A",
       "Unit 1",
     ]);
@@ -127,6 +137,7 @@ describe("typed foundation services", () => {
     const process = await services.processes.create({
       name: "Packaging",
       processType: "Production",
+      operationalFunctionId: manufacturingFunctionId,
       primaryLocationId: unit.id,
       status: "Active",
     });
@@ -135,20 +146,20 @@ describe("typed foundation services", () => {
       taskType: "Routine Operation",
       processId: process.id,
       locationId: unit.id,
-      routineStatus: "Routine",
-      operatingCondition: "Routine",
+      routineClassification: "Normally Routine",
       status: "Active",
     });
-    const state2 = await services.locations.createStateOrRegion({
+    const state2 = await services.locations.createStateOrProvince({
       name: "North Carolina",
       parentId: country.id,
       status: "Active",
     });
-    const site2 = await services.locations.createSite({
+    const city2 = await services.locations.createCityOrMunicipality({
       name: "Raleigh",
       parentId: state2.id,
       status: "Active",
     });
+    const site2 = await services.locations.createSite({ name: "Raleigh Campus", parentId: city2.id, status: "Active" });
     const moved = await services.locations.moveNode(building.id, site2.id, building.revision);
     const movedUnit = await services.locations.get(unit.id);
     expect(moved.resolvedSiteId).toBe(site2.id);
@@ -169,6 +180,7 @@ describe("typed foundation services", () => {
     const process = await services.processes.create({
       name: "Packaging",
       processType: "Production",
+      operationalFunctionId: manufacturingFunctionId,
       primaryLocationId: unit.id,
       status: "Active",
     });
@@ -177,16 +189,16 @@ describe("typed foundation services", () => {
       taskType: "Routine Operation",
       processId: process.id,
       locationId: site.id,
-      routineStatus: "Routine",
-      operatingCondition: "Routine",
+      routineClassification: "Normally Routine",
       status: "Active",
     });
-    const state2 = await services.locations.createStateOrRegion({
+    const state2 = await services.locations.createStateOrProvince({
       name: "North Carolina",
       parentId: country.id,
       status: "Active",
     });
-    const site2 = await services.locations.createSite({ name: "Raleigh", parentId: state2.id, status: "Active" });
+    const city2 = await services.locations.createCityOrMunicipality({ name: "Raleigh", parentId: state2.id, status: "Active" });
+    const site2 = await services.locations.createSite({ name: "Raleigh Campus", parentId: city2.id, status: "Active" });
 
     await expect(
       services.locations.moveNode(building.id, site2.id, building.revision),
@@ -264,6 +276,7 @@ describe("typed foundation services", () => {
     const process = await services.processes.create({
       name: "Packaging",
       processType: "Production",
+      operationalFunctionId: manufacturingFunctionId,
       primaryLocationId: unit.id,
       status: "Active",
     });
@@ -272,6 +285,7 @@ describe("typed foundation services", () => {
       services.processes.create({
         name: "Invalid",
         processType: "Other",
+        operationalFunctionId: manufacturingFunctionId,
         primaryLocationId: country.id,
         status: "Active",
       }),
@@ -281,17 +295,19 @@ describe("typed foundation services", () => {
       services.processes.create({
         name: "Archived location",
         processType: "Other",
+        operationalFunctionId: manufacturingFunctionId,
         primaryLocationId: archivedUnit.id,
         status: "Active",
       }),
     ).rejects.toBeInstanceOf(ArchivedRelationshipError);
   });
 
-  it("enforces Task Process, operating-condition, archive, and same-Site rules", async () => {
+  it("enforces Task Process, routine-classification, archive, and same-Site rules", async () => {
     const { country, site, unit } = await hierarchy();
     const process = await services.processes.create({
       name: "Packaging",
       processType: "Production",
+      operationalFunctionId: manufacturingFunctionId,
       primaryLocationId: unit.id,
       status: "Active",
     });
@@ -300,8 +316,7 @@ describe("typed foundation services", () => {
       taskType: "Routine Operation",
       processId: process.id,
       locationId: unit.id,
-      routineStatus: "Routine",
-      operatingCondition: "Routine",
+      routineClassification: "Normally Routine",
       status: "Active",
     });
     expect(task.resolvedSiteId).toBe(site.id);
@@ -311,18 +326,18 @@ describe("typed foundation services", () => {
         taskType: "Other",
         processId: "missing",
         locationId: unit.id,
-        routineStatus: "Non-Routine",
-        operatingCondition: "Maintenance",
+        routineClassification: "Normally Non-Routine",
         status: "Active",
       }),
     ).rejects.toBeInstanceOf(MissingRelationshipError);
 
-    const state2 = await services.locations.createStateOrRegion({
+    const state2 = await services.locations.createStateOrProvince({
       name: "North Carolina",
       parentId: country.id,
       status: "Active",
     });
-    const site2 = await services.locations.createSite({ name: "Raleigh", parentId: state2.id, status: "Active" });
+    const city2 = await services.locations.createCityOrMunicipality({ name: "Raleigh", parentId: state2.id, status: "Active" });
+    const site2 = await services.locations.createSite({ name: "Raleigh Campus", parentId: city2.id, status: "Active" });
     const building2 = await services.locations.createOperationalNode({
       name: "Building B",
       nodeType: "Building",
@@ -335,8 +350,7 @@ describe("typed foundation services", () => {
         taskType: "Other",
         processId: process.id,
         locationId: building2.id,
-        routineStatus: "Non-Routine",
-        operatingCondition: "Maintenance",
+        routineClassification: "Normally Non-Routine",
         status: "Active",
       }),
     ).rejects.toBeInstanceOf(CrossSiteRelationshipError);
@@ -348,8 +362,7 @@ describe("typed foundation services", () => {
         taskType: "Other",
         processId: archived.id,
         locationId: unit.id,
-        routineStatus: "Non-Routine",
-        operatingCondition: "Maintenance",
+        routineClassification: "Normally Non-Routine",
         status: "Active",
       }),
     ).rejects.toBeInstanceOf(ArchivedRelationshipError);
@@ -358,7 +371,7 @@ describe("typed foundation services", () => {
   it("creates equivalent immutable revisions, increments dataset revision, and rejects stale writes", async () => {
     const organization = await services.organizations.create({
       name: "ADAMA Tifton",
-      organizationType: "ADAMA Entity",
+      organizationType: "Corporate Group",
       status: "Active",
     });
     const updated = await services.organizations.update(

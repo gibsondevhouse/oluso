@@ -6,12 +6,11 @@ import {
   FOUNDATION_RECORD_STATUSES,
   LOCATION_NODE_TYPES,
   LOCATION_PARENT_TYPES,
-  OPERATING_CONDITIONS,
   ORGANIZATION_TYPES,
   PERSON_TYPES,
   PROCESS_TYPES,
-  ROUTINE_STATUSES,
   TASK_TYPES,
+  ValidationError,
   issuesByField,
   validateLocation,
   validateOrganization,
@@ -22,7 +21,6 @@ import {
   type Location,
   type LocationFields,
   type LocationNodeType,
-  type OperatingCondition,
   type Organization,
   type OrganizationFields,
   type OrganizationType,
@@ -32,11 +30,22 @@ import {
   type Process,
   type ProcessFields,
   type ProcessType,
-  type RoutineStatus,
   type Task,
   type TaskFields,
   type TaskType,
 } from "$lib/domain/foundation";
+import {
+  ROUTINE_CLASSIFICATIONS,
+  assignmentIsEffective,
+  type LocationFunctionAssignment,
+  type OperationalFunction,
+  type ProcessLocationAssignment,
+  type RoutineClassification,
+} from "$lib/domain/operations";
+import type {
+  OrganizationFunctionResponsibility,
+  OrganizationLocationAssignment,
+} from "$lib/domain/enterprise";
 import type { FoundationRouteKind } from "$lib/navigation/route-registry";
 
 export type FoundationRecord = Organization | Person | Location | Process | Task;
@@ -46,7 +55,12 @@ export interface FoundationContext {
   organizations: Organization[];
   people: Person[];
   locations: Location[];
+  operationalFunctions: OperationalFunction[];
+  locationFunctionAssignments: LocationFunctionAssignment[];
+  organizationLocationAssignments: OrganizationLocationAssignment[];
+  organizationFunctionResponsibilities: OrganizationFunctionResponsibility[];
   processes: Process[];
+  processLocationAssignments: ProcessLocationAssignment[];
   tasks: Task[];
 }
 
@@ -261,6 +275,18 @@ function descendants(locationId: string, locations: Location[]) {
   return found;
 }
 
+function organizationDescendants(organizationId: string, organizations: Organization[]) {
+  const found: Organization[] = [];
+  const pending = organizations.filter((organization) => organization.parentOrganizationId === organizationId);
+  while (pending.length) {
+    const next = pending.shift()!;
+    if (found.some((candidate) => candidate.id === next.id)) continue;
+    found.push(next);
+    pending.push(...organizations.filter((organization) => organization.parentOrganizationId === next.id));
+  }
+  return found;
+}
+
 function locationPath(location: Location, locations: Location[]) {
   const path = [location.name];
   const seen = new Set([location.id]);
@@ -300,22 +326,42 @@ const organizationConfig: FoundationUiConfig = {
       ...commonInitial(record),
       name: organization?.name ?? "",
       organizationType: organization?.organizationType ?? "Contractor",
+      parentOrganizationId: organization?.parentOrganizationId ?? "",
+      organizationCode: organization?.organizationCode ?? "",
+      legalEntityCode: organization?.legalEntityCode ?? "",
+      countryCode: organization?.countryCode ?? "",
       primaryContactPersonId: organization?.primaryContactPersonId ?? "",
     };
   },
-  fields: (context, _values, record) => [
+  fields: (context, _values, record) => {
+    const blocked = record ? new Set([record.id, ...organizationDescendants(record.id, context.organizations).map((item) => item.id)]) : new Set<string>();
+    return [
     ...commonFields("organizationType", ORGANIZATION_TYPES, Boolean(record)),
+    {
+      name: "parentOrganizationId", label: "Parent Organization", type: "select",
+      helperText: "Internal corporate, regional, country, Site, and Department hierarchy is explicit.",
+      options: [blank, ...active(context.organizations).filter((item) => !blocked.has(item.id)).map((item) => recordOption(item, item.name))],
+    },
+    { name: "organizationCode", label: "Organization code", type: "text" },
+    { name: "legalEntityCode", label: "Legal entity code", type: "text" },
+    { name: "countryCode", label: "Country code", type: "text" },
     {
       name: "primaryContactPersonId",
       label: "Primary contact",
       type: "select",
       options: [blank, ...active(context.people).map((person) => recordOption(person, person.displayName))],
     },
-  ],
+  ];
+  },
   columns: () => commonColumns((record) => (record as Organization).organizationType),
   detailSections: (record) => [
     ...commonDetails(record),
-    { title: "Organization", fields: [{ label: "Type", value: (record as Organization).organizationType }] },
+    { title: "Organization", fields: [
+      { label: "Type", value: (record as Organization).organizationType },
+      { label: "Organization code", value: (record as Organization).organizationCode || "—" },
+      { label: "Legal entity code", value: (record as Organization).legalEntityCode || "—" },
+      { label: "Country code", value: (record as Organization).countryCode || "—" },
+    ] },
   ],
   relationshipSections: (record, context) => [{
     title: "Primary contact",
@@ -325,6 +371,15 @@ const organizationConfig: FoundationUiConfig = {
       (id) => `/people/workers/${encodeURIComponent(id)}`,
       "Person",
     ),
+  }, {
+    title: "Parent Organization",
+    items: relationshipItem((record as Organization).parentOrganizationId, context.organizations, (id) => `/people/organizations/${encodeURIComponent(id)}`, "Organization"),
+  }, {
+    title: "Child Organizations",
+    items: context.organizations.filter((organization) => organization.parentOrganizationId === record.id).map((organization) => ({
+      id: organization.id, title: organization.name, href: `/people/organizations/${encodeURIComponent(organization.id)}`,
+      meta: organization.organizationType, archived: organization.lifecycleStatus === "archived",
+    })),
   }, {
     title: "People",
     items: context.people.filter((person) => person.organizationId === record.id).map((person) => ({
@@ -465,6 +520,13 @@ const locationConfig: FoundationUiConfig = {
       name: location?.name ?? "",
       nodeType: location?.nodeType ?? "Country",
       parentId: location?.parentId ?? "",
+      countryCode: location?.countryCode ?? "",
+      stateOrProvinceCode: location?.stateOrProvinceCode ?? "",
+      postalCode: location?.postalCode ?? "",
+      latitude: location?.latitude?.toString() ?? "",
+      longitude: location?.longitude?.toString() ?? "",
+      addressLine1: location?.addressLine1 ?? "",
+      addressLine2: location?.addressLine2 ?? "",
     };
   },
   fields: (context, values, record) => {
@@ -485,6 +547,13 @@ const locationConfig: FoundationUiConfig = {
         helperText: nodeType === "Country" ? "Countries are hierarchy roots." : `Valid parents: ${LOCATION_PARENT_TYPES[nodeType]?.join(", ") || "none"}.`,
         options: [blank, ...allowedParents.map((location) => recordOption(location, locationPath(location, context.locations)))],
       },
+      { name: "countryCode", label: "Country code", type: "text" },
+      { name: "stateOrProvinceCode", label: "State / Province code", type: "text" },
+      { name: "postalCode", label: "Postal code", type: "text" },
+      { name: "latitude", label: "Latitude", type: "text" },
+      { name: "longitude", label: "Longitude", type: "text" },
+      { name: "addressLine1", label: "Address line 1", type: "text" },
+      { name: "addressLine2", label: "Address line 2", type: "text" },
     ];
   },
   columns: (context) => [
@@ -517,8 +586,30 @@ const locationConfig: FoundationUiConfig = {
         { label: "Node type", value: location.nodeType },
         { label: "Breadcrumb", value: locationPath(location, context.locations) },
         { label: "Resolved Site", value: context.locations.find((site) => site.id === location.resolvedSiteId)?.name ?? "Not applicable" },
+        { label: "Resolved Country", value: context.locations.find((item) => item.id === location.resolvedCountryId)?.name ?? "Not applicable" },
+        { label: "Resolved State / Province", value: context.locations.find((item) => item.id === location.resolvedStateOrProvinceId)?.name ?? "Not applicable" },
+        { label: "Resolved County / District", value: context.locations.find((item) => item.id === location.resolvedCountyOrDistrictId)?.name ?? "Not applicable" },
+        { label: "Resolved City / Municipality", value: context.locations.find((item) => item.id === location.resolvedCityOrMunicipalityId)?.name ?? "Not applicable" },
         { label: "Direct children", value: String(children.length) },
         { label: "All descendants", value: String(allDescendants.length) },
+      ],
+    }, {
+      title: "Location workspace",
+      fields: [
+        { label: "Overview", value: location.description || "No description" },
+        { label: "Parent and ancestry", value: locationPath(location, context.locations) },
+        { label: "Resolved geography", value: [location.resolvedCountryId, location.resolvedStateOrProvinceId, location.resolvedCountyOrDistrictId, location.resolvedCityOrMunicipalityId].filter(Boolean).length + " resolved levels" },
+        { label: "Owning or operating Organizations", value: String(context.organizationLocationAssignments.filter((item) => item.locationId === location.id).length) },
+        { label: "Assigned Functions", value: String(context.locationFunctionAssignments.filter((item) => item.locationId === location.id).length) },
+        { label: "Processes", value: String(context.processLocationAssignments.filter((item) => item.locationId === location.id).length) },
+        { label: "Equipment", value: "Available in Equipment register" },
+        { label: "Chemical Inventory", value: "Available in Site Chemical Inventory" },
+        { label: "Chemical Uses", value: "Available in Chemical Uses" },
+        { label: "People and SEGs", value: `${context.people.filter((item) => item.primarySiteId === location.resolvedSiteId).length} people in resolved Site` },
+        { label: "Exposure Scenarios", value: "Available in Industrial Hygiene" },
+        { label: "Findings and Actions", value: "Available in Field Work and Actions" },
+        { label: "Record History", value: "Shown below with immutable revisions" },
+        { label: "Data Quality", value: "Available in migration review" },
       ],
     }];
   },
@@ -535,6 +626,22 @@ const locationConfig: FoundationUiConfig = {
         href: `/operations/locations/${encodeURIComponent(child.id)}`,
         meta: child.nodeType,
         archived: child.lifecycleStatus === "archived",
+      })),
+    }, {
+      title: "Assigned Functions",
+      items: context.locationFunctionAssignments.filter((assignment) => assignment.locationId === location.id).map((assignment) => ({
+        id: assignment.id,
+        title: context.operationalFunctions.find((item) => item.id === assignment.operationalFunctionId)?.name ?? "Missing Function",
+        meta: `${assignment.assignmentType}${assignment.isPrimary ? " · Primary" : ""}`,
+        archived: assignment.lifecycleStatus === "archived",
+      })),
+    }, {
+      title: "Organizations",
+      items: context.organizationLocationAssignments.filter((assignment) => assignment.locationId === location.id).map((assignment) => ({
+        id: assignment.id,
+        title: context.organizations.find((item) => item.id === assignment.organizationId)?.name ?? "Missing Organization",
+        meta: assignment.relationshipType,
+        archived: assignment.lifecycleStatus === "archived",
       })),
     }];
   },
@@ -555,8 +662,14 @@ const processConfig: FoundationUiConfig = {
   titleOf: titleFor,
   records: (context) => context.processes,
   get: (services, id) => services.processes.get(id, true),
-  create: (services, values) => services.processes.create(processInput(values)),
-  update: (services, id, values, revision) => services.processes.update(id, processInput(values), revision),
+  create: async (services, values) => {
+    await requireProcessLocationAtSelectedSite(services, values);
+    return services.processes.create(processInput(values));
+  },
+  update: async (services, id, values, revision) => {
+    await requireProcessLocationAtSelectedSite(services, values);
+    return services.processes.update(id, processInput(values), revision);
+  },
   archive: (services, id, revision, reason) => services.processes.archive(id, revision, reason),
   restore: (services, id, revision) => services.processes.restore(id, revision),
   validate: (values) => issuesByField(validateProcess(processInput(values))),
@@ -566,22 +679,50 @@ const processConfig: FoundationUiConfig = {
       ...commonInitial(record),
       name: process?.name ?? "",
       processType: process?.processType ?? "Production",
+      siteId: process?.resolvedSiteId ?? "",
       primaryLocationId: process?.primaryLocationId ?? "",
+      operationalFunctionId: process?.operationalFunctionId ?? "",
     };
   },
-  fields: (context, _values, record) => [
+  fields: (context, values, record) => {
+    const availableFunctionIds = new Set(context.locationFunctionAssignments
+      .filter((assignment) => assignment.locationId === values.primaryLocationId && assignmentIsEffective(assignment))
+      .map((assignment) => assignment.operationalFunctionId));
+    return [
     ...commonFields("processType", PROCESS_TYPES, Boolean(record)),
+    {
+      name: "siteId",
+      label: "Site",
+      type: "select",
+      required: true,
+      helperText: "Select the Site first to scope eligible physical Locations.",
+      options: [blank, ...active(context.locations)
+        .filter((location) => location.nodeType === "Site")
+        .map((location) => recordOption(location, locationPath(location, context.locations)))],
+    },
     {
       name: "primaryLocationId",
       label: "Primary location",
       type: "select",
       required: true,
-      options: [blank, ...active(context.locations).filter((location) => Boolean(location.resolvedSiteId)).map((location) => recordOption(location, locationPath(location, context.locations)))],
+      helperText: values.siteId ? "Only physical Locations resolving to the selected Site are available." : "Select a Site first.",
+      options: [blank, ...active(context.locations)
+        .filter((location) => Boolean(values.siteId) && location.resolvedSiteId === values.siteId)
+        .map((location) => recordOption(location, locationPath(location, context.locations)))],
     },
-  ],
+    {
+      name: "operationalFunctionId", label: "Operational Function", type: "select", required: true,
+      helperText: values.primaryLocationId ? "Only active Functions assigned to the selected Location are available." : "Select a Location first.",
+      options: [blank, ...context.operationalFunctions.filter((item) => item.lifecycleStatus === "active" && item.status === "Active" && availableFunctionIds.has(item.id)).map((item) => ({
+        value: item.id, label: `${item.name} (${item.businessId})`,
+      }))],
+    },
+  ];
+  },
   columns: (context) => [
     ...commonColumns((record) => (record as Process).processType),
     { key: "location", label: "Location", accessor: (record) => context.locations.find((location) => location.id === (record as Process).primaryLocationId)?.name ?? "Missing", searchable: true, sortable: true },
+    { key: "function", label: "Function", accessor: (record) => context.operationalFunctions.find((item) => item.id === (record as Process).operationalFunctionId)?.name ?? "Missing", searchable: true, sortable: true },
     { key: "site", label: "Site", accessor: (record) => context.locations.find((location) => location.id === (record as Process).resolvedSiteId)?.name ?? "Missing", searchable: true, sortable: true },
   ],
   detailSections: (record, context) => {
@@ -590,6 +731,7 @@ const processConfig: FoundationUiConfig = {
       title: "Operational context",
       fields: [
         { label: "Process type", value: process.processType },
+        { label: "Operational Function", value: context.operationalFunctions.find((item) => item.id === process.operationalFunctionId)?.name ?? "Missing relationship" },
         { label: "Location", value: context.locations.find((location) => location.id === process.primaryLocationId)?.name ?? "Missing relationship" },
         { label: "Site", value: context.locations.find((location) => location.id === process.resolvedSiteId)?.name ?? "Missing relationship" },
       ],
@@ -617,7 +759,7 @@ const processConfig: FoundationUiConfig = {
         id: task.id,
         title: task.name,
         href: `/operations/tasks/${encodeURIComponent(task.id)}`,
-        meta: task.operatingCondition,
+        meta: task.routineClassification,
         archived: task.lifecycleStatus === "archived",
       })),
     }];
@@ -633,7 +775,7 @@ const taskConfig: FoundationUiConfig = {
   title: "Tasks",
   recordLabel: "task",
   pluralRecordLabel: "tasks",
-  summary: "Manage operational tasks with required Process, Location, Site, and operating-condition context.",
+  summary: "Manage reusable operational tasks with Process, Location, Site, and descriptive routine classification.",
   emptyMessage: "Create the first task under an active process.",
   newActionLabel: "New task",
   titleOf: titleFor,
@@ -652,8 +794,7 @@ const taskConfig: FoundationUiConfig = {
       taskType: task?.taskType ?? "Routine Operation",
       processId: task?.processId ?? "",
       locationId: task?.locationId ?? "",
-      routineStatus: task?.routineStatus ?? "Routine",
-      operatingCondition: task?.operatingCondition ?? "Routine",
+      routineClassification: task?.routineClassification ?? "Unknown",
     };
   },
   fields: (context, values, record) => {
@@ -678,14 +819,13 @@ const taskConfig: FoundationUiConfig = {
         helperText: process ? "Only locations resolving to the Process Site are available." : "Select a Process to scope locations to its Site.",
         options: [blank, ...locations.map((location) => recordOption(location, locationPath(location, context.locations)))],
       },
-      { name: "routineStatus", label: "Routine status", type: "select", required: true, options: ROUTINE_STATUSES.map(option) },
-      { name: "operatingCondition", label: "Operating condition", type: "select", required: true, options: OPERATING_CONDITIONS.map(option) },
+      { name: "routineClassification", label: "Routine classification", type: "select", required: true, options: ROUTINE_CLASSIFICATIONS.map(option) },
     ];
   },
   columns: (context) => [
     ...commonColumns((record) => (record as Task).taskType),
     { key: "process", label: "Process", accessor: (record) => context.processes.find((process) => process.id === (record as Task).processId)?.name ?? "Missing", searchable: true, sortable: true },
-    { key: "condition", label: "Operating condition", accessor: (record) => (record as Task).operatingCondition, searchable: true, sortable: true },
+    { key: "classification", label: "Routine classification", accessor: (record) => (record as Task).routineClassification, searchable: true, sortable: true },
     { key: "site", label: "Site", accessor: (record) => context.locations.find((location) => location.id === (record as Task).resolvedSiteId)?.name ?? "Missing", searchable: true, sortable: true },
   ],
   detailSections: (record, context) => {
@@ -694,8 +834,7 @@ const taskConfig: FoundationUiConfig = {
       title: "Operational context",
       fields: [
         { label: "Task type", value: task.taskType },
-        { label: "Routine status", value: task.routineStatus },
-        { label: "Operating condition", value: task.operatingCondition },
+        { label: "Routine classification", value: task.routineClassification },
         { label: "Process", value: context.processes.find((process) => process.id === task.processId)?.name ?? "Missing relationship" },
         { label: "Location", value: context.locations.find((location) => location.id === task.locationId)?.name ?? "Missing relationship" },
         { label: "Site", value: context.locations.find((location) => location.id === task.resolvedSiteId)?.name ?? "Missing relationship" },
@@ -740,6 +879,10 @@ function organizationInput(values: FoundationFormValues): OrganizationFields {
     businessId: values.businessId,
     name: values.name,
     organizationType: values.organizationType as OrganizationType,
+    parentOrganizationId: values.parentOrganizationId || null,
+    organizationCode: values.organizationCode,
+    legalEntityCode: values.legalEntityCode,
+    countryCode: values.countryCode,
     status: values.status as FoundationRecordStatus,
     description: values.description,
     primaryContactPersonId: values.primaryContactPersonId || null,
@@ -770,6 +913,13 @@ function locationInput(values: FoundationFormValues): LocationFields {
     name: values.name,
     nodeType: values.nodeType as LocationNodeType,
     parentId: values.parentId || null,
+    countryCode: values.countryCode,
+    stateOrProvinceCode: values.stateOrProvinceCode,
+    postalCode: values.postalCode,
+    latitude: values.latitude ? Number(values.latitude) : null,
+    longitude: values.longitude ? Number(values.longitude) : null,
+    addressLine1: values.addressLine1,
+    addressLine2: values.addressLine2,
     description: values.description,
     status: values.status as FoundationRecordStatus,
   };
@@ -780,10 +930,26 @@ function processInput(values: FoundationFormValues): ProcessFields {
     businessId: values.businessId,
     name: values.name,
     processType: values.processType as ProcessType,
+    operationalFunctionId: values.operationalFunctionId,
     primaryLocationId: values.primaryLocationId,
     description: values.description,
     status: values.status as FoundationRecordStatus,
   };
+}
+
+async function requireProcessLocationAtSelectedSite(
+  services: FoundationServices,
+  values: FoundationFormValues,
+) {
+  if (!values.siteId || !values.primaryLocationId) return;
+  const location = await services.locations.get(values.primaryLocationId);
+  if (location.resolvedSiteId !== values.siteId) {
+    throw new ValidationError([{
+      field: "primaryLocationId",
+      message: "Primary Location must resolve to the selected Site.",
+      code: "SITE_LOCATION_MISMATCH",
+    }]);
+  }
 }
 
 function taskInput(values: FoundationFormValues): TaskFields {
@@ -794,8 +960,7 @@ function taskInput(values: FoundationFormValues): TaskFields {
     processId: values.processId,
     locationId: values.locationId,
     description: values.description,
-    routineStatus: values.routineStatus as RoutineStatus,
-    operatingCondition: values.operatingCondition as OperatingCondition,
+    routineClassification: values.routineClassification as RoutineClassification,
     status: values.status as FoundationRecordStatus,
   };
 }

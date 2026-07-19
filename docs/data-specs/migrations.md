@@ -1,13 +1,19 @@
 # Migration specification
 
 Status: Governing target
-Last updated: 2026-07-18
+Last updated: 2026-07-19
 
 ## Migration classes
 
 ### Target-schema migration
 
 Upgrades one IndexedDB schema version to the next through ordered TypeScript migration functions.
+
+Released sequence:
+
+- Version 1 creates the local-first target stores.
+- Version 2 adds typed Foundation and Chemical relationship indexes.
+- Version 3 adds hierarchical Organizations, global geography, reusable Operational Functions, and the five assignment stores. The version-3 transaction preserves current entity IDs, business IDs, revisions, archive state, and operating-condition evidence; it never invents a County or municipality.
 
 ### Legacy-source migration
 

@@ -47,7 +47,7 @@ describe("legacy foundation migration screens", () => {
   it("renders normalized Organization, Person, Location, Process, and Task fixtures in typed screens", async () => {
     let view = renderRoute("/people/organizations/legacy-org-adama");
     expect(await screen.findByRole("heading", { level: 1, name: "ADAMA US" })).toBeInTheDocument();
-    expect(screen.getByText("ADAMA Entity", { selector: "dd" })).toBeInTheDocument();
+    expect(screen.getByText("Other", { selector: "dd" })).toBeInTheDocument();
     view.unmount();
 
     view = renderRoute("/people/workers/legacy-person-hse-manager");
@@ -57,7 +57,7 @@ describe("legacy foundation migration screens", () => {
 
     view = renderRoute("/operations/locations/legacy-site-tifton");
     expect(await screen.findByRole("heading", { level: 1, name: "Tifton" })).toBeInTheDocument();
-    expect(screen.getByText(/United States.*Georgia.*Tifton/)).toBeInTheDocument();
+    expect(screen.getAllByText(/United States.*Georgia.*Tifton/).length).toBeGreaterThan(0);
     view.unmount();
 
     view = renderRoute("/operations/processes/legacy-process-prodiamine");

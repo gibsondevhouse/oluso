@@ -70,7 +70,7 @@ Country
   → Subzone / Room where applicable
 ```
 
-Processes occur at operational locations. Tasks belong to processes but may have more specific locations and operating conditions. Equipment and chemical use connect to the process/task context.
+Processes belong to an Operational Function and may span several same-Site physical Locations through explicit assignments. Tasks belong to processes and may have a more specific compatible Location. Operating condition remains on Chemical Use, Exposure Scenario, sampling, observation, and incident context—not on the reusable Task. Equipment and Chemical Use connect to the governed process/task context.
 
 ## Occupational-health hierarchy
 

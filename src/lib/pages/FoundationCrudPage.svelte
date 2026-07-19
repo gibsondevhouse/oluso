@@ -4,6 +4,8 @@
   import { foundationApplication, type FoundationServices } from "$lib/application/foundation";
   import FoundationLifecycleDialog from "$lib/components/foundation/FoundationLifecycleDialog.svelte";
   import LocationHierarchyTree from "$lib/components/foundation/LocationHierarchyTree.svelte";
+  import LocationFunctionAssignmentPanel from "$lib/components/foundation/LocationFunctionAssignmentPanel.svelte";
+  import ProcessLocationAssignmentPanel from "$lib/components/foundation/ProcessLocationAssignmentPanel.svelte";
   import {
     getFoundationUiConfig,
     type FoundationContext,
@@ -16,6 +18,8 @@
   import RegisterState from "$lib/components/register/RegisterState.svelte";
   import RegisterTable from "$lib/components/register/RegisterTable.svelte";
   import type { RecordRevision } from "$lib/data/database";
+  import { organizationAssignmentIsEffective } from "$lib/domain/enterprise";
+  import { assignmentIsEffective } from "$lib/domain/operations";
   import type { FoundationRouteKind, AppRoute, RouteMode } from "$lib/navigation/route-registry";
   import { findRoute, isFoundationRouteKind } from "$lib/navigation/route-registry";
   import RegisterRecordNotFound from "./RegisterRecordNotFound.svelte";
@@ -43,13 +47,31 @@
   let recordMissing = $state(false);
   let operationError = $state<string | null>(null);
   let pendingLifecycleAction = $state<"archive" | "restore" | null>(null);
+  let locationCountryFilter = $state("");
+  let locationStateFilter = $state("");
+  let locationCountyFilter = $state("");
+  let locationCityFilter = $state("");
+  let locationTypeFilter = $state("");
+  let locationFunctionFilter = $state("");
+  let locationOrganizationFilter = $state("");
   let mounted = false;
 
   const routeKind = $derived(
     isFoundationRouteKind(route.kind) ? route.kind : "organizations" as FoundationRouteKind,
   );
   const config = $derived(getFoundationUiConfig(routeKind));
-  const records = $derived(config.records(context));
+  const records = $derived(config.records(context).filter((record) => {
+    if (config.kind !== "locations") return true;
+    const location = record as import("$lib/domain/location").Location;
+    if (locationCountryFilter && location.resolvedCountryId !== locationCountryFilter) return false;
+    if (locationStateFilter && location.resolvedStateOrProvinceId !== locationStateFilter) return false;
+    if (locationCountyFilter && location.resolvedCountyOrDistrictId !== locationCountyFilter) return false;
+    if (locationCityFilter && location.resolvedCityOrMunicipalityId !== locationCityFilter) return false;
+    if (locationTypeFilter && location.nodeType !== locationTypeFilter) return false;
+    if (locationFunctionFilter && !context.locationFunctionAssignments.some((item) => item.locationId === location.id && item.operationalFunctionId === locationFunctionFilter && assignmentIsEffective(item))) return false;
+    if (locationOrganizationFilter && !context.organizationLocationAssignments.some((item) => item.locationId === location.id && item.organizationId === locationOrganizationFilter && organizationAssignmentIsEffective(item))) return false;
+    return true;
+  }));
   const columns = $derived(config.columns(context));
   const formInitialValues = $derived(config.initialValues(displayMode === "edit" ? currentRecord : null));
   const siteFilterOptions = $derived(
@@ -91,18 +113,33 @@
   });
 
   function emptyContext(): FoundationContext {
-    return { organizations: [], people: [], locations: [], processes: [], tasks: [] };
+    return {
+      organizations: [], people: [], locations: [], operationalFunctions: [],
+      locationFunctionAssignments: [], organizationLocationAssignments: [],
+      organizationFunctionResponsibilities: [], processes: [], processLocationAssignments: [], tasks: [],
+    };
   }
 
   async function loadContext(activeServices: FoundationServices) {
-    const [organizations, people, locations, processes, tasks] = await Promise.all([
+    const [organizations, people, locations, operationalFunctions, locationFunctionAssignments,
+      organizationLocationAssignments, organizationFunctionResponsibilities, processes,
+      processLocationAssignments, tasks] = await Promise.all([
       activeServices.organizations.list(true),
       activeServices.people.list(true),
       activeServices.locations.list(true),
+      activeServices.operationalFunctions.list(true),
+      activeServices.locationFunctionAssignments.list(true),
+      activeServices.organizationLocationAssignments.list(true),
+      activeServices.organizationFunctionResponsibilities.list(true),
       activeServices.processes.list(true),
+      activeServices.processLocationAssignments.list(true),
       activeServices.tasks.list(true),
     ]);
-    context = { organizations, people, locations, processes, tasks };
+    context = {
+      organizations, people, locations, operationalFunctions, locationFunctionAssignments,
+      organizationLocationAssignments, organizationFunctionResponsibilities, processes,
+      processLocationAssignments, tasks,
+    };
   }
 
   async function loadPage(nextMode: RouteMode, nextRecordId: string) {
@@ -222,6 +259,19 @@
         locations={context.locations}
         onOpen={(location) => void navigateTo(makeRecordPath(location))}
       />
+      <section class="location-filters" aria-labelledby="location-filters-title">
+        <div><h2 id="location-filters-title">Global Location filters</h2><button type="button" onclick={() => {
+          locationCountryFilter = ""; locationStateFilter = ""; locationCountyFilter = ""; locationCityFilter = "";
+          locationTypeFilter = ""; locationFunctionFilter = ""; locationOrganizationFilter = "";
+        }}>Clear filters</button></div>
+        <label>Country<select bind:value={locationCountryFilter}><option value="">All countries</option>{#each context.locations.filter((item) => item.nodeType === "Country") as item}<option value={item.id}>{item.name}</option>{/each}</select></label>
+        <label>State or Province<select bind:value={locationStateFilter}><option value="">All states / provinces</option>{#each context.locations.filter((item) => item.nodeType === "StateOrProvince") as item}<option value={item.id}>{item.name}</option>{/each}</select></label>
+        <label>County or District<select bind:value={locationCountyFilter}><option value="">All counties / districts</option>{#each context.locations.filter((item) => item.nodeType === "CountyOrDistrict") as item}<option value={item.id}>{item.name}</option>{/each}</select></label>
+        <label>City or Municipality<select bind:value={locationCityFilter}><option value="">All cities / municipalities</option>{#each context.locations.filter((item) => item.nodeType === "CityOrMunicipality") as item}<option value={item.id}>{item.name}</option>{/each}</select></label>
+        <label>Location type<select bind:value={locationTypeFilter}><option value="">All node types</option>{#each [...new Set(context.locations.map((item) => item.nodeType))].sort() as item}<option value={item}>{item}</option>{/each}</select></label>
+        <label>Operational Function<select bind:value={locationFunctionFilter}><option value="">All Functions</option>{#each context.operationalFunctions.filter((item) => item.lifecycleStatus === "active") as item}<option value={item.id}>{item.name}</option>{/each}</select></label>
+        <label>Organization<select bind:value={locationOrganizationFilter}><option value="">All Organizations</option>{#each context.organizations.filter((item) => item.lifecycleStatus === "active") as item}<option value={item.id}>{item.name}</option>{/each}</select></label>
+      </section>
     {/if}
 
     <RegisterTable
@@ -262,6 +312,24 @@
   <RegisterRecordNotFound registerName={config.title} recordId={displayRecordId} listPath={config.basePath} createPath={`${config.basePath}/new`} />
 {:else if displayMode === "detail" && currentRecord}
   {#if operationError}<p class="error-message" role="alert">{operationError}</p>{/if}
+  {#if config.kind === "locations" && services}
+    <LocationFunctionAssignmentPanel
+      location={currentRecord as import("$lib/domain/location").Location}
+      functions={context.operationalFunctions}
+      assignments={context.locationFunctionAssignments.filter((assignment) => assignment.locationId === currentRecord!.id)}
+      {services}
+      onChanged={() => loadPage(displayMode, displayRecordId)}
+    />
+  {/if}
+  {#if config.kind === "processes" && services}
+    <ProcessLocationAssignmentPanel
+      process={currentRecord as import("$lib/domain/operations").Process}
+      locations={context.locations}
+      assignments={context.processLocationAssignments.filter((assignment) => assignment.processId === currentRecord!.id)}
+      {services}
+      onChanged={() => loadPage(displayMode, displayRecordId)}
+    />
+  {/if}
   <RecordDetailLayout
     breadcrumbs={config.breadcrumbs}
     title={config.titleOf(currentRecord)}
@@ -324,4 +392,10 @@
     font-weight: 720;
     padding: 5px 9px;
   }
+
+  .location-filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; margin: 0 0 16px; padding: 14px; border: 1px solid var(--glass-border-subtle); border-radius: var(--radius-surface); background: rgba(10, 19, 21, .62); }
+  .location-filters > div { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .location-filters h2 { margin: 0; font-size: 1rem; }
+  .location-filters label { display: grid; gap: 5px; color: var(--color-muted); font-size: .72rem; font-weight: 720; }
+  .location-filters select { border: 1px solid var(--glass-border-subtle); border-radius: var(--radius-control); background: rgba(5, 12, 14, .7); color: var(--color-text); padding: 8px 9px; }
 </style>

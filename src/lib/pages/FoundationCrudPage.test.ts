@@ -9,6 +9,7 @@ import RouteOutlet from "./RouteOutlet.svelte";
 let services: FoundationServices;
 let country: Location;
 let state: Location;
+let city: Location;
 let site: Location;
 let building: Location;
 let process: Process;
@@ -20,17 +21,24 @@ beforeEach(async () => {
   await deleteAdamaDatabase(ADAMA_DATABASE_NAME);
   services = await foundationApplication.services();
   country = await services.locations.createCountry({ name: "United States", status: "Active" });
-  state = await services.locations.createStateOrRegion({ name: "Georgia", parentId: country.id, status: "Active" });
-  site = await services.locations.createSite({ name: "Tifton", parentId: state.id, status: "Active" });
+  state = await services.locations.createStateOrProvince({ name: "Georgia", parentId: country.id, status: "Active" });
+  city = await services.locations.createCityOrMunicipality({ name: "Tifton", parentId: state.id, status: "Active" });
+  site = await services.locations.createSite({ name: "Tifton Campus", parentId: city.id, status: "Active" });
   building = await services.locations.createOperationalNode({
     name: "Building A",
     nodeType: "Building",
     parentId: site.id,
     status: "Active",
   });
+  const manufacturing = (await services.operationalFunctions.list()).find((item) => item.name === "Manufacturing")!;
+  await services.locationFunctionAssignments.create({
+    locationId: building.id, operationalFunctionId: manufacturing.id,
+    assignmentType: "Primary Function", isPrimary: true, status: "Active",
+  });
   process = await services.processes.create({
     name: "Packaging",
     processType: "Production",
+    operationalFunctionId: manufacturing.id,
     primaryLocationId: building.id,
     status: "Active",
   });
@@ -39,14 +47,20 @@ beforeEach(async () => {
     taskType: "Routine Operation",
     processId: process.id,
     locationId: building.id,
-    routineStatus: "Routine",
-    operatingCondition: "Routine",
+    routineClassification: "Normally Routine",
     status: "Active",
   });
   organization = await services.organizations.create({
     name: "ADAMA Tifton",
-    organizationType: "ADAMA Entity",
+    organizationType: "Corporate Group",
     status: "Active",
+  });
+  await services.locationFunctionAssignments.create({
+    locationId: site.id, operationalFunctionId: manufacturing.id,
+    assignmentType: "Supporting Function", status: "Active",
+  });
+  await services.organizationLocationAssignments.create({
+    organizationId: organization.id, locationId: site.id, relationshipType: "Operates", isPrimary: true, status: "Active",
   });
 });
 
@@ -63,6 +77,62 @@ function renderRoute(path: string) {
 }
 
 describe("foundation route cutover", () => {
+  it("renders an integrated navigator with distinct enterprise node classes and assigned Functions", async () => {
+    renderRoute("/enterprise/navigator");
+    expect(await screen.findByRole("heading", { level: 1, name: "Enterprise Navigator" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Navigator legend")).toHaveTextContent("Organization");
+    expect(await screen.findByText("ADAMA Tifton")).toBeInTheDocument();
+    expect(screen.getByText("United States", { selector: "strong" })).toBeInTheDocument();
+    expect(screen.getByText("Georgia", { selector: "strong" })).toBeInTheDocument();
+    expect(screen.getByText("Tifton", { selector: "strong" })).toBeInTheDocument();
+    expect(screen.getByText("Tifton Campus", { selector: "strong" })).toBeInTheDocument();
+    expect(screen.getByText("Manufacturing")).toBeInTheDocument();
+  });
+
+  it("assigns several operational Functions from the Location detail checkbox panel", async () => {
+    renderRoute(`/operations/locations/${building.id}`);
+    expect((await screen.findAllByRole("heading", { level: 2, name: "Assigned Functions" })).length).toBeGreaterThan(0);
+    const checkboxes = screen.getAllByRole("checkbox") as HTMLInputElement[];
+    const manufacturing = checkboxes.find((item) => item.closest("label")?.querySelector("strong")?.textContent === "Manufacturing")!;
+    const laboratory = checkboxes.find((item) => item.closest("label")?.querySelector("strong")?.textContent === "Laboratory")!;
+    expect(manufacturing.checked).toBe(true);
+    expect(laboratory.checked).toBe(false);
+    await fireEvent.click(laboratory);
+    await waitFor(async () => {
+      const lab = (await services.operationalFunctions.list()).find((item) => item.name === "Laboratory")!;
+      expect((await services.locationFunctionAssignments.list()).some((item) => item.locationId === building.id && item.operationalFunctionId === lab.id && item.status === "Active")).toBe(true);
+    });
+  });
+
+  it("guides Process creation by Site, Location, and compatible Function", async () => {
+    renderRoute("/operations/processes/new");
+    expect(await screen.findByRole("form", { name: "Process form" })).toBeInTheDocument();
+
+    const locationSelect = screen.getByLabelText("Primary location") as HTMLSelectElement;
+    expect(Array.from(locationSelect.options).filter((item) => item.value)).toHaveLength(0);
+    await fireEvent.change(screen.getByLabelText("Site"), { target: { value: site.id } });
+    expect(Array.from(locationSelect.options).some((item) => item.value === building.id)).toBe(true);
+    await fireEvent.change(locationSelect, { target: { value: building.id } });
+    const functionSelect = screen.getByLabelText("Operational Function") as HTMLSelectElement;
+    expect(Array.from(functionSelect.options).some((item) => item.textContent?.includes("Manufacturing"))).toBe(true);
+  });
+
+  it("adds an effective-dated same-Site supporting Location to a Process", async () => {
+    renderRoute(`/operations/processes/${process.id}`);
+    expect(await screen.findByRole("heading", { level: 2, name: "Process Locations" })).toBeInTheDocument();
+    const form = screen.getByRole("form", { name: "Add Process Location" });
+    await fireEvent.change(within(form).getByLabelText("Supporting Location"), { target: { value: site.id } });
+    await fireEvent.change(within(form).getByLabelText("Relationship"), { target: { value: "Source" } });
+    await fireEvent.input(within(form).getByLabelText("Sequence"), { target: { value: "1" } });
+    await fireEvent.click(within(form).getByRole("button", { name: "Add supporting Location" }));
+
+    await waitFor(async () => {
+      expect((await services.processLocationAssignments.list()).some((item) =>
+        item.processId === process.id && item.locationId === site.id && item.relationshipType === "Source" && item.sequence === 1,
+      )).toBe(true);
+    });
+  });
+
   it("loads typed records, search/filter controls, offline state, and the Location hierarchy tree", async () => {
     renderRoute("/operations/locations");
 
@@ -90,7 +160,7 @@ describe("foundation route cutover", () => {
     expect(await screen.findByRole("form", { name: "Organization form" })).toBeInTheDocument();
 
     await fireEvent.input(screen.getByLabelText("Name"), { target: { value: "Safety Laboratory" } });
-    await fireEvent.change(screen.getByLabelText("Type"), { target: { value: "Laboratory" } });
+    await fireEvent.change(screen.getByLabelText("Type"), { target: { value: "Laboratory Provider" } });
     await fireEvent.click(screen.getByRole("button", { name: "Create organization" }));
 
     expect(await screen.findByRole("heading", { level: 1, name: "Safety Laboratory" })).toBeInTheDocument();
@@ -161,7 +231,7 @@ describe("foundation route cutover", () => {
     renderRoute(`/operations/tasks/${task.id}`);
     expect(await screen.findByRole("heading", { level: 1, name: "Load packer" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { level: 2, name: "Parent Process" })).toBeInTheDocument();
-    expect(screen.getAllByText("Routine", { selector: "dd" })).toHaveLength(2);
+    expect(screen.getAllByText("Normally Routine", { selector: "dd" })).toHaveLength(1);
   });
 
   it("reloads persisted IndexedDB records while offline-ready and handles missing records", async () => {

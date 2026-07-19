@@ -30,8 +30,7 @@ export class TaskService extends FoundationService<Task> {
         locationId: location.id,
         resolvedSiteId: process.resolvedSiteId,
         description: input.description?.trim() ?? "",
-        routineStatus: input.routineStatus,
-        operatingCondition: input.operatingCondition,
+        routineClassification: input.routineClassification,
         status: input.status,
       },
       this.options.context(),
@@ -52,8 +51,7 @@ export class TaskService extends FoundationService<Task> {
         locationId: location.id,
         resolvedSiteId: process.resolvedSiteId,
         description: merged.description?.trim() ?? "",
-        routineStatus: merged.routineStatus,
-        operatingCondition: merged.operatingCondition,
+        routineClassification: merged.routineClassification,
         status: merged.status,
       },
       expectedRevision,
@@ -61,9 +59,9 @@ export class TaskService extends FoundationService<Task> {
     );
   }
 
-  async changeOperatingCondition(id: string, operatingCondition: TaskFields["operatingCondition"], expectedRevision: number) {
+  async changeRoutineClassification(id: string, routineClassification: TaskFields["routineClassification"], expectedRevision: number) {
     const current = await this.requireMutable(id);
-    return this.update(id, { ...current, operatingCondition }, expectedRevision);
+    return this.update(id, { ...current, routineClassification }, expectedRevision);
   }
 
   async moveToProcess(id: string, processId: string, expectedRevision: number) {

@@ -17,7 +17,7 @@ Last updated: 2026-07-18
 1. Select or create Country, State/Region, and Site.
 2. Select or create the operational Unit/Zone/Subzone hierarchy.
 3. Define processes within the unit.
-4. Break processes into tasks and operating conditions.
+4. Break Processes into reusable Tasks, then describe operating conditions in distinct Exposure Scenarios or Chemical Uses.
 5. Link relevant equipment.
 6. Link chemical products through `ChemicalUse`, not through inventory alone.
 7. Identify people/roles and establish effective-dated SEG membership.

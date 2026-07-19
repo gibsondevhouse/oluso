@@ -13,7 +13,7 @@ export interface FoundationOrganization extends RecordEnvelope {
   status?: string;
 }
 export interface FoundationPerson extends RecordEnvelope { status?: string; displayName?: string; name?: string }
-export interface FoundationProcess extends RecordEnvelope { locationId?: string; resolvedSiteId: string | null; status?: string; name?: string }
+export interface FoundationProcess extends RecordEnvelope { locationId?: string; primaryLocationId?: string; operationalFunctionId: string; resolvedSiteId: string | null; status?: string; name?: string }
 export interface FoundationTask extends RecordEnvelope { processId: string; resolvedSiteId: string | null; status?: string; name?: string }
 
 export class ChemicalService {
@@ -57,7 +57,10 @@ export class ChemicalService {
       request.onerror = () => reject(request.error);
     });
     if (!record) throw new ChemicalRelationshipError(`${label} was not found.`);
-    if (active && (record.lifecycleStatus !== "active" || (record as T & { status?: string }).status === "inactive")) {
+    if (active && (
+      record.lifecycleStatus !== "active" ||
+      String((record as T & { status?: string }).status ?? "").toLocaleLowerCase() === "inactive"
+    )) {
       throw new ChemicalRelationshipError(`${label} is archived or inactive.`);
     }
     return record;

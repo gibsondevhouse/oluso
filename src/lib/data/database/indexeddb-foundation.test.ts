@@ -75,9 +75,41 @@ describe("IndexedDB foundation", () => {
       expect.arrayContaining([...ADAMA_STORE_NAMES]),
     );
 
-    const transaction = database.transaction(["locations", "record_revisions"], "readonly");
+    const transaction = database.transaction([
+      "organizations", "locations", "operational_functions", "location_function_assignments",
+      "organization_location_assignments", "organization_function_responsibilities", "processes",
+      "process_location_assignments", "exposure_scenarios", "record_revisions",
+    ], "readonly");
+    expect(Array.from(transaction.objectStore("organizations").indexNames)).toEqual(
+      expect.arrayContaining(["byParentOrganization", "byOrganizationType", "byCountryCode"]),
+    );
     expect(Array.from(transaction.objectStore("locations").indexNames)).toEqual(
-      expect.arrayContaining(["byBusinessId", "byParent", "byResolvedSite"]),
+      expect.arrayContaining([
+        "byBusinessId", "byParent", "byNodeType", "byResolvedCountry",
+        "byResolvedStateOrProvince", "byResolvedCountyOrDistrict",
+        "byResolvedCityOrMunicipality", "byResolvedSite",
+      ]),
+    );
+    expect(Array.from(transaction.objectStore("operational_functions").indexNames)).toEqual(
+      expect.arrayContaining(["byName", "byFunctionCategory", "byLifecycleStatus"]),
+    );
+    expect(Array.from(transaction.objectStore("location_function_assignments").indexNames)).toEqual(
+      expect.arrayContaining(["byLocation", "byFunction", "byLocationAndFunction", "byResponsibleOrganization", "byEffectiveFrom", "byStatus"]),
+    );
+    expect(Array.from(transaction.objectStore("organization_location_assignments").indexNames)).toEqual(
+      expect.arrayContaining(["byOrganization", "byLocation", "byRelationshipType", "byOrganizationAndLocation"]),
+    );
+    expect(Array.from(transaction.objectStore("organization_function_responsibilities").indexNames)).toEqual(
+      expect.arrayContaining(["byOrganization", "byFunction", "byLocation", "byResponsibilityType"]),
+    );
+    expect(Array.from(transaction.objectStore("processes").indexNames)).toEqual(
+      expect.arrayContaining(["byOperationalFunction", "byPrimaryLocation", "byResolvedSite"]),
+    );
+    expect(Array.from(transaction.objectStore("process_location_assignments").indexNames)).toEqual(
+      expect.arrayContaining(["byProcess", "byLocation", "byRelationshipType", "byProcessAndLocation"]),
+    );
+    expect(Array.from(transaction.objectStore("exposure_scenarios").indexNames)).toEqual(
+      expect.arrayContaining(["byResolvedSite", "byOperationalFunction", "byOperatingCondition"]),
     );
     expect(Array.from(transaction.objectStore("record_revisions").indexNames)).toEqual(
       expect.arrayContaining(["byRecord", "byRecordRevision", "byExchangePackage"]),
