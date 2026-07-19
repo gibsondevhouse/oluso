@@ -25,6 +25,7 @@ export interface MutationTransactionOptions {
 export interface CreateRecordOptions<TInput extends RecordData> {
   storeName: MutableRecordStoreName;
   recordType: string;
+  id?: string;
   input: TInput & { businessId: string };
   operation?: Extract<RecordRevisionOperation, "create" | "import" | "resolve">;
 }
@@ -55,7 +56,7 @@ export class MutationSession {
   async createRecord<TRecord extends RecordEnvelope, TInput extends RecordData>(
     options: CreateRecordOptions<TInput>,
   ): Promise<TRecord> {
-    const id = this.createId();
+    const id = options.id ?? this.createId();
     const input = options.input;
     const record = {
       ...input,
@@ -72,6 +73,7 @@ export class MutationSession {
       archivedAt: null,
       archivedBy: null,
       archiveReason: null,
+      archivedReason: null,
     } satisfies RecordEnvelope as unknown as TRecord;
 
     const store = this.transaction.objectStore(options.storeName);
@@ -112,6 +114,7 @@ export class MutationSession {
       archivedAt: current.archivedAt,
       archivedBy: current.archivedBy,
       archiveReason: current.archiveReason,
+      archivedReason: current.archivedReason,
     } as TRecord;
 
     await requestToPromise(store.put(next));
@@ -203,6 +206,7 @@ export class MutationSession {
       archivedAt: lifecycleStatus === "archived" ? this.timestamp : null,
       archivedBy: lifecycleStatus === "archived" ? this.context.actorId : null,
       archiveReason: lifecycleStatus === "archived" ? options.reason.trim() : null,
+      archivedReason: lifecycleStatus === "archived" ? options.reason.trim() : null,
     } as TRecord;
 
     await requestToPromise(store.put(next));

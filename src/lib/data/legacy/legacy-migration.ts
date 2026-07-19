@@ -40,6 +40,29 @@ const LEGACY_LOCATION_TYPE_MAP: Record<string, string> = {
   "Outdoor Area": "OutdoorArea",
 };
 
+const FOUNDATION_STATUSES = new Set(["Draft", "Active", "Inactive"]);
+const ORGANIZATION_TYPES = new Set([
+  "ADAMA Entity", "Department", "Contractor", "Temporary Agency", "Laboratory",
+  "Waste Vendor", "Service Vendor", "Regulator", "Medical Provider", "Other",
+]);
+const PERSON_TYPES = new Set([
+  "Employee", "Contractor", "Temporary Worker", "Inspector", "Investigator", "Owner", "External Contact",
+]);
+const TASK_TYPES = new Set([
+  "Routine Operation", "Startup", "Shutdown", "Cleaning", "Maintenance", "Troubleshooting",
+  "Material Transfer", "Sampling", "Packaging", "Contractor Work", "Emergency Response", "Other",
+]);
+const PROCESS_TYPE_MAP: Record<string, string> = {
+  Production: "Production",
+  Maintenance: "Maintenance",
+  Warehouse: "Warehouse",
+  Logistics: "Warehouse",
+  Laboratory: "Laboratory",
+  Utilities: "Utilities",
+  Administrative: "Administrative",
+  Emergency: "Emergency",
+};
+
 function isRecord(value: unknown): value is SourceRecord {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
@@ -55,6 +78,11 @@ function text(value: unknown, fallback = "") {
 
 function stringArray(value: unknown) {
   return Array.isArray(value) ? value.filter((entry): entry is string => typeof entry === "string") : [];
+}
+
+function foundationStatus(record: SourceRecord) {
+  const value = text(record.status, "Active");
+  return FOUNDATION_STATUSES.has(value) ? value : "Active";
 }
 
 function slug(value: string) {
@@ -102,6 +130,10 @@ function envelope(
     archiveReason:
       lifecycleStatus === "archived"
         ? text(record.archiveReason, text(record.archivedReason, "Migrated archive"))
+        : null,
+    archivedReason:
+      lifecycleStatus === "archived"
+        ? text(record.archivedReason, text(record.archiveReason, "Migrated archive"))
         : null,
     ...overrides,
   };
@@ -200,6 +232,8 @@ function prepareLocations(
       nodeType: "Country",
       parentId: null,
       resolvedSiteId: null,
+      description: "",
+      status: "Active",
     }));
     const countryRecord = output.records.get("locations")!.at(-1)!;
     countryRecord.id = countryId;
@@ -210,6 +244,8 @@ function prepareLocations(
       nodeType: "StateOrRegion",
       parentId: countryId,
       resolvedSiteId: null,
+      description: "",
+      status: "Active",
     }));
     const stateRecord = output.records.get("locations")!.at(-1)!;
     stateRecord.id = stateId;
@@ -230,6 +266,8 @@ function prepareLocations(
       nodeType,
       parentId,
       resolvedSiteId: nodeType === "Site" ? id : resolveSite(record) || null,
+      description: text(record.description),
+      status: foundationStatus(record),
       legacyLocationType: text(record.type),
     }));
   }
@@ -287,8 +325,6 @@ function prepareMigration(
   }
 
   const directMappings: Array<[string, MutableRecordStoreName, string]> = [
-    ["organizations", "organizations", "ORG"],
-    ["people", "people", "PER"],
     ["hazards", "hazards", "HAZ"],
     ["controls", "controls", "CTL"],
     ["segs", "segs", "SEG"],
@@ -304,6 +340,35 @@ function prepareMigration(
     ["programApplicabilities", "program_applicability", "PA"],
     ["medicalSurveillance", "medical_surveillance_requirements", "MSR"],
   ];
+
+  for (const record of records(source, "organizations")) {
+    const legacyType = text(record.organizationType, text(record.type, "Other"));
+    addRecord(output, "organizations", directRecord(record, options, timestamp, sourceInstallationId, "ORG", {
+      name: text(record.name, text(record.title)),
+      organizationType: ORGANIZATION_TYPES.has(legacyType) ? legacyType : "Other",
+      status: foundationStatus(record),
+      description: text(record.description, text(record.summary)),
+      primaryContactPersonId: text(record.primaryContactPersonId) || null,
+    }));
+  }
+
+  for (const record of records(source, "people")) {
+    const legacyType = text(record.personType, text(record.type, "External Contact"));
+    addRecord(output, "people", directRecord(record, options, timestamp, sourceInstallationId, "PER", {
+      displayName: text(record.displayName, text(record.name, text(record.title))),
+      personType: PERSON_TYPES.has(legacyType) ? legacyType : "External Contact",
+      organizationId: text(record.organizationId) || null,
+      employeeIdentifier: text(record.employeeIdentifier),
+      jobTitle: text(record.jobTitle),
+      department: text(record.department),
+      supervisorPersonId: text(record.supervisorPersonId) || null,
+      primarySiteId: text(record.primarySiteId) || null,
+      email: text(record.email),
+      phone: text(record.phone),
+      description: text(record.description, text(record.summary)),
+      status: foundationStatus(record),
+    }));
+  }
   for (const [collection, store, prefix] of directMappings) {
     for (const record of records(source, collection)) {
       addRecord(output, store, directRecord(record, options, timestamp, sourceInstallationId, prefix));
@@ -315,17 +380,33 @@ function prepareMigration(
 
   for (const record of records(source, "processes")) {
     const locationId = text(record.locationId);
+    const legacyType = text(record.processType, text(record.category));
     addRecord(output, "processes", directRecord(record, options, timestamp, sourceInstallationId, "PROC", {
-      locationId,
+      name: text(record.name, text(record.title)),
+      processType: PROCESS_TYPE_MAP[legacyType] ?? "Other",
+      primaryLocationId: locationId,
       resolvedSiteId: siteByLocation.get(locationId) ?? null,
+      description: text(record.description, text(record.summary)),
+      status: foundationStatus(record),
     }));
   }
   for (const record of records(source, "tasks")) {
     const locationId = text(record.locationId);
+    const legacyType = text(record.taskType, text(record.type, "Other"));
+    const taskType = TASK_TYPES.has(legacyType) ? legacyType : "Other";
+    const operatingCondition = ["Startup", "Shutdown", "Maintenance", "Emergency"].includes(taskType)
+      ? taskType
+      : "Routine";
     addRecord(output, "tasks", directRecord(record, options, timestamp, sourceInstallationId, "TASK", {
+      name: text(record.name, text(record.title)),
+      taskType,
       processId: text(record.processId),
       locationId,
       resolvedSiteId: siteByLocation.get(locationId) ?? null,
+      description: text(record.description, text(record.summary)),
+      routineStatus: operatingCondition === "Routine" ? "Routine" : "Non-Routine",
+      operatingCondition,
+      status: foundationStatus(record),
     }));
   }
   for (const record of records(source, "equipment")) {

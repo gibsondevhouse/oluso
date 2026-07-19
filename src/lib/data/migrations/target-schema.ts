@@ -16,6 +16,13 @@ export const TARGET_SCHEMA_MIGRATIONS: readonly TargetSchemaMigration[] = [
       "Create bounded system, foundation, industrial-hygiene, assurance, and governance stores with required indexes.",
     apply: createInitialAdamaSchema,
   },
+  {
+    version: 2,
+    description: "Add typed foundation relationship indexes for organizations, people, processes, and tasks.",
+    apply(database, transaction) {
+      createInitialAdamaSchema(database, transaction);
+    },
+  },
 ] as const;
 
 export function upgradeAdamaDatabase(
