@@ -86,7 +86,7 @@
     gap: 12px;
     border: 1px solid var(--glass-border-subtle);
     border-radius: var(--radius-surface);
-    background: linear-gradient(180deg, rgba(22, 33, 36, 0.86), rgba(14, 23, 25, 0.84));
+    background: var(--color-surface);
     box-shadow: var(--surface-shadow);
     padding: 18px;
   }
@@ -142,7 +142,7 @@
     width: 100%;
     border: 1px solid var(--glass-border-subtle);
     border-radius: var(--radius-control);
-    background: rgba(7, 12, 14, 0.28);
+    background: var(--color-surface-subtle);
     color: inherit;
     padding: 10px 12px;
     text-align: left;

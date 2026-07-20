@@ -55,14 +55,14 @@
 
 <AppShell {currentPath}>
   {#if identityState === "loading"}
-    <section class="identity-bootstrap" role="status">Initializing the secure local dataset…</section>
+    <section class="identity-bootstrap" role="status">Preparing your local workspace…</section>
   {:else if identityState === "error"}
-    <section class="identity-bootstrap" role="alert">Local identity could not be loaded: {identityError}</section>
+    <section class="identity-bootstrap" role="alert">Your local profile could not be loaded: {identityError}</section>
   {:else if identityState === "ready" || identityRoute(currentPath)}
     {@render children()}
   {/if}
 </AppShell>
 
 <style>
-  .identity-bootstrap { margin: 28px; border: 1px solid var(--glass-border-subtle); border-radius: var(--radius-surface); background: rgba(18, 29, 31, .86); color: var(--color-muted); padding: 24px; }
+  .identity-bootstrap { margin: 28px; border: 1px solid var(--color-border); border-radius: var(--radius-surface); background: var(--color-surface); color: var(--color-muted); padding: 24px; }
 </style>

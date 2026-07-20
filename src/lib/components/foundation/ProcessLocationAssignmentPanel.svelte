@@ -143,7 +143,7 @@
 </section>
 
 <style>
-  .process-locations { display: grid; gap: 14px; margin-bottom: 16px; padding: 18px; border: 1px solid var(--glass-border-subtle); border-radius: var(--radius-surface); background: rgba(12, 23, 26, .78); }
+  .process-locations { display: grid; gap: 14px; margin-bottom: 16px; padding: 18px; border: 1px solid var(--color-border); border-radius: var(--radius-surface); background: var(--color-surface); }
   .panel-heading > div { display: grid; gap: 4px; }
   .panel-heading span { color: var(--color-accent-strong); font-size: .7rem; font-weight: 760; text-transform: uppercase; }
   h2, p { margin: 0; }
@@ -157,7 +157,7 @@
   .assignment-form { display: grid; grid-template-columns: 2fr 1.4fr .7fr 1fr 1fr; gap: 10px; align-items: end; border-top: 1px solid var(--glass-border-subtle); padding-top: 14px; }
   .assignment-form label { display: grid; gap: 5px; font-size: .72rem; font-weight: 720; }
   .assignment-form .notes { grid-column: 1 / -2; }
-  select, input { min-width: 0; border: 1px solid var(--glass-border-subtle); border-radius: var(--radius-control); background: rgba(5, 12, 14, .68); color: var(--color-text); padding: 8px 9px; }
+  select, input { min-width: 0; border: 1px solid var(--color-field-border); border-radius: var(--radius-control); background: var(--color-field-bg); color: var(--color-text); padding: 8px 9px; }
   button { border: 1px solid var(--color-accent-border); border-radius: var(--radius-control); background: var(--color-accent-soft); color: var(--color-accent-strong); padding: 8px 10px; font-weight: 720; }
   .history-note { font-size: .75rem; }
   .error { color: var(--color-danger-text); }

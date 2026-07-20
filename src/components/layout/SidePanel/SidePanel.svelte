@@ -3,6 +3,7 @@
   import { getActiveSidebarItemId, getExpandedSectionIds } from "$lib/navigation/sidebar.utils";
   import { iconMap } from "./icons";
   import SidePanelSection from "./SidePanelSection.svelte";
+  import { onMount } from "svelte";
 
   interface Props {
     currentPath: string;
@@ -11,6 +12,7 @@
 
   let { currentPath, collapsed }: Props = $props();
   let userExpandedState = $state<Record<string, boolean>>({});
+  const expandedStorageKey = "oluso.navigation.expanded-section.v1";
 
   const activeItemId = $derived(getActiveSidebarItemId(currentPath, SIDEBAR_CONFIG));
   const expandedSectionIds = $derived(
@@ -19,24 +21,27 @@
 
   function toggleSection(sectionId: string) {
     const currentlyExpanded = expandedSectionIds.includes(sectionId);
-    userExpandedState = {
-      ...userExpandedState,
-      [sectionId]: !currentlyExpanded,
-    };
+    userExpandedState = Object.fromEntries(SIDEBAR_CONFIG.sections.filter((item) => item.collapsible).map((item) => [item.id, item.id === sectionId ? !currentlyExpanded : false]));
+    try { window.localStorage.setItem(expandedStorageKey, currentlyExpanded ? "" : sectionId); } catch { /* navigation still works without saved preference */ }
   }
 
-  const AppIcon = iconMap.ShieldCheck;
+  onMount(() => {
+    try {
+      const saved = window.localStorage.getItem(expandedStorageKey);
+      if (saved) userExpandedState = Object.fromEntries(SIDEBAR_CONFIG.sections.filter((item) => item.collapsible).map((item) => [item.id, item.id === saved]));
+    } catch { /* use configured defaults */ }
+  });
 </script>
 
 <aside class="side-panel" class:collapsed aria-label="Primary navigation">
   <div class="side-panel-header">
     <div class="app-mark" aria-hidden="true">
-      <AppIcon size={20} />
+      <span>A</span>
     </div>
     {#if !collapsed}
       <div class="app-identity">
         <span class="app-title">{SIDEBAR_CONFIG.appTitle}</span>
-        <span class="app-subtitle">Operational Risk Suite</span>
+        <span class="app-subtitle">Connected HSE workspace</span>
       </div>
     {/if}
   </div>
@@ -55,8 +60,8 @@
 
   {#if !collapsed}
     <footer class="side-panel-footer">
-      <span>Local-first data layer</span>
-      <strong>Enterprise controls active</strong>
+      <span>Offline ready</span>
+      <strong>Backup available in Settings</strong>
     </footer>
   {/if}
 </aside>
@@ -70,13 +75,9 @@
     min-width: var(--side-panel-width);
     height: 100vh;
     overflow: hidden;
-    border-right: 1px solid var(--glass-border-subtle);
-    background:
-      linear-gradient(180deg, rgba(12, 20, 22, 0.96), rgba(8, 14, 16, 0.95)),
-      linear-gradient(115deg, rgba(45, 212, 191, 0.08), transparent 46%, rgba(96, 165, 250, 0.06));
+    border-right: 1px solid #303732;
+    background: #202522;
     color: var(--color-nav-text);
-    box-shadow: 18px 0 44px rgba(0, 0, 0, 0.28);
-    backdrop-filter: blur(var(--glass-blur-lg)) saturate(var(--glass-saturate));
   }
 
   .side-panel.collapsed {
@@ -90,9 +91,8 @@
     align-items: center;
     min-height: var(--header-height);
     padding: 0 14px;
-    border-bottom: 1px solid var(--glass-border-subtle);
+    border-bottom: 1px solid #343b36;
     gap: 10px;
-    background: rgba(255, 255, 255, 0.018);
   }
 
   .side-panel.collapsed .side-panel-header {
@@ -107,11 +107,11 @@
     width: 32px;
     height: 32px;
     flex: 0 0 32px;
-    border: 1px solid var(--glass-border);
+    border: 1px solid #00aa4f;
     border-radius: 8px;
-    background: linear-gradient(145deg, rgba(45, 212, 191, 0.22), rgba(96, 165, 250, 0.12));
-    color: var(--color-accent-strong);
-    box-shadow: var(--elevation-z0);
+    background: #00aa4f;
+    color: white;
+    font-weight: 850;
   }
 
   .app-identity {
@@ -122,14 +122,14 @@
   }
 
   .app-title {
-    color: var(--color-text);
+    color: #ffffff;
     font-size: 0.875rem;
     font-weight: 780;
     line-height: 1.1;
   }
 
   .app-subtitle {
-    color: var(--color-muted);
+    color: #aeb8b2;
     font-size: 0.75rem;
     font-weight: 650;
     line-height: 1.1;
@@ -144,15 +144,15 @@
   .side-panel-footer {
     display: grid;
     gap: 4px;
-    border-top: 1px solid var(--glass-border-subtle);
-    color: var(--color-muted);
+    border-top: 1px solid #343b36;
+    color: #aeb8b2;
     font-size: 0.75rem;
     line-height: 1.2;
     padding: 12px 16px;
   }
 
   .side-panel-footer strong {
-    color: var(--color-accent-strong);
+    color: #7cdb9f;
     font-size: 0.75rem;
     font-weight: 760;
   }

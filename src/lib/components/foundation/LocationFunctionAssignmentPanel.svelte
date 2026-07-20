@@ -87,14 +87,14 @@
 </section>
 
 <style>
-  .function-panel { display: grid; gap: 14px; margin-bottom: 16px; padding: 18px; border: 1px solid var(--glass-border-subtle); border-radius: var(--radius-surface); background: rgba(12, 23, 26, .78); }
+  .function-panel { display: grid; gap: 14px; margin-bottom: 16px; padding: 18px; border: 1px solid var(--color-border); border-radius: var(--radius-surface); background: var(--color-surface); }
   .panel-heading { display: flex; align-items: end; justify-content: space-between; gap: 18px; }
   .panel-heading > div { display: grid; gap: 4px; }
   .panel-heading > div > span { color: var(--color-accent-strong); font-size: .7rem; font-weight: 760; text-transform: uppercase; }
   h2, p { margin: 0; }
   p, small, label > span { color: var(--color-muted); }
   .panel-heading label { display: grid; gap: 5px; min-width: min(320px, 100%); font-size: .75rem; font-weight: 700; }
-  input[type="search"] { border: 1px solid var(--glass-border-subtle); border-radius: var(--radius-control); background: rgba(5, 12, 14, .68); color: inherit; padding: 9px 11px; }
+  input[type="search"] { border: 1px solid var(--color-field-border); border-radius: var(--radius-control); background: var(--color-field-bg); color: inherit; padding: 9px 11px; }
   .function-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 8px; }
   .function-grid label { display: flex; align-items: center; gap: 10px; border: 1px solid var(--glass-border-subtle); border-radius: var(--radius-control); padding: 10px 12px; background: rgba(4, 10, 12, .3); }
   .function-grid label.assigned { border-color: var(--color-positive-border); background: var(--color-positive-soft); }

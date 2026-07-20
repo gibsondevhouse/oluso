@@ -10,6 +10,10 @@ export type RouteKind =
   | "dashboard"
   | "global-search"
   | "enterprise-navigator"
+  | "function-workspace"
+  | "sds-review"
+  | "exposure-scenarios"
+  | "review-queue"
   | "locations"
   | "findings"
   | "processes"
@@ -95,8 +99,17 @@ export const APP_ROUTES: AppRoute[] = [
     path: "/enterprise/navigator",
     title: "Enterprise Navigator",
     summary: "Navigate explicit Organization, geographic, physical Location, and Operational Function relationships.",
-    section: "People & Work",
+    section: "Enterprise",
     kind: "enterprise-navigator",
+  },
+  {
+    path: "/enterprise/functions",
+    title: "Functions & Processes",
+    summary: "Navigate operational work across Sites, Locations, Processes, Tasks, people, materials, and exposure context.",
+    section: "Enterprise",
+    kind: "function-workspace",
+    mode: "list",
+    basePath: "/enterprise/functions",
   },
   {
     path: "/people/organizations",
@@ -158,6 +171,27 @@ export const APP_ROUTES: AppRoute[] = [
     summary: "Review legacy Chemical evidence, canonical mappings, and unresolved data-quality findings.",
     section: "Chemical Master Data",
     kind: "chemical-migration",
+  },
+  {
+    path: "/chemicals/sds-review",
+    title: "SDS Review",
+    summary: "Review current, pending, unavailable, and superseded SDS records in Product context.",
+    section: "Chemicals",
+    kind: "sds-review",
+  },
+  {
+    path: "/exposure/scenarios",
+    title: "Exposure Scenarios",
+    summary: "Review exposure conditions in the context of Site, Location, Function, Process, and Task.",
+    section: "Exposure",
+    kind: "exposure-scenarios",
+  },
+  {
+    path: "/review/queue",
+    title: "Review Queue",
+    summary: "Work through records awaiting review, data-quality attention, or import decisions.",
+    section: "Review",
+    kind: "review-queue",
   },
   {
     path: "/operations/locations",
@@ -456,11 +490,20 @@ function findDynamicChemicalRoute(pathname: string): AppRoute | undefined {
   return undefined;
 }
 
+function findDynamicFunctionRoute(pathname: string): AppRoute | undefined {
+  const route = APP_ROUTES.find((item) => item.kind === "function-workspace");
+  if (!route?.basePath || !pathname.startsWith(`${route.basePath}/`)) return undefined;
+  const parts = pathname.slice(route.basePath.length + 1).split("/").filter(Boolean);
+  if (parts.length !== 1) return undefined;
+  return { ...route, path: pathname, mode: "detail", recordId: decodeURIComponent(parts[0]) };
+}
+
 export function findRoute(pathname: string): AppRoute | undefined {
   const normalizedPathname = normalizePath(pathname);
   return (
     APP_ROUTES.find((route) => route.path === normalizedPathname) ??
     findDynamicChemicalRoute(normalizedPathname) ??
+    findDynamicFunctionRoute(normalizedPathname) ??
     findDynamicRegisterRoute(normalizedPathname)
   );
 }
@@ -497,5 +540,6 @@ export function getRegisteredRoutePatterns(): string[] {
     ...APP_ROUTES.filter((route) => !isRegisterRouteKind(route.kind)).map((route) => route.path),
     ...registerPatterns,
     ...chemicalPatterns,
+    "/enterprise/functions/:id",
   ];
 }

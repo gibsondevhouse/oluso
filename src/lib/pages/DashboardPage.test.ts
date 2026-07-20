@@ -1,110 +1,30 @@
 import { render, screen } from "@testing-library/svelte";
-import { beforeEach, describe, expect, it } from "vitest";
-import {
-  findingRecords,
-  equipmentRecords,
-  locationRecords,
-  localPersistenceRepository,
-  persistenceDiagnostics,
-  resetPersistenceStoresForTest,
-} from "$lib/persistence/local-persistence";
-import { withActiveLifecycle } from "$lib/persistence/lifecycle.types";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { foundationApplication } from "$lib/application/foundation";
+import { ADAMA_DATABASE_NAME, deleteAdamaDatabase } from "$lib/data/database";
 import DashboardPage from "./DashboardPage.svelte";
 
 describe("DashboardPage", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     localStorage.clear();
-    resetPersistenceStoresForTest();
+    foundationApplication.close();
+    await deleteAdamaDatabase(ADAMA_DATABASE_NAME);
+    const services = await foundationApplication.services();
+    const country = await services.locations.createCountry({ name: "United States", status: "Active" });
+    const state = await services.locations.createStateOrProvince({ name: "Georgia", parentId: country.id, status: "Active" });
+    const city = await services.locations.createCityOrMunicipality({ name: "Tifton", parentId: state.id, status: "Active" });
+    await services.locations.createSite({ name: "Tifton Campus", parentId: city.id, status: "Active" });
   });
 
-  it("renders the focused priority-signal dashboard", () => {
-    persistenceDiagnostics.set({
-      status: "ready",
-      dataPath: "localStorage://oluso.persistence.v1",
-      initializedAt: "2026-07-09T12:00:00.000Z",
-      lastInitializationStatus: "Local persistence initialized.",
-      lastMigrationStatus: "Schema v2 is ready.",
-      lastError: null,
-    });
-    locationRecords.set([
-      withActiveLifecycle({
-        id: "loc-test",
-        name: "Test Facility",
-        type: "Facility" as const,
-        parentLocationId: "",
-        country: "United States",
-        stateProvince: "Michigan",
-        description: "",
-        status: "active" as const,
-        createdAt: "2026-07-09T12:00:00.000Z",
-        updatedAt: "2026-07-09T12:00:00.000Z",
-      }),
-    ]);
-    findingRecords.set([
-      withActiveLifecycle({
-        id: "finding-test",
-        title: "Test finding",
-        type: "Inspection Finding" as const,
-        description: "",
-        locationId: "loc-test",
-        processId: "",
-        hazardId: "",
-        severity: "Low" as const,
-        status: "Open" as const,
-        reportedBy: "Tester",
-        createdAt: "2026-07-09T12:00:00.000Z",
-        updatedAt: "2026-07-09T12:00:00.000Z",
-      }),
-    ]);
-    equipmentRecords.set([
-      withActiveLifecycle({
-        id: "equipment-test",
-        name: "Test Dust Collector",
-        type: "Dust Collector" as const,
-        locationId: "loc-test",
-        processId: "",
-        description: "",
-        status: "active" as const,
-        notes: "",
-        createdAt: "2026-07-09T12:00:00.000Z",
-        updatedAt: "2026-07-09T12:00:00.000Z",
-      }),
-    ]);
+  afterEach(async () => { foundationApplication.close(); await deleteAdamaDatabase(ADAMA_DATABASE_NAME); });
 
+  it("summarizes the current work context without exposing persistence internals", async () => {
     render(DashboardPage);
-
-    expect(screen.getByRole("heading", { level: 1, name: "OLUSO Dashboard" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { level: 2, name: "Priority Signals" })).toBeInTheDocument();
-    expect(screen.getByText("Persistence ready")).toBeInTheDocument();
-    expect(screen.getByText("localStorage://oluso.persistence.v1")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Open Findings\s+1\s+of 1 total/ })).toHaveAttribute(
-      "href",
-      "/field/findings",
-    );
-    expect(screen.getByRole("link", { name: /Open Actions\s+0\s+of 0 total/ })).toHaveAttribute(
-      "href",
-      "/actions/corrective-actions",
-    );
-    expect(screen.getByRole("link", { name: /Active Hazards\s+0\s+of 0 total/ })).toHaveAttribute(
-      "href",
-      "/hse/hazards",
-    );
-    expect(screen.queryByRole("link", { name: /Locations/ })).not.toBeInTheDocument();
-    expect(screen.queryByRole("tab")).not.toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: /Exposure Agents/ })).not.toBeInTheDocument();
-    expect(localStorage.getItem("oluso.dashboard.activeTab")).toBeNull();
-  });
-
-  it("excludes archived records from dashboard counts", async () => {
-    await localPersistenceRepository.initialize();
-    localPersistenceRepository.archiveRecord("findings", "finding-demo-egress", "Closed out.");
-    localPersistenceRepository.archiveRecord("locations", "loc-demo-workshop", "Decommissioned.");
-
-    render(DashboardPage);
-
-    expect(screen.getByRole("link", { name: /Open Findings\s+0\s+of 1 total/ })).toHaveAttribute(
-      "href",
-      "/field/findings",
-    );
+    expect(screen.getByRole("heading", { level: 1, name: "Global HSE workspace" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Open Navigator/ })).toHaveAttribute("href", "/enterprise/navigator");
+    expect(await screen.findByText("Physical Locations")).toBeInTheDocument();
+    expect(screen.getByText("Products present")).toBeInTheDocument();
+    expect(screen.getByText("Open data gaps")).toBeInTheDocument();
+    expect(screen.queryByText(/localStorage:\/\/|IndexedDB|Persistence ready/)).not.toBeInTheDocument();
   });
 });

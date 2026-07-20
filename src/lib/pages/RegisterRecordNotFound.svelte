@@ -3,12 +3,11 @@
 
   interface Props {
     registerName: string;
-    recordId: string;
     listPath: string;
     createPath?: string;
   }
 
-  let { registerName, recordId, listPath, createPath }: Props = $props();
+  let { registerName, listPath, createPath }: Props = $props();
 </script>
 
 <section class="page" aria-labelledby="record-not-found-title">
@@ -20,5 +19,5 @@
     </p>
   </header>
 
-  <RecordNotFoundState {registerName} {recordId} {listPath} {createPath} />
+  <RecordNotFoundState {registerName} {listPath} {createPath} />
 </section>

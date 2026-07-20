@@ -12,8 +12,14 @@
   import SettingsPage from "./SettingsPage.svelte";
   import LocalIdentitySettingsPage from "./LocalIdentitySettingsPage.svelte";
   import ChemicalMasterDataPage from "./chemical/ChemicalMasterDataPage.svelte";
+  import ProductWorkspacePage from "./chemical/ProductWorkspacePage.svelte";
+  import ChemicalUseWorkspacePage from "./chemical/ChemicalUseWorkspacePage.svelte";
   import ChemicalMigrationReviewPage from "./chemical/ChemicalMigrationReviewPage.svelte";
   import EnterpriseNavigatorPage from "./EnterpriseNavigatorPage.svelte";
+  import FunctionWorkspacePage from "./FunctionWorkspacePage.svelte";
+  import SdsReviewPage from "./SdsReviewPage.svelte";
+  import ExposureScenariosPage from "./ExposureScenariosPage.svelte";
+  import ReviewQueuePage from "./ReviewQueuePage.svelte";
 
   interface Props {
     route: AppRoute;
@@ -28,6 +34,14 @@
   <GlobalSearchPage />
 {:else if route.kind === "enterprise-navigator"}
   <EnterpriseNavigatorPage />
+{:else if route.kind === "function-workspace"}
+  <FunctionWorkspacePage {route} />
+{:else if route.kind === "sds-review"}
+  <SdsReviewPage />
+{:else if route.kind === "exposure-scenarios"}
+  <ExposureScenariosPage />
+{:else if route.kind === "review-queue"}
+  <ReviewQueuePage />
 {:else if isFoundationRouteKind(route.kind)}
   <FoundationCrudPage {route} />
 {:else if isRegisterRouteKind(route.kind)}
@@ -40,6 +54,10 @@
   <LocalIdentitySettingsPage mode="profile" />
 {:else if route.kind === "installation"}
   <LocalIdentitySettingsPage mode="installation" />
+{:else if route.kind === "chemical-products" && route.mode === "detail"}
+  <ProductWorkspacePage {route} />
+{:else if route.kind === "chemical-uses" && route.mode !== "list"}
+  <ChemicalUseWorkspacePage {route} />
 {:else if ["chemical-substances", "chemical-products", "chemical-inventory", "chemical-uses"].includes(route.kind)}
   <ChemicalMasterDataPage {route} />
 {:else if route.kind === "chemical-migration"}
