@@ -1,6 +1,7 @@
 <script lang="ts">
   import { goto } from "$app/navigation";
   import { onMount } from "svelte";
+  import { corporateFade } from "$lib/transitions";
   import { getBrowserDatabase, LOCAL_USER_ROLES, type LocalUserProfile } from "$lib/data/database";
 
   interface Props { mode: "profile" | "installation" }
@@ -109,7 +110,7 @@
     {#if message}<p class="form-alert success" role="status">{message}</p>{/if}
 
     {#if mode === "profile"}
-      <form class="identity-card" onsubmit={saveProfile}>
+      <form class="identity-card" onsubmit={saveProfile} in:corporateFade={{ duration: 140 }}>
         <div class="field-grid">
           <label>Display name <input required bind:value={displayName} autocomplete="name" /></label>
           <label>Role
@@ -125,7 +126,7 @@
         <button class="primary-button" type="submit" disabled={saving}>{saving ? "Saving…" : "Save profile"}</button>
       </form>
     {:else}
-      <form class="identity-card" onsubmit={saveInstallation}>
+      <form class="identity-card" onsubmit={saveInstallation} in:corporateFade={{ duration: 140 }}>
         <label>Installation label <input required bind:value={installationLabel} /></label>
         <p class="identity-note">Examples: “HSE Coordinator laptop” or “Tifton HSE Manager workstation”.</p>
         <button class="primary-button" type="submit" disabled={saving}>{saving ? "Saving…" : "Save installation"}</button>
@@ -135,19 +136,23 @@
 </section>
 
 <style>
-  .page { display: grid; gap: 20px; max-width: 920px; padding: 28px; }
-  .identity-tabs { display: flex; gap: 8px; }
-  .identity-tabs a { border: 1px solid var(--glass-border-subtle); border-radius: var(--radius-control); color: var(--color-muted); padding: 9px 13px; text-decoration: none; }
-  .identity-tabs a.active { border-color: var(--color-accent); color: var(--color-accent-strong); background: rgba(45, 212, 191, .08); }
-  .identity-card { display: grid; gap: 18px; border: 1px solid var(--color-border); border-radius: var(--radius-surface); background: var(--color-surface); padding: 22px; }
-  .field-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
-  label { display: grid; gap: 7px; color: var(--color-muted); font-size: .82rem; font-weight: 720; }
+  .page { display: grid; align-content: start; gap: 20px; max-width: 1040px; padding: 28px 32px 40px; }
+  .identity-tabs { display: flex; gap: 24px; min-height: 41px; border-bottom: 1px solid var(--color-border); }
+  .identity-tabs a { display: inline-flex; align-items: center; border: 0; border-bottom: 3px solid transparent; color: var(--color-muted); font-size: .875rem; font-weight: 680; padding: 0 2px 10px; text-decoration: none; }
+  .identity-tabs a:hover { color: var(--color-text); }
+  .identity-tabs a.active { border-bottom-color: var(--color-accent); color: var(--color-accent-strong); font-weight: 760; }
+  .identity-card { display: grid; gap: 20px; border: 1px solid var(--color-border); border-radius: var(--radius-surface); background: var(--color-surface); box-shadow: var(--surface-shadow); padding: 24px; }
+  .field-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px 20px; }
+  label { display: grid; gap: 7px; color: var(--color-text); font-size: .8125rem; font-weight: 700; }
   label.wide { grid-column: 1 / -1; }
-  input, select { min-height: 40px; border: 1px solid var(--color-field-border); border-radius: var(--radius-control); background: var(--color-field-bg); color: var(--color-text); padding: 8px 10px; }
+  input, select { min-height: 42px; border: 1px solid var(--color-field-border); border-radius: var(--radius-control); background: var(--color-field-bg); color: var(--color-text); padding: 8px 11px; transition: border-color var(--motion-duration-fast), box-shadow var(--motion-duration-fast); }
+  input:hover, select:hover { border-color: var(--color-field-border-hover); }
+  input:focus, select:focus { border-color: var(--color-focus); box-shadow: 0 0 0 3px var(--color-accent-soft); outline: 0; }
   .identity-note, .form-alert { margin: 0; color: var(--color-muted); font-size: .875rem; }
   .form-alert { border-radius: var(--radius-control); padding: 11px 13px; }
   .form-alert.error { color: var(--color-danger-text); background: var(--color-danger-soft); }
   .form-alert.success { color: var(--color-success-text); background: var(--color-success-soft); }
-  .primary-button { justify-self: start; border: 0; border-radius: var(--radius-control); background: var(--color-action); color: #fff; font-weight: 780; padding: 10px 16px; cursor: pointer; }
+  .primary-button { justify-self: start; min-height: 40px; border: 1px solid var(--color-action); border-radius: var(--radius-control); background: var(--color-action); color: #fff; font-size: .875rem; font-weight: 760; padding: 0 16px; cursor: pointer; }
+  .primary-button:hover:not(:disabled) { border-color: #005f34; background: #005f34; }
   @media (max-width: 640px) { .field-grid { grid-template-columns: 1fr; } label.wide { grid-column: auto; } }
 </style>

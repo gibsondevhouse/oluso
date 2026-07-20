@@ -33,10 +33,10 @@
   });
 </script>
 
-<aside class="side-panel" class:collapsed aria-label="Primary navigation">
+<aside class="side-panel corporate-glass-dark backdrop-blur-corporate" class:collapsed aria-label="Primary navigation">
   <div class="side-panel-header">
     <div class="app-mark" aria-hidden="true">
-      <span>A</span>
+      <img src="/adama-hse-icon.svg" alt="" />
     </div>
     {#if !collapsed}
       <div class="app-identity">
@@ -75,8 +75,7 @@
     min-width: var(--side-panel-width);
     height: 100vh;
     overflow: hidden;
-    border-right: 1px solid #303732;
-    background: #202522;
+    border-right: 1px solid rgba(255, 255, 255, 0.1);
     color: var(--color-nav-text);
   }
 
@@ -91,7 +90,7 @@
     align-items: center;
     min-height: var(--header-height);
     padding: 0 14px;
-    border-bottom: 1px solid #343b36;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.11);
     gap: 10px;
   }
 
@@ -107,11 +106,16 @@
     width: 32px;
     height: 32px;
     flex: 0 0 32px;
-    border: 1px solid #00aa4f;
-    border-radius: 8px;
-    background: #00aa4f;
-    color: white;
-    font-weight: 850;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 6px;
+    background: #176b47;
+    overflow: hidden;
+  }
+
+  .app-mark img {
+    display: block;
+    width: 100%;
+    height: 100%;
   }
 
   .app-identity {
@@ -124,7 +128,8 @@
   .app-title {
     color: #ffffff;
     font-size: 0.875rem;
-    font-weight: 780;
+    font-weight: 760;
+    letter-spacing: 0.015em;
     line-height: 1.1;
   }
 
@@ -138,13 +143,14 @@
   .side-panel-nav {
     flex: 1;
     overflow-y: auto;
-    padding: 12px 0;
+    padding: 14px 0;
   }
 
   .side-panel-footer {
     display: grid;
     gap: 4px;
-    border-top: 1px solid #343b36;
+    border-top: 1px solid rgba(255, 255, 255, 0.11);
+    background: rgba(0, 0, 0, 0.08);
     color: #aeb8b2;
     font-size: 0.75rem;
     line-height: 1.2;

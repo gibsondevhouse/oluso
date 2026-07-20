@@ -48,8 +48,8 @@
     position: relative;
     display: flex;
     align-items: center;
-    min-height: 34px;
-    padding: 7px 12px;
+    min-height: 36px;
+    padding: 7px 11px;
     margin: 2px 8px;
     border: 1px solid transparent;
     border-radius: var(--radius-control);
@@ -72,14 +72,14 @@
   }
 
   .side-panel-item.active {
-    border-color: rgba(45, 212, 191, 0.28);
+    border-color: rgba(139, 199, 165, 0.38);
     background-color: var(--color-nav-active-bg);
     color: var(--color-nav-active-text);
     font-weight: 720;
   }
 
   .side-panel-item.deferred {
-    color: var(--color-muted);
+    color: #78877f;
   }
 
   .side-panel-item.active::before {
@@ -127,7 +127,8 @@
   }
 
   .status-badge {
-    background: rgba(246, 199, 104, 0.11);
-    color: var(--color-warning-text);
+    border: 1px solid rgba(226, 189, 124, 0.24);
+    background: rgba(196, 123, 0, 0.13);
+    color: #d3aa62;
   }
 </style>

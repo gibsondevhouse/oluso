@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { Snippet } from "svelte";
+  import { corporateFade } from "$lib/transitions";
   import WorkspaceHeader from "./WorkspaceHeader.svelte";
   import WorkspaceTabs, { type WorkspaceTab } from "./WorkspaceTabs.svelte";
   import type { RecordStatus } from "./RecordStatusGroup.svelte";
@@ -9,7 +10,7 @@
   let { title, recordType, summary, updatedAt, updatedBy, contextPath = [], statuses = [], actions = [], moreActions = [], tabs = [], activeTab = "overview", onTabChange = () => {}, children, aside }: Props = $props();
 </script>
 
-<article class="record-workspace"><WorkspaceHeader {title} {recordType} {summary} {updatedAt} {updatedBy} {contextPath} {statuses} {actions} {moreActions} />{#if tabs.length}<WorkspaceTabs {tabs} active={activeTab} onChange={onTabChange} />{/if}<div class:with-aside={Boolean(aside)} class="workspace-body"><div class="workspace-content">{#if children}{@render children()}{/if}</div>{#if aside}<aside>{@render aside()}</aside>{/if}</div></article>
+<article class="record-workspace"><WorkspaceHeader {title} {recordType} {summary} {updatedAt} {updatedBy} {contextPath} {statuses} {actions} {moreActions} />{#if tabs.length}<WorkspaceTabs {tabs} active={activeTab} onChange={onTabChange} />{/if}<div class:with-aside={Boolean(aside)} class="workspace-body">{#key activeTab}<div class="workspace-content" in:corporateFade={{ duration: 140 }}>{#if children}{@render children()}{/if}</div>{/key}{#if aside}<aside>{@render aside()}</aside>{/if}</div></article>
 
 <style>
   .record-workspace { width: min(100%, 1500px); margin: 0 auto; padding: 0 30px 40px; }

@@ -2,6 +2,7 @@
   import { goto } from "$app/navigation";
   import { tick } from "svelte";
   import { ArrowRight, FileSearch, Search } from "lucide-svelte";
+  import { corporateFade, corporateSlideFly } from "$lib/transitions";
   import {
     filterCommandIntents,
     getCommandIntents,
@@ -128,14 +129,15 @@
 </script>
 
 {#if open}
-  <div class="command-scrim" role="presentation" onclick={onClose}></div>
+  <div class="command-scrim corporate-dialog-backdrop backdrop-blur-xs" role="presentation" onclick={onClose} transition:corporateFade={{ duration: 100 }}></div>
   <div
-    class="command-palette"
+    class="command-palette corporate-dialog-surface backdrop-blur-corporate"
     role="dialog"
     aria-modal="true"
     aria-labelledby="command-palette-title"
     tabindex="-1"
     onkeydown={handleKeydown}
+    transition:corporateSlideFly={{ duration: 160, y: -4 }}
   >
     <div class="command-search">
       <Search size={18} aria-hidden="true" />
@@ -190,7 +192,6 @@
     position: fixed;
     inset: 0;
     z-index: var(--z-depth-modal);
-    background: rgba(32, 37, 34, 0.36);
   }
 
   .command-palette {
@@ -205,8 +206,6 @@
     overflow: auto;
     border: 1px solid var(--color-border-strong);
     border-radius: var(--radius-surface);
-    background: var(--color-surface);
-    box-shadow: var(--elevation-z3);
     padding: 14px;
     transform: translateX(-50%);
   }

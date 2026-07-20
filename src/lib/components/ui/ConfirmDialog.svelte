@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { corporateFade, corporateSlideFly } from "$lib/transitions";
 
   interface Props {
     title: string;
@@ -37,9 +38,9 @@
   }
 </script>
 
-<div class="dialog-backdrop" role="presentation" onclick={onCancel}>
+<div class="dialog-backdrop corporate-dialog-backdrop backdrop-blur-corporate" role="presentation" onclick={onCancel} transition:corporateFade={{ duration: 120 }}>
   <div
-    class="dialog"
+    class="dialog corporate-dialog-surface backdrop-blur-corporate"
     role="dialog"
     aria-modal="true"
     aria-labelledby="confirm-dialog-title"
@@ -47,6 +48,7 @@
     bind:this={dialogElement}
     onclick={(e) => e.stopPropagation()}
     onkeydown={handleDialogKeydown}
+    transition:corporateSlideFly={{ duration: 180 }}
   >
     <h2 id="confirm-dialog-title">{title}</h2>
     <p>{message}</p>
@@ -73,9 +75,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background: rgba(0, 0, 0, 0.52);
     padding: 24px;
-    backdrop-filter: blur(8px);
   }
 
   .dialog {
@@ -85,9 +85,7 @@
     width: 100%;
     border: 1px solid var(--glass-border-subtle);
     border-radius: var(--radius-surface);
-    background: var(--color-surface-solid);
     padding: 22px;
-    box-shadow: var(--elevation-z3);
   }
 
   .dialog h2 {

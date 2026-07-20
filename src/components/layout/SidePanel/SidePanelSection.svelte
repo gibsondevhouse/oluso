@@ -70,18 +70,18 @@
   .side-panel-section {
     display: flex;
     flex-direction: column;
-    margin-bottom: 10px;
+    margin-bottom: 12px;
   }
 
   .section-header {
     display: flex;
     align-items: center;
-    min-height: 30px;
+    min-height: 28px;
     padding: 6px 16px;
-    font-size: 0.75rem;
+    font-size: 0.6875rem;
     font-weight: 760;
     text-transform: uppercase;
-    letter-spacing: 0;
+    letter-spacing: 0.075em;
     color: var(--color-nav-section-title);
     background: none;
     border: none;
@@ -143,6 +143,6 @@
   }
 
   .side-panel-section.active .section-header {
-    color: var(--color-nav-active-text);
+    color: #87d3a4;
   }
 </style>

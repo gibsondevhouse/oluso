@@ -124,7 +124,7 @@
   <SidePanel {currentPath} {collapsed} />
 
   <div class="workspace-frame">
-    <header class="workspace-header">
+    <header class="workspace-header corporate-glass-surface backdrop-blur-corporate">
       <button
         type="button"
         class="icon-button"
@@ -134,6 +134,10 @@
       >
         <ToggleIcon size={18} />
       </button>
+      <div class="workspace-title">
+        <span class="workspace-kicker">ADAMA HSE</span>
+        <span class="workspace-name">Operational workspace</span>
+      </div>
       <button
         bind:this={commandButton}
         type="button"
@@ -146,10 +150,6 @@
         <span>Search or jump to…</span>
         <kbd aria-hidden="true">⌘ K</kbd>
       </button>
-      <div class="workspace-title">
-        <span class="workspace-kicker">ADAMA HSE</span>
-        <span class="workspace-name">Operational workspace</span>
-      </div>
       <div aria-label="Save status"><SaveState state={saveState} /></div>
     </header>
 
@@ -173,7 +173,9 @@
     width: 100vw;
     height: 100vh;
     overflow: hidden;
-    background: var(--app-background);
+    background:
+      radial-gradient(circle at 92% 0%, rgba(0, 152, 69, 0.08), transparent 32rem),
+      var(--app-background);
     color: var(--color-text);
   }
 
@@ -184,25 +186,26 @@
     height: 100vh;
     flex-direction: column;
     overflow: hidden;
-    background: var(--app-background);
+    background: transparent;
   }
 
   .workspace-header {
+    position: relative;
+    z-index: 20;
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 14px;
     min-height: var(--header-height);
-    padding: 0 20px;
-    border-bottom: 1px solid var(--color-border);
-    background: var(--color-surface);
+    padding: 0 18px;
+    border-bottom: 1px solid rgba(174, 185, 178, 0.56);
   }
 
   .icon-button {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 34px;
-    height: 34px;
+    width: 36px;
+    height: 36px;
     border: 1px solid var(--color-border);
     border-radius: var(--radius-control);
     background: var(--color-surface);
@@ -223,7 +226,7 @@
   .workspace-title {
     display: flex;
     min-width: 0;
-    flex: 1;
+    flex: 0 0 190px;
     flex-direction: column;
     gap: 1px;
   }
@@ -232,7 +235,7 @@
     color: var(--color-action);
     font-size: 0.6875rem;
     font-weight: 760;
-    letter-spacing: 0;
+    letter-spacing: 0.055em;
     line-height: 1.2;
     text-transform: uppercase;
   }
@@ -244,7 +247,7 @@
     line-height: 1.2;
   }
 
-  .command-button { display: inline-flex; align-items: center; gap: 8px; width: min(270px, 26vw); min-height: 34px; border: 1px solid var(--color-border); border-radius: var(--radius-control); background: var(--color-surface-subtle); color: var(--color-muted); cursor: pointer; font-size: .75rem; font-weight: 720; padding: 0 8px; text-align: left; }
+  .command-button { display: inline-flex; align-items: center; gap: 8px; width: min(360px, 34vw); min-height: 36px; margin-left: auto; border: 1px solid var(--color-border); border-radius: var(--radius-control); background: var(--color-surface-inset); color: var(--color-muted); cursor: pointer; font-size: .75rem; font-weight: 700; padding: 0 9px; text-align: left; }
   .command-button:hover { border-color: var(--color-border-strong); color: var(--color-text); }
   .command-button:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
   .command-button span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

@@ -289,7 +289,7 @@
 <style>
   .home-page {
     max-width: 1240px;
-    padding-block: 30px 44px;
+    padding-block: 28px 44px;
   }
 
   .home-header {
@@ -343,7 +343,7 @@
   .home-panel {
     border: 1px solid var(--glass-border-subtle);
     border-radius: var(--radius-surface);
-    background: linear-gradient(180deg, rgba(22, 33, 36, 0.86), rgba(14, 23, 25, 0.84));
+    background: var(--color-surface);
     box-shadow: var(--surface-shadow);
   }
 
@@ -353,7 +353,8 @@
     justify-content: space-between;
     gap: 18px;
     margin-bottom: 16px;
-    padding: 18px;
+    border-left: 3px solid var(--color-accent);
+    padding: 16px 18px;
   }
 
   .context-copy {
@@ -402,7 +403,7 @@
     color: var(--color-accent-strong);
     font-size: 0.6875rem;
     font-weight: 760;
-    letter-spacing: 0;
+    letter-spacing: 0.065em;
     line-height: 1.2;
     text-transform: uppercase;
   }
@@ -452,7 +453,7 @@
     align-content: start;
     gap: 14px;
     min-width: 0;
-    padding: 16px;
+    padding: 18px;
   }
 
   .panel-heading {
@@ -586,7 +587,7 @@
     gap: 14px;
     border: 1px solid var(--glass-border-subtle);
     border-radius: var(--radius-control);
-    background: rgba(7, 12, 14, 0.34);
+    background: var(--color-surface-subtle);
     padding: 14px;
   }
 
@@ -618,8 +619,16 @@
     gap: 14px;
     border: 1px solid var(--glass-border-subtle);
     border-radius: var(--radius-control);
-    background: rgba(7, 12, 14, 0.34);
+    background: var(--color-surface-subtle);
     padding: 13px;
+  }
+
+  .quick-action:hover,
+  .responsibility-row:hover,
+  .activity-list a:hover,
+  .status-row:hover {
+    border-color: var(--color-accent-border);
+    background: var(--color-accent-soft);
   }
 
   .activity-list {

@@ -1,6 +1,6 @@
 :root {
-  color: #202522;
-  background: #f4f6f4;
+  color: #1c2621;
+  background: #eef1ef;
   color-scheme: light;
   font-family:
     Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -14,28 +14,28 @@
 
   --side-panel-width: 250px;
   --side-panel-collapsed-width: 62px;
-  --header-height: 56px;
+  --header-height: 60px;
 
-  --color-bg: #f4f6f4;
+  --color-bg: #eef1ef;
   --color-surface: #ffffff;
   --color-surface-solid: #ffffff;
   --color-surface-raised: #ffffff;
-  --color-surface-inset: #edf1ee;
-  --color-surface-subtle: #f7f9f7;
-  --color-surface-muted: #e9eeea;
-  --color-text: #202522;
-  --color-muted: #5f6964;
-  --color-subtle: #7b8580;
-  --color-border: #d8deda;
-  --color-border-strong: #b9c4bd;
-  --color-hover: #edf3ef;
-  --color-focus: #007a3d;
-  --color-action: #007a3d;
-  --color-accent: #00aa4f;
-  --color-accent-strong: #007a3d;
+  --color-surface-inset: #f0f3f1;
+  --color-surface-subtle: #f7f9f8;
+  --color-surface-muted: #e8edea;
+  --color-text: #1c2621;
+  --color-muted: #536159;
+  --color-subtle: #718078;
+  --color-border: #d1d8d3;
+  --color-border-strong: #aeb9b2;
+  --color-hover: #edf4f0;
+  --color-focus: #006f3c;
+  --color-action: #006f3c;
+  --color-accent: #009845;
+  --color-accent-strong: #006b3a;
   --color-accent-ink: #ffffff;
-  --color-accent-soft: #e7f7ed;
-  --color-accent-border: #8ad7aa;
+  --color-accent-soft: #e8f4ed;
+  --color-accent-border: #8bc7a5;
   --color-brand-blue: #2563a8;
   --color-brand-blue-soft: #eaf2fb;
   --color-info-text: #1f5f99;
@@ -55,20 +55,32 @@
   --color-warning-text: #8a5700;
   --color-warning-border: #e2bd7c;
   --color-warning-soft: #fff8e9;
-  --color-nav-text: #d8dfda;
-  --color-nav-section-title: #98a39c;
-  --color-nav-hover-bg: #2a302c;
+  --color-nav-text: #dbe3de;
+  --color-nav-section-title: #93a39a;
+  --color-nav-hover-bg: #25342c;
   --color-nav-hover-text: #ffffff;
-  --color-nav-active-bg: #e8f7ed;
-  --color-nav-active-text: #005f30;
+  --color-nav-active-bg: #edf6f0;
+  --color-nav-active-text: #005f34;
   --color-badge-bg: #eaf2fb;
   --color-badge-text: #1f5f99;
   --color-field-bg: #ffffff;
   --color-field-bg-focus: #ffffff;
-  --color-field-border: #b9c4bd;
-  --color-field-border-hover: #7f9186;
+  --color-field-border: #aeb9b2;
+  --color-field-border-hover: #70857a;
 
-  --app-background: #f4f6f4;
+  --app-background: #eef1ef;
+
+  /* Corporate glass is reserved for shell chrome and focused overlays. */
+  --corporate-glass-border: rgba(255, 255, 255, 0.7);
+  --corporate-glass-inner-border: rgba(255, 255, 255, 0.42);
+  --corporate-glass-surface: rgba(255, 255, 255, 0.78);
+  --corporate-glass-surface-strong: rgba(255, 255, 255, 0.92);
+  --corporate-glass-dark-surface: rgba(15, 35, 27, 0.9);
+  --corporate-glass-overlay: rgba(18, 28, 23, 0.4);
+  --corporate-blur-xs: 8px;
+  --corporate-blur: 16px;
+  --corporate-shadow: 0 4px 30px rgba(28, 38, 33, 0.05);
+  --corporate-shadow-overlay: 0 18px 54px rgba(20, 30, 25, 0.2);
 
   /* Compatibility aliases while legacy register components are converted. */
   --glass-bg: #ffffff;
@@ -86,10 +98,10 @@
   --glass-saturate: 100%;
 
   --elevation-z0: none;
-  --elevation-z1: 0 2px 8px rgba(32, 37, 34, .08);
-  --elevation-z2: 0 8px 24px rgba(32, 37, 34, .14);
-  --elevation-z3: 0 18px 48px rgba(32, 37, 34, .22);
-  --surface-shadow: none;
+  --elevation-z1: 0 1px 2px rgba(28, 38, 33, .06), 0 5px 14px rgba(28, 38, 33, .05);
+  --elevation-z2: 0 2px 5px rgba(28, 38, 33, .08), 0 12px 28px rgba(28, 38, 33, .08);
+  --elevation-z3: 0 8px 18px rgba(28, 38, 33, .12), 0 24px 54px rgba(28, 38, 33, .12);
+  --surface-shadow: var(--elevation-z1);
   --z-depth-base: 0;
   --z-depth-raised: 10;
   --z-depth-popover: 30;
@@ -97,9 +109,9 @@
 
   --bento-gap: 12px;
   --bento-row-min: 116px;
-  --bento-card-radius: 8px;
-  --radius-control: 6px;
-  --radius-surface: 8px;
+  --bento-card-radius: 6px;
+  --radius-control: 4px;
+  --radius-surface: 6px;
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
@@ -129,8 +141,75 @@ body {
 
 body {
   background: var(--app-background);
-  background-attachment: fixed;
   color: var(--color-text);
+}
+
+.corporate-glass-surface {
+  border-color: var(--corporate-glass-border);
+  background: var(--corporate-glass-surface);
+  box-shadow:
+    inset 0 0 0 1px var(--corporate-glass-inner-border),
+    var(--corporate-shadow);
+}
+
+.corporate-glass-dark {
+  border-color: rgba(255, 255, 255, 0.1);
+  background: var(--corporate-glass-dark-surface);
+  box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.06);
+}
+
+.corporate-dialog-surface {
+  border-color: var(--corporate-glass-border);
+  background: var(--corporate-glass-surface-strong);
+  box-shadow:
+    inset 0 0 0 1px var(--corporate-glass-inner-border),
+    var(--corporate-shadow-overlay);
+}
+
+.corporate-dialog-backdrop {
+  background: var(--corporate-glass-overlay);
+}
+
+.backdrop-blur-xs {
+  -webkit-backdrop-filter: saturate(125%) blur(var(--corporate-blur-xs));
+  backdrop-filter: saturate(125%) blur(var(--corporate-blur-xs));
+}
+
+.backdrop-blur-corporate {
+  -webkit-backdrop-filter: saturate(140%) blur(var(--corporate-blur));
+  backdrop-filter: saturate(140%) blur(var(--corporate-blur));
+}
+
+:where(.workspace-main, .side-panel-nav, .command-palette, .workspace-tabs, .table-wrap) {
+  scrollbar-color: var(--color-border-strong) transparent;
+  scrollbar-width: thin;
+}
+
+:where(.workspace-main, .side-panel-nav, .command-palette, .workspace-tabs, .table-wrap)::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+
+:where(.workspace-main, .side-panel-nav, .command-palette, .workspace-tabs, .table-wrap)::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: var(--color-border-strong);
+  background-clip: padding-box;
+}
+
+:where(.workspace-main, .side-panel-nav, .command-palette, .workspace-tabs, .table-wrap)::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+@supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  .corporate-glass-surface,
+  .corporate-dialog-surface {
+    background: #ffffff;
+  }
+
+  .corporate-glass-dark {
+    background: #17231d;
+  }
 }
 
 button,
@@ -154,7 +233,7 @@ textarea:disabled {
 }
 
 ::selection {
-  background: rgba(45, 212, 191, 0.28);
+  background: var(--color-accent-border);
   color: var(--color-text);
 }
 
@@ -181,15 +260,15 @@ textarea:focus-visible {
   max-width: 1440px;
   min-height: 100%;
   background: transparent;
-  padding: 30px 32px 40px;
+  padding: 28px 32px 40px;
 }
 
 .page-header {
   display: grid;
-  gap: 10px;
+  gap: 8px;
   max-width: 1180px;
   margin-bottom: 24px;
-  padding-bottom: 18px;
+  padding-bottom: 20px;
   border-bottom: 1px solid var(--glass-border-subtle);
 }
 
@@ -197,7 +276,7 @@ textarea:focus-visible {
   color: var(--color-muted);
   font-size: 0.75rem;
   font-weight: 720;
-  letter-spacing: 0;
+  letter-spacing: 0.055em;
   line-height: 1.2;
   text-transform: uppercase;
 }
@@ -205,7 +284,7 @@ textarea:focus-visible {
 .page-title {
   margin: 0;
   color: var(--color-text);
-  font-size: 1.875rem;
+  font-size: 1.75rem;
   font-weight: 760;
   letter-spacing: 0;
   line-height: 1.15;
@@ -609,7 +688,7 @@ textarea:focus-visible {
 
 .register-table thead th {
   border-top: 0;
-  background: rgba(255, 255, 255, 0.025);
+  background: var(--color-surface-inset);
 }
 
 .register-table th {
@@ -703,6 +782,14 @@ textarea:focus-visible {
   body {
     background: #ffffff;
     color: #0f191b;
+  }
+
+  .corporate-glass-surface,
+  .corporate-dialog-surface {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    background: #ffffff;
+    box-shadow: none;
   }
 
   button,

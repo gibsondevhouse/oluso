@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount, tick } from "svelte";
   import { Download, RefreshCw, RotateCcw, Upload } from "lucide-svelte";
+  import { corporateFade, corporateSlideFly } from "$lib/transitions";
   import { olusoApplication } from "../../../application/oluso-application";
   import {
     buildDatabaseBackup,
@@ -266,9 +267,9 @@
 </section>
 
 {#if showRestoreConfirmation && restoreFile}
-  <div class="dialog-backdrop" role="presentation" onclick={closeRestoreConfirmation}>
+  <div class="dialog-backdrop corporate-dialog-backdrop backdrop-blur-corporate" role="presentation" onclick={closeRestoreConfirmation} transition:corporateFade={{ duration: 120 }}>
     <div
-      class="restore-dialog"
+      class="restore-dialog corporate-dialog-surface backdrop-blur-corporate"
       role="dialog"
       aria-modal="true"
       aria-labelledby="restore-confirmation-title"
@@ -277,6 +278,7 @@
       bind:this={restoreDialog}
       onclick={(event) => event.stopPropagation()}
       onkeydown={handleRestoreDialogKeydown}
+      transition:corporateSlideFly={{ duration: 180 }}
     >
       <h2 id="restore-confirmation-title">Replace all current data?</h2>
       <p id="restore-confirmation-message">
@@ -440,7 +442,6 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background: rgba(0, 0, 0, 0.42);
     padding: 24px;
   }
 
@@ -450,9 +451,7 @@
     width: min(100%, 480px);
     border: 1px solid var(--color-danger-border);
     border-radius: var(--radius-surface);
-    background: var(--color-surface-solid);
     padding: 22px;
-    box-shadow: var(--elevation-z3);
   }
 
   .restore-dialog h2 {

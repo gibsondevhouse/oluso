@@ -1,5 +1,6 @@
 <script lang="ts">
   import { AlertTriangle, Check, CloudOff, LoaderCircle } from "lucide-svelte";
+  import { corporateScaleIn } from "$lib/transitions";
   export type SaveStateKind = "saved" | "saving" | "unsaved" | "offline" | "error" | "backup";
   interface Props { state: SaveStateKind; compact?: boolean; }
   let { state, compact = false }: Props = $props();
@@ -8,7 +9,7 @@
   const Icon = $derived(icons[state]);
 </script>
 
-<span class="save-state" class:compact class:warning={state === "unsaved" || state === "backup"} class:error={state === "error"}><span class:spin={state === "saving"}><Icon size={14} /></span><span>{copy[state]}</span></span>
+<span class="save-state" class:compact class:warning={state === "unsaved" || state === "backup"} class:error={state === "error"}>{#key state}<span class:spin={state === "saving"} in:corporateScaleIn={{ duration: 100 }}><Icon size={14} /></span>{/key}<span>{copy[state]}</span></span>
 
 <style>
   .save-state { display: inline-flex; align-items: center; gap: 6px; min-height: 28px; border: 1px solid var(--color-positive-border); border-radius: 999px; background: var(--color-positive-soft); color: var(--color-positive-text); font-size: .75rem; font-weight: 700; padding: 3px 9px; white-space: nowrap; }

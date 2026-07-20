@@ -66,7 +66,7 @@
   function pin() { pinCurrentScope(scopeSummary); }
 </script>
 
-<section class="scope-bar" aria-label="Global workspace scope">
+<section class="scope-bar corporate-glass-surface backdrop-blur-corporate" aria-label="Global workspace scope">
   <div class="scope-identity"><MapPin size={17} aria-hidden="true" /><div><span>Current scope</span><strong>{loading ? "Loading scope…" : scopeSummary}</strong></div></div>
   <div class="scope-controls">
     <ScopePicker label="Organization" value={$workspaceScope.organizationId} options={organizationOptions} allLabel="All organizations" onChange={changeOrganization} />
@@ -79,12 +79,12 @@
 </section>
 
 <style>
-  .scope-bar { display: flex; align-items: stretch; gap: 12px; min-height: 58px; border-bottom: 1px solid var(--color-border); background: var(--color-surface); padding: 8px 18px; }
+  .scope-bar { position: relative; z-index: 19; display: flex; align-items: stretch; gap: 12px; min-height: 60px; border-bottom: 1px solid rgba(174, 185, 178, .56); padding: 8px 18px; }
   .scope-identity { display: flex; align-items: center; gap: 9px; min-width: 210px; border-right: 1px solid var(--color-border); padding-right: 14px; color: var(--color-action); }
-  .scope-identity div { display: grid; gap: 2px; } .scope-identity span { color: var(--color-muted); font-size: .625rem; font-weight: 750; text-transform: uppercase; } .scope-identity strong { max-width: 260px; overflow: hidden; color: var(--color-text); font-size: .8125rem; text-overflow: ellipsis; white-space: nowrap; }
+  .scope-identity div { display: grid; gap: 2px; } .scope-identity span { color: var(--color-muted); font-size: .625rem; font-weight: 750; letter-spacing: .055em; text-transform: uppercase; } .scope-identity strong { max-width: 260px; overflow: hidden; color: var(--color-text); font-size: .8125rem; text-overflow: ellipsis; white-space: nowrap; }
   .scope-controls { display: flex; flex: 1; align-items: center; gap: 10px; overflow-x: auto; }
   .scope-actions { display: flex; align-items: center; gap: 3px; }
-  .scope-actions button { display: grid; place-items: center; gap: 2px; min-width: 38px; height: 38px; border: 1px solid transparent; border-radius: var(--radius-control); background: transparent; color: var(--color-muted); font-size: .625rem; }
+  .scope-actions button { display: grid; place-items: center; gap: 2px; min-width: 40px; height: 40px; border: 1px solid transparent; border-radius: var(--radius-control); background: transparent; color: var(--color-muted); font-size: .625rem; }
   .scope-actions button:hover:not(:disabled) { border-color: var(--color-border); color: var(--color-action); }
   @media (max-width: 1100px) { .scope-identity { min-width: 170px; } .scope-identity strong { max-width: 180px; } }
   @media (max-width: 720px) { .scope-bar { display: grid; grid-template-columns: 1fr auto; } .scope-identity { min-width: 0; border-right: 0; } .scope-controls { grid-column: 1 / -1; grid-row: 2; } .scope-actions { grid-column: 2; grid-row: 1; } }

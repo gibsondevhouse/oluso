@@ -150,7 +150,7 @@
       && (!$workspaceScope.locationId || location.id === $workspaceScope.locationId || location.parentId === $workspaceScope.locationId);
   }
 
-  function genericRecordMatches(record: PersistedRegisterRecord) {
+  function genericRecordMatches(record: object) {
     const value = record as unknown as Record<string, unknown>;
     if ($workspaceScope.siteId) {
       const siteValues = [value.siteId, value.resolvedSiteId, value.primarySiteId].filter(Boolean);
@@ -192,6 +192,29 @@
         && (!$workspaceScope.locationId || task?.locationId === $workspaceScope.locationId)
         && (!$workspaceScope.operationalFunctionId || process?.operationalFunctionId === $workspaceScope.operationalFunctionId);
     }
+
+    if (result.kind === "chemical-substances") {
+      const substance = typedContext.chemicalSubstances?.find((item) => item.id === rawId);
+      return substance ? genericRecordMatches(substance) : false;
+    }
+    if (result.kind === "chemical-products") {
+      const product = typedContext.chemicalProducts?.find((item) => item.id === rawId);
+      return product ? genericRecordMatches(product) : false;
+    }
+    if (result.kind === "chemical-inventory") {
+      const inventory = typedContext.siteChemicalInventory?.find((item) => item.id === rawId);
+      return inventory ? genericRecordMatches(inventory) : false;
+    }
+    if (result.kind === "chemical-uses") {
+      const chemicalUse = typedContext.chemicalUses?.find((item) => item.id === rawId);
+      return chemicalUse ? genericRecordMatches(chemicalUse) : false;
+    }
+    if (result.kind === "sds-revisions") {
+      const revision = typedContext.sdsRevisions?.find((item) => item.id === rawId);
+      return revision ? genericRecordMatches(revision) : false;
+    }
+
+    if (!(result.kind in REGISTER_CONFIGS)) return false;
     const config = REGISTER_CONFIGS[result.kind];
     const record = olusoApplication.getRecord(config.collection, rawId);
     return record ? genericRecordMatches(record) : false;
