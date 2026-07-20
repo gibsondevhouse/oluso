@@ -4,15 +4,14 @@
   import { foundationApplication, type FoundationServices } from "$lib/application/foundation";
   import FoundationLifecycleDialog from "$lib/components/foundation/FoundationLifecycleDialog.svelte";
   import LocationHierarchyTree from "$lib/components/foundation/LocationHierarchyTree.svelte";
-  import LocationFunctionAssignmentPanel from "$lib/components/foundation/LocationFunctionAssignmentPanel.svelte";
-  import ProcessLocationAssignmentPanel from "$lib/components/foundation/ProcessLocationAssignmentPanel.svelte";
+  import FoundationRecordWorkspace from "$lib/components/workspace/FoundationRecordWorkspace.svelte";
+  import GuidedFoundationForm from "$lib/components/forms/GuidedFoundationForm.svelte";
   import {
     getFoundationUiConfig,
     type FoundationContext,
     type FoundationFormValues,
     type FoundationRecord,
   } from "$lib/components/foundation/foundation-ui";
-  import RecordDetailLayout from "$lib/components/register/RecordDetailLayout.svelte";
   import RecordForm from "$lib/components/register/RecordForm.svelte";
   import RegisterPageHeader from "$lib/components/register/RegisterPageHeader.svelte";
   import RegisterState from "$lib/components/register/RegisterState.svelte";
@@ -22,6 +21,7 @@
   import { assignmentIsEffective } from "$lib/domain/operations";
   import type { FoundationRouteKind, AppRoute, RouteMode } from "$lib/navigation/route-registry";
   import { findRoute, isFoundationRouteKind } from "$lib/navigation/route-registry";
+  import { workspaceScope } from "$lib/workspace/scope";
   import RegisterRecordNotFound from "./RegisterRecordNotFound.svelte";
 
   const FOUNDATION_STATUS_FILTERS = [
@@ -54,6 +54,7 @@
   let locationTypeFilter = $state("");
   let locationFunctionFilter = $state("");
   let locationOrganizationFilter = $state("");
+  let locationListMode = $state<"explore" | "search">("explore");
   let mounted = false;
 
   const routeKind = $derived(
@@ -61,6 +62,7 @@
   );
   const config = $derived(getFoundationUiConfig(routeKind));
   const records = $derived(config.records(context).filter((record) => {
+    if (!recordMatchesScope(record)) return false;
     if (config.kind !== "locations") return true;
     const location = record as import("$lib/domain/location").Location;
     if (locationCountryFilter && location.resolvedCountryId !== locationCountryFilter) return false;
@@ -73,24 +75,20 @@
     return true;
   }));
   const columns = $derived(config.columns(context));
-  const formInitialValues = $derived(config.initialValues(displayMode === "edit" ? currentRecord : null));
+  const formInitialValues = $derived(scopedInitialValues(config.initialValues(displayMode === "edit" ? currentRecord : null)));
+  const exploreLocations = $derived(context.locations.filter((location) => {
+    if (!$workspaceScope.countryId && !$workspaceScope.siteId && !$workspaceScope.locationId && !$workspaceScope.operationalFunctionId && !$workspaceScope.organizationId) return true;
+    if (recordMatchesScope(location)) return true;
+    const selected = context.locations.find((item) => item.id === ($workspaceScope.locationId ?? $workspaceScope.siteId ?? $workspaceScope.countryId));
+    if (!selected) return false;
+    const ancestorIds = new Set<string>(); let parentId = selected.parentId; while (parentId) { ancestorIds.add(parentId); parentId = context.locations.find((item) => item.id === parentId)?.parentId ?? null; }
+    return ancestorIds.has(location.id);
+  }));
   const siteFilterOptions = $derived(
     context.locations
       .filter((location) => location.nodeType === "Site")
       .map((location) => ({ value: location.id, label: location.name })),
   );
-  const detailSections = $derived(currentRecord ? [
-    ...config.detailSections(currentRecord, context),
-    ...(revisions.length > 0
-      ? [{
-          title: "Immutable revision history",
-          fields: revisions.map((revision) => ({
-            label: `Revision ${revision.revision} · ${revision.operation}`,
-            value: `${new Date(revision.changedAt).toLocaleString()} · ${revision.changedBy}`,
-          })),
-        }]
-      : []),
-  ] : []);
 
   $effect(() => {
     const nextMode = route.mode ?? "list";
@@ -237,6 +235,65 @@
   function lifecycleStatus(record: FoundationRecord) {
     return record.lifecycleStatus === "archived" ? "Archived" : record.status;
   }
+
+  function recordMatchesScope(record: FoundationRecord) {
+    const scope = $workspaceScope;
+    if (!Object.values(scope).some(Boolean)) return true;
+    if (config.kind === "organizations") {
+      if (!scope.organizationId) return true;
+      let organization = context.organizations.find((item) => item.id === record.id);
+      while (organization) { if (organization.id === scope.organizationId) return true; organization = context.organizations.find((item) => item.id === organization?.parentOrganizationId); }
+      return false;
+    }
+    if (config.kind === "people") {
+      const person = record as import("$lib/domain/foundation").Person;
+      if (scope.organizationId && person.organizationId !== scope.organizationId) return false;
+      if (scope.siteId && person.primarySiteId !== scope.siteId) return false;
+      return true;
+    }
+    if (config.kind === "locations") {
+      const location = record as import("$lib/domain/location").Location;
+      if (scope.countryId && location.id !== scope.countryId && location.resolvedCountryId !== scope.countryId) return false;
+      if (scope.siteId && location.id !== scope.siteId && location.resolvedSiteId !== scope.siteId) return false;
+      if (scope.locationId && location.id !== scope.locationId && location.parentId !== scope.locationId) return false;
+      if (scope.operationalFunctionId && !context.locationFunctionAssignments.some((item) => item.locationId === location.id && item.operationalFunctionId === scope.operationalFunctionId && assignmentIsEffective(item))) return false;
+      if (scope.organizationId && !context.organizationLocationAssignments.some((item) => item.locationId === location.id && item.organizationId === scope.organizationId && organizationAssignmentIsEffective(item))) return false;
+      return true;
+    }
+    if (config.kind === "processes") {
+      const process = record as import("$lib/domain/operations").Process;
+      if (scope.siteId && process.resolvedSiteId !== scope.siteId) return false;
+      if (scope.locationId && process.primaryLocationId !== scope.locationId && !context.processLocationAssignments.some((item) => item.processId === process.id && item.locationId === scope.locationId)) return false;
+      if (scope.operationalFunctionId && process.operationalFunctionId !== scope.operationalFunctionId) return false;
+      return true;
+    }
+    if (config.kind === "tasks") {
+      const task = record as import("$lib/domain/operations").Task;
+      const process = context.processes.find((item) => item.id === task.processId);
+      if (scope.siteId && task.resolvedSiteId !== scope.siteId) return false;
+      if (scope.locationId && task.locationId !== scope.locationId) return false;
+      if (scope.operationalFunctionId && process?.operationalFunctionId !== scope.operationalFunctionId) return false;
+    }
+    return true;
+  }
+
+  function scopedInitialValues(values: FoundationFormValues) {
+    if (displayMode === "edit") return values;
+    const next = { ...values };
+    if (config.kind === "locations") next.parentId = $workspaceScope.locationId ?? $workspaceScope.siteId ?? next.parentId;
+    if (config.kind === "processes") {
+      next.siteId = $workspaceScope.siteId ?? next.siteId;
+      next.primaryLocationId = $workspaceScope.locationId ?? $workspaceScope.siteId ?? next.primaryLocationId;
+      next.operationalFunctionId = $workspaceScope.operationalFunctionId ?? next.operationalFunctionId;
+    }
+    if (config.kind === "tasks") {
+      next.locationId = $workspaceScope.locationId ?? next.locationId;
+      const candidates = context.processes.filter((item) => (!$workspaceScope.siteId || item.resolvedSiteId === $workspaceScope.siteId) && (!$workspaceScope.operationalFunctionId || item.operationalFunctionId === $workspaceScope.operationalFunctionId));
+      if (candidates.length === 1) next.processId = candidates[0].id;
+    }
+    if (config.kind === "people") next.primarySiteId = $workspaceScope.siteId ?? next.primarySiteId;
+    return next;
+  }
 </script>
 
 {#if displayMode === "list"}
@@ -250,15 +307,14 @@
       onPrimaryAction={() => void navigateTo(`${config.basePath}/new`)}
     />
 
-    {#if !isLoading && !operationError}
-      <p class="foundation-runtime-state" role="status">Offline-ready · Typed IndexedDB workflow</p>
-    {/if}
-
     {#if config.kind === "locations" && !isLoading && !operationError}
-      <LocationHierarchyTree
-        locations={context.locations}
-        onOpen={(location) => void navigateTo(makeRecordPath(location))}
-      />
+      <div class="location-mode-switcher" aria-label="Location browsing mode"><button type="button" class:active={locationListMode === "explore"} aria-pressed={locationListMode === "explore"} onclick={() => (locationListMode = "explore")}><strong>Explore hierarchy</strong><span>Browse geography and physical layout</span></button><button type="button" class:active={locationListMode === "search"} aria-pressed={locationListMode === "search"} onclick={() => (locationListMode = "search")}><strong>Search and filter Locations</strong><span>Find a specific Location or group</span></button></div>
+      {#if locationListMode === "explore"}
+        <LocationHierarchyTree
+          locations={exploreLocations}
+          onOpen={(location) => void navigateTo(makeRecordPath(location))}
+        />
+      {:else}
       <section class="location-filters" aria-labelledby="location-filters-title">
         <div><h2 id="location-filters-title">Global Location filters</h2><button type="button" onclick={() => {
           locationCountryFilter = ""; locationStateFilter = ""; locationCountyFilter = ""; locationCityFilter = "";
@@ -272,8 +328,10 @@
         <label>Operational Function<select bind:value={locationFunctionFilter}><option value="">All Functions</option>{#each context.operationalFunctions.filter((item) => item.lifecycleStatus === "active") as item}<option value={item.id}>{item.name}</option>{/each}</select></label>
         <label>Organization<select bind:value={locationOrganizationFilter}><option value="">All Organizations</option>{#each context.organizations.filter((item) => item.lifecycleStatus === "active") as item}<option value={item.id}>{item.name}</option>{/each}</select></label>
       </section>
+      {/if}
     {/if}
 
+    {#if config.kind !== "locations" || locationListMode === "search"}
     <RegisterTable
       {records}
       {columns}
@@ -298,63 +356,55 @@
       emptyActionLabel={config.newActionLabel}
       onEmptyAction={() => void navigateTo(`${config.basePath}/new`)}
     />
+    {/if}
   </section>
 {:else if isLoading}
   <section class="page" aria-labelledby={`${config.kind}-loading-title`}>
     <RegisterPageHeader breadcrumbs={config.breadcrumbs} title={config.title} titleId={`${config.kind}-loading-title`} summary={config.summary} />
     <RegisterState
       title={isInitializing ? "Initializing database" : "Loading record"}
-      message={isInitializing ? "Preparing the typed IndexedDB application." : `Loading ${config.recordLabel} and revision context.`}
+      message={isInitializing ? "Preparing your local workspace." : `Loading ${config.recordLabel} and connected records.`}
       live
     />
   </section>
 {:else if recordMissing}
-  <RegisterRecordNotFound registerName={config.title} recordId={displayRecordId} listPath={config.basePath} createPath={`${config.basePath}/new`} />
+  <RegisterRecordNotFound registerName={config.title} listPath={config.basePath} createPath={`${config.basePath}/new`} />
 {:else if displayMode === "detail" && currentRecord}
   {#if operationError}<p class="error-message" role="alert">{operationError}</p>{/if}
-  {#if config.kind === "locations" && services}
-    <LocationFunctionAssignmentPanel
-      location={currentRecord as import("$lib/domain/location").Location}
-      functions={context.operationalFunctions}
-      assignments={context.locationFunctionAssignments.filter((assignment) => assignment.locationId === currentRecord!.id)}
-      {services}
-      onChanged={() => loadPage(displayMode, displayRecordId)}
-    />
-  {/if}
-  {#if config.kind === "processes" && services}
-    <ProcessLocationAssignmentPanel
-      process={currentRecord as import("$lib/domain/operations").Process}
-      locations={context.locations}
-      assignments={context.processLocationAssignments.filter((assignment) => assignment.processId === currentRecord!.id)}
-      {services}
-      onChanged={() => loadPage(displayMode, displayRecordId)}
-    />
-  {/if}
-  <RecordDetailLayout
-    breadcrumbs={config.breadcrumbs}
-    title={config.titleOf(currentRecord)}
-    summary={`${config.recordType} details, typed relationships, and immutable revision context.`}
-    statusLabel={lifecycleStatus(currentRecord)}
-    statusTone={currentRecord.lifecycleStatus === "archived" ? "inactive" : currentRecord.status}
+  {#if services}
+  <FoundationRecordWorkspace
     record={currentRecord}
-    primarySections={detailSections}
-    relationshipSections={config.relationshipSections(currentRecord, context)}
-    backHref={config.basePath}
+    {context}
+    {revisions}
+    {services}
     onEdit={() => void navigateTo(`${makeRecordPath(currentRecord!)}/edit`)}
     onArchive={() => (pendingLifecycleAction = "archive")}
     onRestore={() => (pendingLifecycleAction = "restore")}
-    onBack={() => void navigateTo(config.basePath)}
+    onChanged={() => loadPage(displayMode, displayRecordId)}
   />
+  {/if}
 {:else}
   <section class="page" aria-labelledby={`${config.kind}-form-title`}>
     <RegisterPageHeader
       breadcrumbs={config.breadcrumbs}
       title={displayMode === "edit" && currentRecord ? `Edit ${config.titleOf(currentRecord)}` : config.newActionLabel}
       titleId={`${config.kind}-form-title`}
-      summary={`Create or update a validated ${config.recordLabel} in the typed IndexedDB workflow.`}
+      summary={`Create or update this ${config.recordLabel} and its operating context.`}
     />
     {#if operationError}<p class="error-message" role="alert">{operationError}</p>{/if}
     {#key `${displayMode}-${displayRecordId}`}
+      {#if displayMode === "new" && (config.kind === "processes" || config.kind === "tasks")}
+      <GuidedFoundationForm
+        kind={config.kind}
+        title={config.newActionLabel}
+        fields={(values) => config.fields(context, values, currentRecord)}
+        initialValues={formInitialValues}
+        onSave={saveRecord}
+        onCancel={() => void navigateTo(config.basePath)}
+        validate={config.validate}
+        submitLabel={`Create ${config.recordLabel}`}
+      />
+      {:else}
       <RecordForm
         title={displayMode === "edit" && currentRecord ? `Edit ${config.titleOf(currentRecord)}` : config.newActionLabel}
         ariaLabel={`${config.recordType} form`}
@@ -367,6 +417,7 @@
         submitLabel={displayMode === "edit" ? "Save changes" : `Create ${config.recordLabel}`}
         validationSummary={`Fix the highlighted fields before saving the ${config.recordLabel}.`}
       />
+      {/if}
     {/key}
   </section>
 {/if}
@@ -381,21 +432,14 @@
 {/if}
 
 <style>
-  .foundation-runtime-state {
-    width: fit-content;
-    margin: -4px 0 12px;
-    border: 1px solid var(--color-positive-border);
-    border-radius: 999px;
-    background: var(--color-positive-soft);
-    color: var(--color-positive-text);
-    font-size: 0.75rem;
-    font-weight: 720;
-    padding: 5px 9px;
-  }
-
-  .location-filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; margin: 0 0 16px; padding: 14px; border: 1px solid var(--glass-border-subtle); border-radius: var(--radius-surface); background: rgba(10, 19, 21, .62); }
+  .location-filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; margin: 0 0 16px; padding: 14px; border: 1px solid var(--color-border); border-radius: var(--radius-surface); background: var(--color-surface); }
   .location-filters > div { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
   .location-filters h2 { margin: 0; font-size: 1rem; }
   .location-filters label { display: grid; gap: 5px; color: var(--color-muted); font-size: .72rem; font-weight: 720; }
-  .location-filters select { border: 1px solid var(--glass-border-subtle); border-radius: var(--radius-control); background: rgba(5, 12, 14, .7); color: var(--color-text); padding: 8px 9px; }
+  .location-filters select { border: 1px solid var(--color-field-border); border-radius: var(--radius-control); background: var(--color-field-bg); color: var(--color-text); padding: 8px 9px; }
+  .location-mode-switcher { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-bottom: 15px; }
+  .location-mode-switcher button { display: grid; gap: 2px; min-height: 58px; border: 1px solid var(--color-border); border-radius: var(--radius-surface); background: var(--color-surface); color: var(--color-text); padding: 10px 13px; text-align: left; }
+  .location-mode-switcher button.active { border-color: var(--color-action); background: var(--color-accent-soft); color: var(--color-action); }
+  .location-mode-switcher span { color: var(--color-muted); font-size: .75rem; font-weight: 500; }
+  @media (max-width: 640px) { .location-mode-switcher { grid-template-columns: 1fr; } }
 </style>

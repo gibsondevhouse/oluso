@@ -1,299 +1,34 @@
 <script lang="ts">
-  import { AlertTriangle, CheckCircle2, Database } from "lucide-svelte";
-  import {
-    findingRecords,
-    getPersistenceStatusLabel,
-    correctiveActionRecords,
-    hazardRecords,
-    persistenceDiagnostics,
-  } from "$lib/persistence/local-persistence";
+  import { onMount } from "svelte";
+  import { ArrowRight, Factory, FlaskConical, ListChecks, Network } from "lucide-svelte";
+  import { foundationApplication } from "$lib/application/foundation";
+  import EmptyState from "$lib/components/feedback/EmptyState.svelte";
+  import ErrorState from "$lib/components/feedback/ErrorState.svelte";
+  import PinnedScopes from "$lib/components/navigation/PinnedScopes.svelte";
+  import RecentRecords from "$lib/components/navigation/RecentRecords.svelte";
+  import SummaryCard from "$lib/components/workspace/SummaryCard.svelte";
+  import { getBrowserDatabase } from "$lib/data/database";
+  import { ChemicalProductRepository, ChemicalUseRepository, SiteChemicalInventoryRepository } from "$lib/data/repositories/chemical";
+  import type { ChemicalProduct, ChemicalUse, SiteChemicalInventory } from "$lib/domain/chemical";
+  import type { Location } from "$lib/domain/location";
+  import { assignmentIsEffective, type LocationFunctionAssignment, type OperationalFunction, type Process } from "$lib/domain/operations";
+  import { readWorkspaceStore } from "$lib/workspace/idb-read";
+  import { workspaceScope, workspaceScopeLabels } from "$lib/workspace/scope";
 
-  interface PrioritySignal {
-    id: string;
-    title: string;
-    value: number;
-    sub: string;
-    href: string;
-    state: "attention" | "steady";
-  }
-
-  const statusLabel = $derived(getPersistenceStatusLabel($persistenceDiagnostics.status));
-  const openActions = $derived(
-    $correctiveActionRecords.filter(
-      (action) => !["Verified", "Closed", "Canceled"].includes(action.status),
-    ).length,
-  );
-  const openFindings = $derived(
-    $findingRecords.filter((finding) => finding.status === "Open").length,
-  );
-  const activeHazards = $derived(
-    $hazardRecords.filter((hazard) => hazard.status === "active").length,
-  );
-  const prioritySignals = $derived(
-    [
-      {
-        id: "open-findings",
-        title: "Open Findings",
-        value: openFindings,
-        sub: `of ${$findingRecords.length} total`,
-        href: "/field/findings",
-        state: openFindings > 0 ? "attention" : "steady",
-      },
-      {
-        id: "open-actions",
-        title: "Open Actions",
-        value: openActions,
-        sub: `of ${$correctiveActionRecords.length} total`,
-        href: "/actions/corrective-actions",
-        state: openActions > 0 ? "attention" : "steady",
-      },
-      {
-        id: "active-hazards",
-        title: "Active Hazards",
-        value: activeHazards,
-        sub: `of ${$hazardRecords.length} total`,
-        href: "/hse/hazards",
-        state: activeHazards > 0 ? "attention" : "steady",
-      },
-    ] satisfies PrioritySignal[],
-  );
+  type ContextRecord = Record<string,unknown> & { id:string; siteId?:string; locationId?:string; operationalFunctionId?:string; status?:string; lifecycleStatus?:string; resolvedSiteId?:string; };
+  let locations=$state<Location[]>([]);let functions=$state<OperationalFunction[]>([]);let assignments=$state<LocationFunctionAssignment[]>([]);let processes=$state<Process[]>([]);let products=$state<ChemicalProduct[]>([]);let inventory=$state<SiteChemicalInventory[]>([]);let uses=$state<ChemicalUse[]>([]);let segs=$state<ContextRecord[]>([]);let gaps=$state<ContextRecord[]>([]);let actions=$state<ContextRecord[]>([]);let loading=$state(true);let error=$state<string|null>(null);
+  const scopeTitle=$derived($workspaceScopeLabels.location??$workspaceScopeLabels.site??$workspaceScopeLabels.country??$workspaceScopeLabels.organization??"Global HSE workspace");
+  const scopedLocations=$derived(locations.filter((item)=>(!$workspaceScope.countryId||item.id===$workspaceScope.countryId||item.resolvedCountryId===$workspaceScope.countryId)&&(!$workspaceScope.siteId||item.id===$workspaceScope.siteId||item.resolvedSiteId===$workspaceScope.siteId)&&(!$workspaceScope.locationId||item.id===$workspaceScope.locationId||item.parentId===$workspaceScope.locationId)));
+  const scopedLocationIds=$derived(new Set(scopedLocations.map((item)=>item.id)));const scopedProcesses=$derived(processes.filter((item)=>(!$workspaceScope.siteId||item.resolvedSiteId===$workspaceScope.siteId)&&(!$workspaceScope.locationId||item.primaryLocationId===$workspaceScope.locationId)&&(!$workspaceScope.operationalFunctionId||item.operationalFunctionId===$workspaceScope.operationalFunctionId)));const scopedInventory=$derived(inventory.filter((item)=>(!$workspaceScope.siteId||item.siteId===$workspaceScope.siteId)&&(!$workspaceScope.locationId||item.storageLocationId===$workspaceScope.locationId)));const scopedUses=$derived(uses.filter((item)=>(!$workspaceScope.siteId||item.siteId===$workspaceScope.siteId)&&(!$workspaceScope.locationId||item.locationId===$workspaceScope.locationId)&&(!$workspaceScope.operationalFunctionId||item.operationalFunctionId===$workspaceScope.operationalFunctionId)));const scopedFunctionIds=$derived(new Set(assignments.filter((item)=>assignmentIsEffective(item)&&scopedLocationIds.has(item.locationId)&&(!$workspaceScope.operationalFunctionId||item.operationalFunctionId===$workspaceScope.operationalFunctionId)).map((item)=>item.operationalFunctionId)));const scopedSegs=$derived(segs.filter(matchesGenericScope));const scopedGaps=$derived(gaps.filter((item)=>matchesGenericScope(item)&&!["Resolved","Closed","Accepted"].includes(String(item.status??""))));const scopedActions=$derived(actions.filter((item)=>matchesGenericScope(item)&&!["Verified","Closed","Canceled","Complete"].includes(String(item.status??""))));
+  onMount(()=>{void load();});
+  function matchesGenericScope(item:ContextRecord){return(!$workspaceScope.siteId||item.siteId===$workspaceScope.siteId||item.resolvedSiteId===$workspaceScope.siteId)&&(!$workspaceScope.locationId||item.locationId===$workspaceScope.locationId)&&(!$workspaceScope.operationalFunctionId||item.operationalFunctionId===$workspaceScope.operationalFunctionId);}
+  async function load(){loading=true;error=null;try{const [services,adapter]=await Promise.all([foundationApplication.services(),getBrowserDatabase()]);[locations,functions,assignments,processes,products,inventory,uses,segs,gaps,actions]=await Promise.all([services.locations.list(true),services.operationalFunctions.list(true),services.locationFunctionAssignments.list(true),services.processes.list(true),new ChemicalProductRepository(adapter.database).list({includeArchived:true}),new SiteChemicalInventoryRepository(adapter.database).list({includeArchived:true}),new ChemicalUseRepository(adapter.database).list({includeArchived:true}),readWorkspaceStore<ContextRecord>(adapter.database,"segs"),readWorkspaceStore<ContextRecord>(adapter.database,"data_quality_findings"),readWorkspaceStore<ContextRecord>(adapter.database,"corrective_actions")]);}catch(cause){error=cause instanceof Error?cause.message:String(cause);}finally{loading=false;}}
 </script>
 
-<section class="page dashboard-page" aria-labelledby="dashboard-title">
-  <header class="page-header dashboard-header">
-    <div class="dashboard-title-block">
-      <div class="breadcrumbs">Dashboard</div>
-      <h1 class="page-title" id="dashboard-title">OLUSO Dashboard</h1>
-      <p class="page-summary">
-        Review the highest-priority HSE signals. Use the sidepanel to open workflows and registers.
-      </p>
-    </div>
-    <div class="status-strip" aria-label="Persistence status">
-      <Database size={16} aria-hidden="true" />
-      <span class="status-pill {$persistenceDiagnostics.status}">{statusLabel}</span>
-      {#if $persistenceDiagnostics.dataPath}
-        <span class="status-path">{$persistenceDiagnostics.dataPath}</span>
-      {/if}
-    </div>
-  </header>
+<section class="home-page" aria-labelledby="home-title"><header><div><span>Home</span><h1 id="home-title">{scopeTitle}</h1><p>See the places, work, materials, exposure context, and follow-up that matter in the current scope.</p></div><a href="/enterprise/navigator">Open Navigator <ArrowRight size={16}/></a></header>
+{#if loading}<p role="status">Preparing the current workspace…</p>{:else if error}<ErrorState message={error} onRetry={()=>void load()}/>{:else}
+  <div class="summary-grid"><SummaryCard label="Physical Locations" value={scopedLocations.filter((item)=>!["Country","StateOrProvince","CountyOrDistrict","CityOrMunicipality"].includes(item.nodeType)).length} href="/operations/locations"/><SummaryCard label="Functions assigned" value={scopedFunctionIds.size} href="/enterprise/functions"/><SummaryCard label="Processes" value={scopedProcesses.length} href="/operations/processes"/><SummaryCard label="Products present" value={new Set(scopedInventory.map((item)=>item.productId)).size} href="/master/inventory"/><SummaryCard label="Chemical Uses" value={scopedUses.length} href="/master/chemical-uses"/><SummaryCard label="SEGs" value={scopedSegs.length} href="/hse/segs"/><SummaryCard label="Open data gaps" value={scopedGaps.length} href="/reports/data-quality" tone={scopedGaps.length?"attention":"default"}/><SummaryCard label="Open actions" value={scopedActions.length} href="/actions/corrective-actions" tone={scopedActions.length?"attention":"default"}/></div>
+  <div class="home-grid"><section class="work-context"><h2>Current work context</h2>{#if scopedFunctionIds.size||scopedProcesses.length||scopedInventory.length}<div class="context-list"><a href="/enterprise/functions"><Network size={18}/><span><strong>{scopedFunctionIds.size} Functions</strong><small>{functions.filter((item)=>scopedFunctionIds.has(item.id)).slice(0,4).map((item)=>item.name).join(", ")||"No active assignments"}</small></span><ArrowRight size={15}/></a><a href="/operations/processes"><Factory size={18}/><span><strong>{scopedProcesses.length} Processes</strong><small>{scopedProcesses.slice(0,4).map((item)=>item.name).join(", ")||"No Processes documented"}</small></span><ArrowRight size={15}/></a><a href="/master/inventory"><FlaskConical size={18}/><span><strong>{new Set(scopedInventory.map((item)=>item.productId)).size} Products present</strong><small>{products.filter((item)=>scopedInventory.some((inventoryItem)=>inventoryItem.productId===item.id)).slice(0,4).map((item)=>item.productName).join(", ")||"No Site Inventory"}</small></span><ArrowRight size={15}/></a><a href="/review/queue"><ListChecks size={18}/><span><strong>{scopedGaps.length+scopedActions.length} items need follow-up</strong><small>Data-quality gaps and corrective actions</small></span><ArrowRight size={15}/></a></div>{:else}<EmptyState title="No operating context in this scope" message="Choose a Site or Function in the scope bar, or use the Enterprise Navigator to begin."/>{/if}</section><aside><PinnedScopes/><RecentRecords/></aside></div>
+{/if}</section>
 
-  <section class="dashboard-panel" aria-labelledby="priority-signals-title">
-    <div class="panel-heading">
-      <div>
-        <h2 id="priority-signals-title">Priority Signals</h2>
-        <p>Only the critical health-check metrics stay on the dashboard; the sidepanel owns workflow navigation.</p>
-      </div>
-    </div>
-
-    <div class="priority-list" aria-label="Priority Signals">
-      {#each prioritySignals as signal (signal.id)}
-        <a class="priority-row {signal.state}" href={signal.href}>
-          <span class="priority-icon" aria-hidden="true">
-            {#if signal.state === "attention"}
-              <AlertTriangle size={18} />
-            {:else}
-              <CheckCircle2 size={18} />
-            {/if}
-          </span>
-          <span class="priority-title">{signal.title}</span>
-          <strong>{signal.value}</strong>
-          <span>{signal.sub}</span>
-        </a>
-      {/each}
-    </div>
-  </section>
-</section>
-
-<style>
-  .dashboard-page {
-    max-width: 1180px;
-    padding-block: 34px;
-  }
-
-  .dashboard-header {
-    display: flex;
-    align-items: flex-end;
-    justify-content: space-between;
-    gap: 28px;
-    margin-bottom: 28px;
-  }
-
-  .dashboard-title-block {
-    display: grid;
-    gap: 8px;
-    min-width: 0;
-  }
-
-  .status-strip {
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 10px;
-    min-width: 240px;
-    border: 1px solid var(--glass-border-subtle);
-    border-radius: var(--radius-surface);
-    background: var(--glass-bg-subtle);
-    box-shadow: var(--elevation-z0);
-    padding: 10px 12px;
-    color: var(--color-muted);
-  }
-
-  .status-path {
-    max-width: 320px;
-    overflow: hidden;
-    color: var(--color-muted);
-    font-size: 0.75rem;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .dashboard-panel {
-    display: grid;
-    gap: 20px;
-    border: 1px solid var(--glass-border-subtle);
-    border-radius: var(--radius-surface);
-    background: linear-gradient(180deg, rgba(22, 33, 36, 0.84), rgba(14, 23, 25, 0.82));
-    box-shadow: var(--surface-shadow);
-    padding: 20px;
-  }
-
-  .panel-heading {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 20px;
-    padding-bottom: 18px;
-    border-bottom: 1px solid var(--glass-border-subtle);
-  }
-
-  .panel-heading h2 {
-    margin: 0;
-    color: var(--color-text);
-    font-size: 1.125rem;
-    font-weight: 760;
-    letter-spacing: 0;
-    line-height: 1.2;
-  }
-
-  .panel-heading p {
-    max-width: 680px;
-    margin: 6px 0 0;
-    color: var(--color-muted);
-    font-size: 0.9375rem;
-  }
-
-  .panel-heading > span {
-    color: var(--color-muted);
-    font-size: 0.75rem;
-    font-weight: 680;
-    white-space: nowrap;
-  }
-
-  .priority-list {
-    display: grid;
-    gap: 0;
-    overflow: hidden;
-    border: 1px solid var(--glass-border-subtle);
-    border-radius: var(--radius-surface);
-    background: rgba(7, 12, 14, 0.34);
-  }
-
-  .priority-row {
-    display: grid;
-    grid-template-columns: auto minmax(180px, 1fr) auto minmax(130px, 0.6fr);
-    align-items: center;
-    gap: 14px;
-    border-bottom: 1px solid var(--glass-border-subtle);
-    color: var(--color-text);
-    padding: 18px;
-    text-decoration: none;
-    transition:
-      background-color var(--motion-duration-fast) var(--motion-ease-standard),
-      border-color var(--motion-duration-fast) var(--motion-ease-standard);
-  }
-
-  .priority-row:hover,
-  .workflow-row:hover {
-    border-color: var(--glass-border);
-    background: rgba(255, 255, 255, 0.045);
-  }
-
-  .priority-icon {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 34px;
-    height: 34px;
-    border: 1px solid var(--glass-border-subtle);
-    border-radius: var(--radius-control);
-    background: rgba(255, 255, 255, 0.04);
-    color: var(--color-success-text);
-  }
-
-  .priority-row strong {
-    color: var(--color-text);
-    font-size: 2rem;
-    font-weight: 760;
-    line-height: 1;
-  }
-
-  .priority-row > span:last-child {
-    color: var(--color-muted);
-    font-size: 0.875rem;
-    text-align: right;
-  }
-
-  .priority-title {
-    font-size: 1rem;
-    font-weight: 720;
-  }
-
-  .priority-row.attention strong {
-    color: var(--color-warning-text);
-  }
-
-  .priority-row.attention .priority-icon {
-    border-color: var(--color-warning-border);
-    background: var(--color-warning-soft);
-    color: var(--color-warning-text);
-  }
-
-  @media (max-width: 860px) {
-    .dashboard-header,
-    .panel-heading {
-      align-items: flex-start;
-      flex-direction: column;
-    }
-
-    .status-strip {
-      justify-content: flex-start;
-      min-width: 0;
-      width: 100%;
-    }
-
-    .status-path {
-      max-width: 100%;
-    }
-  }
-
-  @media (max-width: 640px) {
-    .dashboard-page {
-      padding-block: 28px;
-    }
-
-    .priority-row {
-      grid-template-columns: 1fr;
-      gap: 8px;
-      padding: 18px 0;
-    }
-
-    .priority-icon {
-      display: none;
-    }
-
-    .priority-row > span:last-child {
-      text-align: left;
-    }
-
-  }
-</style>
+<style>.home-page{width:min(100%,1460px);min-height:100%;margin:0 auto;padding:28px 30px 40px}.home-page>header{display:flex;align-items:flex-end;justify-content:space-between;gap:18px;margin-bottom:18px}header>div{display:grid;gap:5px}header span{color:var(--color-action);font-size:.7rem;font-weight:750;text-transform:uppercase}h1,h2,p{margin:0}h1{font-size:1.8rem}header p{max-width:720px;color:var(--color-muted);font-size:.875rem}header>a{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--color-action);border-radius:var(--radius-control);background:var(--color-action);color:white;font-size:.78rem;font-weight:750;padding:8px 11px;text-decoration:none}.summary-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:10px;margin-bottom:15px}.home-grid{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(260px,.5fr);gap:14px}.work-context{align-self:start;overflow:hidden;border:1px solid var(--color-border);border-radius:var(--radius-surface);background:var(--color-surface)}.work-context h2{border-bottom:1px solid var(--color-border);font-size:.95rem;padding:13px 15px}.context-list{display:grid}.context-list a{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:10px;border-bottom:1px solid var(--color-border);color:var(--color-action);padding:12px 15px;text-decoration:none}.context-list a:last-child{border-bottom:0}.context-list a:hover{background:var(--color-surface-subtle)}.context-list a>span{display:grid;gap:2px}.context-list strong{color:var(--color-text);font-size:.82rem}.context-list small{color:var(--color-muted);font-size:.72rem}.home-grid aside{display:grid;align-content:start;gap:12px}@media(max-width:850px){.home-grid{grid-template-columns:1fr}}@media(max-width:680px){.home-page{padding:20px 15px 30px}.home-page>header{align-items:stretch;flex-direction:column}}</style>

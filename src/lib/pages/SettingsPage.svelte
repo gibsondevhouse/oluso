@@ -316,18 +316,16 @@
   .diagnostics-panel {
     display: grid;
     gap: 16px;
-    border: 1px solid var(--glass-border-subtle);
+    border: 1px solid var(--color-border);
     border-radius: var(--radius-surface);
-    background: linear-gradient(180deg, rgba(22, 33, 36, 0.86), rgba(14, 23, 25, 0.84));
+    background: var(--color-surface);
     box-shadow: var(--surface-shadow);
     padding: 18px;
   }
 
   .danger-panel {
     border-color: var(--color-danger-border);
-    background:
-      linear-gradient(180deg, rgba(249, 112, 102, 0.1), rgba(14, 23, 25, 0.84)),
-      var(--color-danger-soft);
+    background: var(--color-danger-soft);
   }
 
   .diagnostics-header {

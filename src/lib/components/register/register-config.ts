@@ -491,7 +491,7 @@ function missingRelatedItem(id: string, title: string): RelationshipItem {
   return {
     id,
     title,
-    meta: `Related record ID ${id} was not found.`,
+    meta: "The related record is missing or no longer available.",
     missing: true,
   };
 }

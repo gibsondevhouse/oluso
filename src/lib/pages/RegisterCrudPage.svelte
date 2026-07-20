@@ -22,6 +22,8 @@
     type PersistedRegisterRecord,
   } from "$lib/persistence/local-persistence";
   import { CAMPAIGN_COLLECTION_NAMES } from "$lib/persistence/campaign-register.types";
+  import { rememberRecentRecord } from "$lib/workspace/recent-records";
+  import { workspaceScope } from "$lib/workspace/scope";
   import RegisterRecordNotFound from "./RegisterRecordNotFound.svelte";
 
   interface Props {
@@ -52,6 +54,7 @@
   const siteFilterOptions = $derived(getSiteFilterOptions(context));
   const modeTitle = $derived(getModeTitle());
   const formInitialValues = $derived(getFormInitialValues());
+  const scopedRecords = $derived(records.filter(recordMatchesWorkspaceScope));
   const tableError = $derived(
     $persistenceDiagnostics.status === "error" ? $persistenceDiagnostics.lastError : operationError,
   );
@@ -137,6 +140,12 @@
       formContext,
     );
 
+    if (displayMode === "new") {
+      if ("siteId" in values && !values.siteId && $workspaceScope.siteId) values.siteId = $workspaceScope.siteId;
+      if ("locationId" in values && !values.locationId && $workspaceScope.locationId) values.locationId = $workspaceScope.locationId;
+      if ("operationalFunctionId" in values && !values.operationalFunctionId && $workspaceScope.operationalFunctionId) values.operationalFunctionId = $workspaceScope.operationalFunctionId;
+    }
+
     if (
       displayMode !== "new" ||
       config.kind !== "corrective-actions" ||
@@ -161,6 +170,38 @@
       sourceId,
       title: sourceTitle ? `Address: ${sourceTitle}` : values.title,
     };
+  }
+
+  function recordMatchesWorkspaceScope(record: PersistedRegisterRecord) {
+    const value = record as unknown as Record<string, unknown>;
+    const selectedSite = $workspaceScope.siteId;
+    const selectedLocation = $workspaceScope.locationId;
+    const selectedFunction = $workspaceScope.operationalFunctionId;
+
+    if (selectedSite) {
+      const directSite = [value.siteId, value.resolvedSiteId, value.primarySiteId].filter(Boolean);
+      const relatedSites = getRecordSiteFilterValues(record);
+      if (directSite.length > 0 || relatedSites.length > 0) {
+        if (![...directSite, ...relatedSites].includes(selectedSite)) return false;
+      }
+    }
+
+    if (selectedLocation) {
+      const locationValues = Object.entries(value)
+        .filter(([key]) => key === "locationId" || key.endsWith("LocationId") || key.endsWith("LocationIds"))
+        .flatMap(([, item]) => Array.isArray(item) ? item : [item])
+        .filter((item): item is string => typeof item === "string" && Boolean(item));
+      if (locationValues.length > 0 && !locationValues.includes(selectedLocation)) return false;
+    }
+
+    if (selectedFunction) {
+      const functionValues = [value.operationalFunctionId, value.functionId].filter(
+        (item): item is string => typeof item === "string" && Boolean(item),
+      );
+      if (functionValues.length > 0 && !functionValues.includes(selectedFunction)) return false;
+    }
+
+    return true;
   }
 
   function makeRecordPath(record: PersistedRegisterRecord) {
@@ -269,6 +310,13 @@
         const nextRecord = olusoApplication.getRecord(config.collection, nextRecordId);
         currentRecord = nextRecord;
         recordMissing = nextRecord === null;
+        if (nextRecord) {
+          rememberRecentRecord({
+            path: makeRecordPath(nextRecord),
+            title: config.getRecordTitle(nextRecord),
+            context: config.title,
+          });
+        }
       } else {
         currentRecord = null;
       }
@@ -358,7 +406,7 @@
     />
 
     <RegisterTable
-      records={records}
+      records={scopedRecords}
       {columns}
       recordLabel={config.recordLabel}
       pluralRecordLabel={config.pluralRecordLabel}
@@ -400,7 +448,6 @@
 {:else if recordMissing}
   <RegisterRecordNotFound
     registerName={config.title}
-    recordId={displayRecordId}
     listPath={config.basePath}
     createPath={`${config.basePath}/new`}
   />
@@ -413,7 +460,6 @@
     title={modeTitle}
     summary={getRecordSummary()}
     statusLabel={config.getStatusLabel(currentRecord)}
-    statusTone={config.getStatusTone(currentRecord)}
     record={currentRecord}
     primarySections={config.detailSections(currentRecord, context)}
     relatedSections={config.relatedSections?.(currentRecord, context)}
@@ -444,7 +490,6 @@
         onCancel={() =>
           void navigateTo(currentRecord ? makeRecordPath(currentRecord) : config.basePath)}
         validate={config.validate}
-        context={displayMode === "edit" && currentRecord ? `ID ${currentRecord.id}` : undefined}
         submitLabel={config.saveLabel}
         validationSummary={`Fix the highlighted fields before saving the ${config.recordLabel}.`}
       />

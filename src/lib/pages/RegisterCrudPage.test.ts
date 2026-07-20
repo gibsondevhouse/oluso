@@ -152,13 +152,15 @@ describe("RegisterCrudPage", () => {
     expect(screen.getByRole("heading", { level: 2, name: "Related Location" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { level: 2, name: "Related Corrective Actions" })).toBeInTheDocument();
 
-    await fireEvent.click(screen.getByRole("button", { name: "Archive" }));
+    await fireEvent.click(screen.getByRole("button", { name: /More/ }));
+    await fireEvent.click(screen.getByRole("menuitem", { name: "Archive…" }));
     await fireEvent.click(screen.getAllByRole("button", { name: "Archive" }).at(-1)!);
-    expect(await screen.findByRole("status", { name: "Archived lifecycle" })).toBeInTheDocument();
+    expect(within(screen.getByLabelText("Record states")).getByText("Archived")).toBeInTheDocument();
 
-    await fireEvent.click(screen.getByRole("button", { name: "Restore" }));
+    await fireEvent.click(screen.getByRole("button", { name: /More/ }));
+    await fireEvent.click(screen.getByRole("menuitem", { name: "Restore" }));
     await fireEvent.click(screen.getAllByRole("button", { name: "Restore" }).at(-1)!);
-    expect(screen.queryByRole("status", { name: "Archived lifecycle" })).not.toBeInTheDocument();
+    expect(within(screen.getByLabelText("Record states")).getByText("Active")).toBeInTheDocument();
   });
 
   it("renders the shared not-found state for missing detail records", async () => {
@@ -167,7 +169,8 @@ describe("RegisterCrudPage", () => {
     expect(
       await screen.findByRole("heading", { level: 1, name: "Record not found" }),
     ).toBeInTheDocument();
-    expect(screen.getByText("Attempted record ID: missing-finding")).toBeInTheDocument();
+    expect(screen.getByText(/may have been archived, removed, or is not available/)).toBeInTheDocument();
+    expect(screen.queryByText("missing-finding")).not.toBeInTheDocument();
   });
 
   it("keeps archived records directly viewable", async () => {
@@ -181,7 +184,10 @@ describe("RegisterCrudPage", () => {
     renderRegisterRoute("/operations/locations/loc-demo-workshop");
 
     expect(await screen.findByRole("heading", { level: 1, name: "Workshop" })).toBeInTheDocument();
-    expect(screen.getByRole("status", { name: "Archived lifecycle" })).toBeInTheDocument();
+    expect(within(screen.getByLabelText("Record states")).getByText("Lifecycle")).toBeInTheDocument();
+    expect(within(screen.getByLabelText("Record states")).getByText("Archived")).toBeInTheDocument();
+    await fireEvent.click(screen.getByRole("button", { name: /More/ }));
+    expect(screen.getByRole("menuitem", { name: "Restore" })).toBeInTheDocument();
     expect(screen.getByText("Direct shared route review.")).toBeInTheDocument();
   });
 });

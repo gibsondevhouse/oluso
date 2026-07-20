@@ -57,7 +57,7 @@ describe("RouteOutlet", () => {
 
     expect(screen.getByRole("heading", { level: 1, name: "Processes" })).toBeInTheDocument();
     expect(await screen.findByText("Create the first Site-resolved process.")).toBeInTheDocument();
-    expect(screen.getByText("Offline-ready · Typed IndexedDB workflow")).toBeInTheDocument();
+    expect(screen.queryByText(/Typed IndexedDB|data path/i)).not.toBeInTheDocument();
   });
 
   it("renders the Equipment workflow route", async () => {
@@ -92,7 +92,8 @@ describe("RouteOutlet", () => {
     });
 
     expect(screen.getByRole("heading", { level: 1, name: "Locations" })).toBeInTheDocument();
-    expect(await screen.findByText("Create a Country to begin the operational location hierarchy.")).toBeInTheDocument();
+    expect(screen.getByLabelText("Location browsing mode")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Explore hierarchy/ })).toHaveAttribute("aria-pressed", "true");
   });
 
   it("renders the Controls workflow route", async () => {
@@ -136,8 +137,6 @@ describe("RouteOutlet", () => {
   });
 
   it.each([
-    ["/operations/locations/new", "Type", "Site"],
-    ["/operations/processes/new", "Type", "Warehouse"],
     ["/operations/equipment/new", "Equipment Type", "Dust Collector"],
     ["/hse/hazards/new", "Category", "Fire/Explosion"],
     ["/risk/controls/new", "Control Type", "Engineering"],
@@ -252,7 +251,8 @@ describe("RouteOutlet", () => {
         name: "Secondary container label needs update",
       }),
     ).toBeInTheDocument();
-    expect(screen.getByText("Related record ID process-missing was not found.")).toBeInTheDocument();
+    expect(screen.getByText("The related record is missing or no longer available.")).toBeInTheDocument();
+    expect(screen.queryByText("process-missing")).not.toBeInTheDocument();
   });
 
   it("renders a shared record-not-found page for missing detail records", async () => {
@@ -271,7 +271,8 @@ describe("RouteOutlet", () => {
     expect(
       await screen.findByRole("heading", { level: 1, name: "Record not found" }),
     ).toBeInTheDocument();
-    expect(screen.getByText("Attempted record ID: missing-finding")).toBeInTheDocument();
+    expect(screen.getByText(/may have been archived, removed, or is not available/)).toBeInTheDocument();
+    expect(screen.queryByText("missing-finding")).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Back to register list" })).toHaveAttribute(
       "href",
       "/field/findings",

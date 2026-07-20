@@ -1,10 +1,11 @@
 <script lang="ts">
   import type { Snippet } from "svelte";
   import { tick } from "svelte";
-  import {
-    getPersistenceStatusLabel,
-    persistenceDiagnostics,
-  } from "$lib/persistence/local-persistence";
+  import { Search } from "lucide-svelte";
+  import { persistenceDiagnostics } from "$lib/persistence/local-persistence";
+  import CommandPalette from "$lib/components/navigation/CommandPalette.svelte";
+  import SaveState, { type SaveStateKind } from "$lib/components/feedback/SaveState.svelte";
+  import ScopeBar from "$lib/components/workspace/ScopeBar.svelte";
   import { iconMap } from "./SidePanel/icons";
   import SidePanel from "./SidePanel/SidePanel.svelte";
 
@@ -16,10 +17,16 @@
   let { currentPath, children }: Props = $props();
   let collapsed = $state(false);
   let statusMessage = $state("Navigation expanded");
+  let commandPaletteOpen = $state(false);
 
   const ToggleIcon = $derived(collapsed ? iconMap.PanelLeftOpen : iconMap.PanelLeftClose);
   const toggleLabel = $derived(collapsed ? "Expand navigation" : "Collapse navigation");
-  const persistenceStatusLabel = $derived(getPersistenceStatusLabel($persistenceDiagnostics.status));
+  const saveState = $derived(({
+    not_configured: "offline",
+    loading: "saving",
+    ready: "saved",
+    error: "error",
+  } satisfies Record<string, SaveStateKind>)[$persistenceDiagnostics.status]);
 
   async function toggleNavigation() {
     collapsed = !collapsed;
@@ -28,6 +35,11 @@
   }
 
   function handleKeydown(event: KeyboardEvent) {
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
+      event.preventDefault();
+      commandPaletteOpen = !commandPaletteOpen;
+      return;
+    }
     if ((event.ctrlKey || event.metaKey) && event.key === "\\") {
       event.preventDefault();
       toggleNavigation();
@@ -38,6 +50,7 @@
 <svelte:window onkeydown={handleKeydown} />
 
 <div class="app-shell" class:collapsed>
+  <a class="skip-link" href="#main-content">Skip to main content</a>
   <SidePanel {currentPath} {collapsed} />
 
   <div class="workspace-frame">
@@ -52,19 +65,14 @@
         <ToggleIcon size={18} />
       </button>
       <div class="workspace-title">
-        <span class="workspace-kicker">OLUSO Enterprise</span>
-        <span class="workspace-name">HSE Assurance Console</span>
+        <span class="workspace-kicker">ADAMA HSE</span>
+        <span class="workspace-name">Operational workspace</span>
       </div>
-      <div
-        class="workspace-status"
-        class:status-ready={$persistenceDiagnostics.status === "ready"}
-        class:status-error={$persistenceDiagnostics.status === "error"}
-        class:status-loading={$persistenceDiagnostics.status === "loading"}
-        aria-label="Persistence status"
-      >
-        {persistenceStatusLabel}
-      </div>
+      <button class="command-button" type="button" onclick={() => (commandPaletteOpen = true)} aria-label="Open command palette"><Search size={16} /><span>Search or jump to…</span><kbd>⌘ K</kbd></button>
+      <div aria-label="Save status"><SaveState state={saveState} /></div>
     </header>
+
+    <ScopeBar />
 
     <main class="workspace-main" id="main-content" tabindex="-1">
       {#if children}
@@ -72,18 +80,11 @@
       {/if}
     </main>
 
-    <div class="workspace-status-strip" role="status" aria-live="polite">
-      <span>{statusMessage}</span>
-      <span>
-        {#if $persistenceDiagnostics.dataPath}
-          {$persistenceDiagnostics.dataPath}
-        {:else}
-          No persistence data path
-        {/if}
-      </span>
-    </div>
+    <span class="visually-hidden" role="status" aria-live="polite">{statusMessage}</span>
   </div>
 </div>
+
+<CommandPalette open={commandPaletteOpen} onClose={() => (commandPaletteOpen = false)} />
 
 <style>
   .app-shell {
@@ -102,7 +103,7 @@
     height: 100vh;
     flex-direction: column;
     overflow: hidden;
-    background: transparent;
+    background: var(--app-background);
   }
 
   .workspace-header {
@@ -111,12 +112,8 @@
     gap: 12px;
     min-height: var(--header-height);
     padding: 0 20px;
-    border-bottom: 1px solid var(--glass-border-subtle);
-    background:
-      linear-gradient(180deg, rgba(15, 23, 25, 0.92), rgba(10, 17, 19, 0.88)),
-      linear-gradient(90deg, rgba(45, 212, 191, 0.08), transparent 42%, rgba(96, 165, 250, 0.07));
-    box-shadow: var(--elevation-z0);
-    backdrop-filter: blur(var(--glass-blur-md)) saturate(var(--glass-saturate));
+    border-bottom: 1px solid var(--color-border);
+    background: var(--color-surface);
   }
 
   .icon-button {
@@ -125,18 +122,16 @@
     justify-content: center;
     width: 34px;
     height: 34px;
-    border: 1px solid var(--glass-border-subtle);
+    border: 1px solid var(--color-border);
     border-radius: var(--radius-control);
-    background: linear-gradient(180deg, rgba(31, 46, 49, 0.92), rgba(17, 27, 29, 0.92));
+    background: var(--color-surface);
     color: var(--color-text);
     cursor: pointer;
-    box-shadow: var(--elevation-z0);
-    backdrop-filter: blur(var(--glass-blur-sm)) saturate(var(--glass-saturate));
   }
 
   .icon-button:hover {
-    border-color: var(--glass-border-strong);
-    background: linear-gradient(180deg, rgba(38, 55, 59, 0.96), rgba(22, 34, 36, 0.96));
+    border-color: var(--color-action);
+    background: var(--color-surface-subtle);
   }
 
   .icon-button:focus-visible {
@@ -153,7 +148,7 @@
   }
 
   .workspace-kicker {
-    color: var(--color-accent-strong);
+    color: var(--color-action);
     font-size: 0.6875rem;
     font-weight: 760;
     letter-spacing: 0;
@@ -168,46 +163,9 @@
     line-height: 1.2;
   }
 
-  .workspace-status {
-    display: inline-flex;
-    align-items: center;
-    gap: 7px;
-    border: 1px solid var(--color-border);
-    border-radius: 999px;
-    background: rgba(255, 255, 255, 0.035);
-    color: var(--color-muted);
-    font-size: 0.75rem;
-    font-weight: 720;
-    line-height: 1;
-    padding: 6px 10px;
-    white-space: nowrap;
-  }
-
-  .workspace-status::before {
-    content: "";
-    width: 6px;
-    height: 6px;
-    border-radius: 999px;
-    background: currentColor;
-  }
-
-  .workspace-status.status-loading {
-    border-color: var(--color-warning-border);
-    background: var(--color-warning-soft);
-    color: var(--color-warning-text);
-  }
-
-  .workspace-status.status-ready {
-    border-color: var(--color-success-border);
-    background: var(--color-success-soft);
-    color: var(--color-success-text);
-  }
-
-  .workspace-status.status-error {
-    border-color: var(--color-danger-border);
-    background: var(--color-danger-soft);
-    color: var(--color-danger);
-  }
+  .command-button { display: flex; align-items: center; gap: 8px; width: min(270px, 26vw); min-height: 34px; border: 1px solid var(--color-border); border-radius: var(--radius-control); background: var(--color-surface-subtle); color: var(--color-muted); font-size: .75rem; padding: 0 8px; text-align: left; }
+  .command-button span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .command-button kbd { border: 1px solid var(--color-border); border-radius: 4px; background: var(--color-surface); color: var(--color-muted); padding: 1px 5px; }
 
   .workspace-main {
     flex: 1;
@@ -219,23 +177,16 @@
     outline: none;
   }
 
-  .workspace-status-strip {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    min-height: 28px;
-    border-top: 1px solid var(--glass-border-subtle);
-    background: rgba(9, 15, 17, 0.82);
-    color: var(--color-muted);
-    font-size: 0.75rem;
-    line-height: 1;
-    padding: 0 20px;
-    backdrop-filter: blur(var(--glass-blur-md)) saturate(var(--glass-saturate));
-  }
+  .skip-link { position: fixed; z-index: 110; top: 8px; left: 8px; transform: translateY(-150%); border-radius: var(--radius-control); background: var(--color-action); color: white; padding: 8px 12px; }
+  .skip-link:focus { transform: translateY(0); }
+  .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
   @media (max-width: 800px) {
-    .workspace-status {
-      display: none;
-    }
+    .command-button { width: 38px; justify-content: center; } .command-button span, .command-button kbd { display: none; }
+  }
+
+  @media (max-width: 640px) {
+    .workspace-header { padding-inline: 12px; }
+    .workspace-kicker { display: none; }
   }
 </style>

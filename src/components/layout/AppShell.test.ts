@@ -4,24 +4,18 @@ import { resetPersistenceStoresForTest } from "$lib/persistence/local-persistenc
 import AppShell from "./AppShell.svelte";
 
 describe("AppShell", () => {
-  beforeEach(() => {
-    resetPersistenceStoresForTest();
-  });
+  beforeEach(() => { localStorage.clear(); resetPersistenceStoresForTest(); });
 
-  it("renders the desktop shell regions", () => {
-    render(AppShell, {
-      props: {
-        currentPath: "/dashboard",
-      },
-    });
-
+  it("renders the operational shell, persistent scope, and accessible shortcuts", () => {
+    render(AppShell, { props: { currentPath: "/dashboard" } });
     expect(screen.getByRole("navigation", { name: "Main sections" })).toBeInTheDocument();
     expect(screen.getByRole("banner")).toBeInTheDocument();
-    expect(screen.getByRole("main")).toBeInTheDocument();
-    expect(screen.getByText("HSE Assurance Console")).toBeInTheDocument();
-    expect(screen.getByLabelText("Persistence status")).toHaveTextContent(
-      "Persistence not configured",
-    );
-    expect(screen.queryByText("Saved locally")).not.toBeInTheDocument();
+    expect(screen.getByRole("main")).toHaveAttribute("id", "main-content");
+    expect(screen.getAllByText("ADAMA HSE")).toHaveLength(2);
+    expect(screen.getByText("Operational workspace")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Open command palette" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Global workspace scope")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Skip to main content" })).toHaveAttribute("href", "#main-content");
+    expect(screen.queryByText(/IndexedDB|persistence data path/i)).not.toBeInTheDocument();
   });
 });

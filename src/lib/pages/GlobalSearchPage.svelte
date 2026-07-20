@@ -6,6 +6,8 @@
   import StatusPill from "$lib/components/ui/StatusPill.svelte";
   import { olusoApplication } from "../../application/oluso-application";
   import { foundationApplication } from "$lib/application/foundation";
+  import { workspaceScope } from "$lib/workspace/scope";
+  import type { PersistedRegisterRecord } from "$lib/persistence/local-persistence";
   import {
     GLOBAL_SEARCH_REGISTER_KINDS,
     TYPED_ENTERPRISE_SEARCH_OPTIONS,
@@ -61,7 +63,7 @@
         ...typedResults,
         ...searchAllRegisters(olusoApplication, searchQuery, { includeArchived })
           .filter((result) => !typedResults.some((typedResult) => typedResult.href === result.href)),
-      ];
+      ].filter(resultMatchesWorkspaceScope);
       results =
         registerFilter === "all"
           ? nextResults
@@ -103,20 +105,76 @@
     registerFilter = "all";
     includeArchived = false;
   }
+
+  function locationMatchesScope(locationId?: string) {
+    if (!locationId) return false;
+    const location = typedContext.locations.find((item) => item.id === locationId);
+    if (!location) return false;
+    return (!$workspaceScope.countryId || location.id === $workspaceScope.countryId || location.resolvedCountryId === $workspaceScope.countryId)
+      && (!$workspaceScope.siteId || location.id === $workspaceScope.siteId || location.resolvedSiteId === $workspaceScope.siteId)
+      && (!$workspaceScope.locationId || location.id === $workspaceScope.locationId || location.parentId === $workspaceScope.locationId);
+  }
+
+  function genericRecordMatches(record: PersistedRegisterRecord) {
+    const value = record as unknown as Record<string, unknown>;
+    if ($workspaceScope.siteId) {
+      const siteValues = [value.siteId, value.resolvedSiteId, value.primarySiteId].filter(Boolean);
+      if (siteValues.length && !siteValues.includes($workspaceScope.siteId)) return false;
+    }
+    if ($workspaceScope.locationId) {
+      const locationValues = Object.entries(value).filter(([key]) => key === "locationId" || key.endsWith("LocationId") || key.endsWith("LocationIds")).flatMap(([, item]) => Array.isArray(item) ? item : [item]);
+      if (locationValues.length && !locationValues.includes($workspaceScope.locationId)) return false;
+    }
+    if ($workspaceScope.operationalFunctionId) {
+      const functionValues = [value.operationalFunctionId, value.functionId].filter(Boolean);
+      if (functionValues.length && !functionValues.includes($workspaceScope.operationalFunctionId)) return false;
+    }
+    return true;
+  }
+
+  function resultMatchesWorkspaceScope(result: GlobalSearchResult) {
+    if (!$workspaceScope.organizationId && !$workspaceScope.countryId && !$workspaceScope.siteId && !$workspaceScope.locationId && !$workspaceScope.operationalFunctionId) return true;
+    const rawId = result.id.split(":").at(-1) ?? "";
+    if (result.kind === "organizations") return !$workspaceScope.organizationId || rawId === $workspaceScope.organizationId;
+    if (result.kind === "people") {
+      const person = typedContext.people.find((item) => item.id === rawId);
+      return Boolean(person) && (!$workspaceScope.siteId || person?.primarySiteId === $workspaceScope.siteId);
+    }
+    if (result.kind === "locations") return locationMatchesScope(rawId);
+    if (result.kind === "operational-functions") return !$workspaceScope.operationalFunctionId || rawId === $workspaceScope.operationalFunctionId;
+    if (result.kind === "processes") {
+      const process = typedContext.processes.find((item) => item.id === rawId);
+      return Boolean(process)
+        && (!$workspaceScope.siteId || process?.resolvedSiteId === $workspaceScope.siteId)
+        && (!$workspaceScope.locationId || process?.primaryLocationId === $workspaceScope.locationId)
+        && (!$workspaceScope.operationalFunctionId || process?.operationalFunctionId === $workspaceScope.operationalFunctionId);
+    }
+    if (result.kind === "tasks") {
+      const task = typedContext.tasks.find((item) => item.id === rawId);
+      const process = typedContext.processes.find((item) => item.id === task?.processId);
+      return Boolean(task && process)
+        && (!$workspaceScope.siteId || process?.resolvedSiteId === $workspaceScope.siteId)
+        && (!$workspaceScope.locationId || task?.locationId === $workspaceScope.locationId)
+        && (!$workspaceScope.operationalFunctionId || process?.operationalFunctionId === $workspaceScope.operationalFunctionId);
+    }
+    const config = REGISTER_CONFIGS[result.kind];
+    const record = olusoApplication.getRecord(config.collection, rawId);
+    return record ? genericRecordMatches(record) : false;
+  }
 </script>
 
 <section class="page" aria-labelledby="global-search-title">
   <header class="page-header">
     <div class="breadcrumbs">Workspace</div>
-    <h1 class="page-title" id="global-search-title">Global Search</h1>
+    <h1 class="page-title" id="global-search-title">Search workspace</h1>
     <p class="page-summary">
-      Search active register records from one place, with optional archived-record review.
+      Find active records in the current work scope, with an option to include archived records.
     </p>
   </header>
 
   <section class="search-panel" aria-labelledby="global-search-controls-title">
     <div class="search-panel-header">
-      <h2 id="global-search-controls-title">Search registers</h2>
+      <h2 id="global-search-controls-title">Find records</h2>
       <button class="secondary-button" type="button" onclick={initializeSearch} disabled={loading}>
         <RefreshCw size={16} aria-hidden="true" />
         {loading ? "Refreshing..." : "Refresh"}
@@ -226,7 +284,7 @@
     margin-bottom: 20px;
     border: 1px solid var(--glass-border-subtle);
     border-radius: var(--radius-surface);
-    background: linear-gradient(180deg, rgba(22, 33, 36, 0.86), rgba(14, 23, 25, 0.84));
+    background: var(--color-surface);
     box-shadow: var(--surface-shadow);
     padding: 18px;
   }

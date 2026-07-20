@@ -139,15 +139,15 @@
   .identity-tabs { display: flex; gap: 8px; }
   .identity-tabs a { border: 1px solid var(--glass-border-subtle); border-radius: var(--radius-control); color: var(--color-muted); padding: 9px 13px; text-decoration: none; }
   .identity-tabs a.active { border-color: var(--color-accent); color: var(--color-accent-strong); background: rgba(45, 212, 191, .08); }
-  .identity-card { display: grid; gap: 18px; border: 1px solid var(--glass-border-subtle); border-radius: var(--radius-surface); background: rgba(18, 29, 31, .88); padding: 22px; }
+  .identity-card { display: grid; gap: 18px; border: 1px solid var(--color-border); border-radius: var(--radius-surface); background: var(--color-surface); padding: 22px; }
   .field-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
   label { display: grid; gap: 7px; color: var(--color-muted); font-size: .82rem; font-weight: 720; }
   label.wide { grid-column: 1 / -1; }
-  input, select { min-height: 40px; border: 1px solid var(--color-border); border-radius: var(--radius-control); background: rgba(5, 12, 14, .72); color: var(--color-text); padding: 8px 10px; }
+  input, select { min-height: 40px; border: 1px solid var(--color-field-border); border-radius: var(--radius-control); background: var(--color-field-bg); color: var(--color-text); padding: 8px 10px; }
   .identity-note, .form-alert { margin: 0; color: var(--color-muted); font-size: .875rem; }
   .form-alert { border-radius: var(--radius-control); padding: 11px 13px; }
   .form-alert.error { color: var(--color-danger-text); background: var(--color-danger-soft); }
   .form-alert.success { color: var(--color-success-text); background: var(--color-success-soft); }
-  .primary-button { justify-self: start; border: 0; border-radius: var(--radius-control); background: var(--color-accent); color: #061313; font-weight: 780; padding: 10px 16px; cursor: pointer; }
+  .primary-button { justify-self: start; border: 0; border-radius: var(--radius-control); background: var(--color-action); color: #fff; font-weight: 780; padding: 10px 16px; cursor: pointer; }
   @media (max-width: 640px) { .field-grid { grid-template-columns: 1fr; } label.wide { grid-column: auto; } }
 </style>

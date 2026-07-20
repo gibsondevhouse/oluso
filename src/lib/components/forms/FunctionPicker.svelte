@@ -1,0 +1,2 @@
+<script lang="ts">import RelationshipPicker,{type RelationshipOption}from"./RelationshipPicker.svelte";interface Props{value:string;options:RelationshipOption[];helper?:string;error?:string;required?:boolean;disabled?:boolean;onChange:(value:string)=>void;}let{value,options,helper,error,required=true,disabled=false,onChange}:Props=$props();</script>
+<RelationshipPicker label="Operational Function" {value} {options} placeholder="Select a Function…" {helper} {error} {required} {disabled} {onChange}/>

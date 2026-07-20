@@ -82,9 +82,9 @@ function collectSearchSegments(value: unknown): string[] {
   }
 
   if (typeof value === "object") {
-    return Object.values(value as Record<string, unknown>).flatMap((item) =>
-      collectSearchSegments(item),
-    );
+    return Object.entries(value as Record<string, unknown>)
+      .filter(([key]) => key !== "id" && !key.endsWith("Id") && !key.endsWith("Ids"))
+      .flatMap(([, item]) => collectSearchSegments(item));
   }
 
   return [];

@@ -1,12 +1,12 @@
 <script lang="ts">
-  import { Archive, Edit3 } from "lucide-svelte";
   import BackToRegisterLink from "$lib/components/register/BackToRegisterLink.svelte";
   import RecordMetadataPanel from "$lib/components/register/RecordMetadataPanel.svelte";
   import RelationshipPanel, {
     type RelationshipSection,
   } from "$lib/components/register/RelationshipPanel.svelte";
-  import RestoreAction from "$lib/components/register/RestoreAction.svelte";
   import StatusPill from "$lib/components/ui/StatusPill.svelte";
+  import ConnectedRecords from "$lib/components/workspace/ConnectedRecords.svelte";
+  import WorkspaceHeader from "$lib/components/workspace/WorkspaceHeader.svelte";
   import { formatTimestamp } from "$lib/utils/date";
   import {
     getRecordActivity,
@@ -32,7 +32,6 @@
     title: string;
     summary: string;
     statusLabel: string;
-    statusTone: string;
     record: LifecycleMetadata & {
       id: string;
       createdAt: string;
@@ -54,7 +53,6 @@
     title,
     summary,
     statusLabel,
-    statusTone,
     record,
     primarySections,
     relatedSections = [],
@@ -73,6 +71,7 @@
   const source = $derived(getRecordSource(traceableRecord));
   const evidence = $derived(getRecordEvidenceState(traceableRecord));
   const activity = $derived(getRecordActivity(traceableRecord));
+  const recordValues = $derived(record as unknown as Record<string, unknown>);
   const linkedCount = $derived(
     relationshipSections.reduce((total, section) => total + section.items.filter((item) => !item.missing).length, 0),
   );
@@ -82,28 +81,41 @@
       0,
     ),
   );
+  const recordStates = $derived([
+    { label: "Lifecycle", value: isArchived ? "Archived" : statusLabel, tone: isArchived ? "neutral" as const : "positive" as const },
+    { label: "Review", value: String(recordValues.reviewState ?? recordValues.reviewStatus ?? "Draft"), tone: recordValues.reviewState === "Approved" || recordValues.reviewStatus === "Accepted" ? "positive" as const : "warning" as const },
+    { label: "Data quality", value: relationshipIssueCount ? "Needs verification" : "Verified", tone: relationshipIssueCount ? "warning" as const : "positive" as const },
+    { label: "Sync / exchange", value: recordValues.lastExchangePackageId ? "Exchanged" : "Local changes", tone: "information" as const },
+  ]);
+  const connectedRecords = $derived(
+    relationshipSections.length
+      ? relationshipSections.map((section) => ({
+          label: section.title,
+          value: section.items.filter((item) => !item.missing).length,
+          state: section.items.some((item) => item.missing || item.archived) ? "Some records need review" : undefined,
+        }))
+      : [{ label: "Linked records", value: 0, state: "No connected records yet" }],
+  );
 </script>
 
 <section class="page" aria-labelledby="record-detail-title">
-  <header class="page-header register-page-header">
-    <div>
-      <div class="breadcrumbs">{breadcrumbs}</div>
-      <h1 class="page-title" id="record-detail-title">{title}</h1>
-      <p class="page-summary">{summary}</p>
-    </div>
-
-    <div class="register-header-actions">
-      <StatusPill label={statusLabel} tone={statusTone} context="status" />
-      {#if isArchived}
-        <StatusPill label="Archived" tone="inactive" context="lifecycle" />
-      {/if}
-    </div>
-  </header>
+  <span class="visually-hidden" id="record-detail-title">{title}</span>
+  <WorkspaceHeader
+    {title}
+    recordType={breadcrumbs}
+    {summary}
+    updatedAt={record.updatedAt}
+    updatedBy={owner}
+    contextPath={[{ label: breadcrumbs, href: backHref }, { label: title }]}
+    statuses={recordStates}
+    actions={[{ label: "Edit", onSelect: onEdit, primary: true }]}
+    moreActions={isArchived ? [{ label: "Restore", onSelect: onRestore }] : [{ label: "Archive…", onSelect: onArchive }]}
+  />
 
   <section class="traceability-strip" aria-label="Record traceability summary">
     <div><span>Source</span><strong>{source}</strong></div>
     <div><span>Owner</span><strong>{owner}</strong></div>
-    <div><span>Last updated</span><strong>{formatTimestamp(record.updatedAt)}</strong></div>
+    <div><span>Last updated</span><strong>{formatTimestamp(record.updatedAt)} by {owner}</strong></div>
     <div>
       <span>Linked context</span>
       <strong>{linkedCount} linked{relationshipIssueCount ? ` / ${relationshipIssueCount} need review` : ""}</strong>
@@ -150,6 +162,8 @@
       <RelationshipPanel sections={relationshipSections} />
     {/if}
 
+    <ConnectedRecords records={connectedRecords} />
+
     <section class="detail-panel" aria-labelledby="record-activity-title">
       <div class="detail-header"><h2 id="record-activity-title">Activity</h2></div>
       <ol class="activity-list">
@@ -170,18 +184,6 @@
         {#each additionalActions as action (action.href)}
           <a class="button-link" href={action.href}>{action.label}</a>
         {/each}
-        <button class="button-link" type="button" onclick={onEdit}>
-          <Edit3 size={16} aria-hidden="true" />
-          Edit
-        </button>
-        {#if isArchived}
-          <RestoreAction {onRestore} />
-        {:else}
-          <button class="danger-button" type="button" onclick={onArchive}>
-            <Archive size={16} aria-hidden="true" />
-            Archive
-          </button>
-        {/if}
         <BackToRegisterLink href={backHref} onNavigate={onBack} />
       </div>
     </section>
@@ -207,7 +209,7 @@
     align-content: start;
     gap: 5px;
     min-width: 0;
-    background: rgba(16, 24, 26, 0.9);
+    background: var(--color-surface);
     padding: 12px;
   }
 
@@ -234,7 +236,7 @@
     gap: 12px;
     border: 1px solid var(--glass-border-subtle);
     border-radius: var(--radius-surface);
-    background: linear-gradient(180deg, rgba(22, 33, 36, 0.86), rgba(14, 23, 25, 0.84));
+    background: var(--color-surface);
     box-shadow: var(--surface-shadow);
     padding: 18px;
   }

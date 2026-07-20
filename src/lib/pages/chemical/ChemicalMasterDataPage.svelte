@@ -14,6 +14,10 @@
   } from "$lib/domain/chemical";
   import type { FoundationLocation } from "$lib/domain/foundation";
   import type { AppRoute } from "$lib/navigation/route-registry";
+  import ConfirmationDialog from "$lib/components/feedback/ConfirmationDialog.svelte";
+  import GuidedForm from "$lib/components/forms/GuidedForm.svelte";
+  import FormStep from "$lib/components/forms/FormStep.svelte";
+  import { workspaceScope } from "$lib/workspace/scope";
 
   interface Props { route: AppRoute }
   let { route }: Props = $props();
@@ -25,7 +29,7 @@
   let application = $state<ChemicalApplication | null>(null);
   let loading = $state(true);
   let saving = $state(false);
-  let stateMessage = $state("Initializing database");
+  let stateMessage = $state("Preparing workspace");
   let error = $state<string | null>(null);
   let loadedPath = $state("");
   let substances = $state<ChemicalSubstance[]>([]);
@@ -51,6 +55,14 @@
   let query = $state("");
   let lifecycleFilter = $state("active");
   let secondaryFilter = $state("all");
+  let pendingArchive = $state<{ record: RecordEnvelope; type: "substance" | "product" | "inventory" | "use" } | null>(null);
+  let inventoryStep = $state(0);
+  const inventorySteps = [
+    { id: "product-place", label: "Product and place", description: "Choose what is present and where" },
+    { id: "quantity", label: "Quantity and container", description: "Describe the observed stock" },
+    { id: "evidence", label: "Evidence", description: "Record source and verification" },
+    { id: "review", label: "Review", description: "Confirm the inventory observation" },
+  ];
 
   const entity = $derived(route.kind);
   const basePath = $derived(route.basePath ?? "/master/products");
@@ -72,16 +84,23 @@
   ));
   const filteredProducts = $derived(products.filter((record) =>
     (lifecycleFilter === "all" || record.lifecycleStatus === lifecycleFilter) &&
+    (!$workspaceScope.siteId || inventory.some((item) => item.productId === record.id && item.siteId === $workspaceScope.siteId) || uses.some((item) => item.productId === record.id && item.siteId === $workspaceScope.siteId)) &&
+    (!$workspaceScope.operationalFunctionId || uses.some((item) => item.productId === record.id && item.operationalFunctionId === $workspaceScope.operationalFunctionId)) &&
     (secondaryFilter === "all" || (secondaryFilter === "missing-sds" ? !sdsRevisions.some((sds) => sds.productId === record.id && sds.currentStatus === "Current") : true)) &&
     (!normalizedQuery || `${record.productName} ${record.productCode ?? ""} ${record.formulationType}`.toLocaleLowerCase().includes(normalizedQuery))
   ));
   const filteredInventory = $derived(inventory.filter((record) =>
     (lifecycleFilter === "all" || record.lifecycleStatus === lifecycleFilter) &&
+    (!$workspaceScope.siteId || record.siteId === $workspaceScope.siteId) &&
+    (!$workspaceScope.locationId || record.storageLocationId === $workspaceScope.locationId) &&
     (secondaryFilter === "all" || record.inventoryStatus === secondaryFilter) &&
     (!normalizedQuery || `${productName(record.productId)} ${locationName(record.siteId)} ${locationName(record.storageLocationId)}`.toLocaleLowerCase().includes(normalizedQuery))
   ));
   const filteredUses = $derived(uses.filter((record) =>
     (lifecycleFilter === "all" || record.lifecycleStatus === lifecycleFilter) &&
+    (!$workspaceScope.siteId || record.siteId === $workspaceScope.siteId) &&
+    (!$workspaceScope.locationId || record.locationId === $workspaceScope.locationId) &&
+    (!$workspaceScope.operationalFunctionId || record.operationalFunctionId === $workspaceScope.operationalFunctionId) &&
     (secondaryFilter === "all" || record.operatingCondition === secondaryFilter) &&
     (!normalizedQuery || `${productName(record.productId)} ${processName(record.processId)} ${taskName(record.taskId)}`.toLocaleLowerCase().includes(normalizedQuery))
   ));
@@ -109,7 +128,7 @@
     }
     loading = true;
     error = null;
-    stateMessage = "Loading chemical master data";
+    stateMessage = "Loading chemical records";
     try {
       const adapter = await getBrowserDatabase();
       const app = new ChemicalApplication(adapter.database);
@@ -134,7 +153,7 @@
       stateMessage = "Offline ready";
     } catch (cause) {
       error = cause instanceof Error ? cause.message : String(cause);
-      stateMessage = "Database unavailable";
+      stateMessage = "Workspace unavailable";
     } finally {
       loading = false;
     }
@@ -150,6 +169,10 @@
   }
 
   function initializeForms() {
+    if (route.mode === "new" && route.kind === "chemical-inventory") {
+      inventoryForm.siteId = $workspaceScope.siteId ?? "";
+      inventoryForm.storageLocationId = $workspaceScope.locationId ?? "";
+    }
     if (route.mode === "edit" && currentSubstance) substanceForm = {
       canonicalName: currentSubstance.canonicalName, casNumber: currentSubstance.casNumber ?? "",
       classification: currentSubstance.substanceClassifications[0] ?? "Unknown", physicalForm: currentSubstance.physicalForm,
@@ -234,7 +257,7 @@
       await goto(target);
     } catch (cause) {
       error = cause instanceof Error ? cause.message : String(cause);
-      stateMessage = error.includes("revision") ? "Stale revision" : "Validation failed";
+      stateMessage = error.includes("revision") ? "Record changed—reload and review" : "Needs review";
     } finally { saving = false; }
   }
 
@@ -247,14 +270,20 @@
         if (type === "product") await application.products.restore(record.id, record.revision);
         if (type === "inventory") await application.inventory.restore(record.id, record.revision);
         if (type === "use") await application.uses.restore(record.id, record.revision);
-      } else {
-        const reason = window.prompt("Archive reason")?.trim();
-        if (!reason) return;
-        if (type === "substance") await application.substances.archive(record.id, record.revision, reason);
-        if (type === "product") await application.products.archive(record.id, record.revision, reason);
-        if (type === "inventory") await application.inventory.archive(record.id, record.revision, reason);
-        if (type === "use") await application.uses.archive(record.id, record.revision, reason);
-      }
+      } else { pendingArchive = { record, type }; return; }
+      await load();
+    } catch (cause) { error = cause instanceof Error ? cause.message : String(cause); }
+  }
+
+  async function confirmArchive(reason: string) {
+    if (!application || !pendingArchive) return;
+    const { record, type } = pendingArchive;
+    try {
+      if (type === "substance") await application.substances.archive(record.id, record.revision, reason);
+      if (type === "product") await application.products.archive(record.id, record.revision, reason);
+      if (type === "inventory") await application.inventory.archive(record.id, record.revision, reason);
+      if (type === "use") await application.uses.archive(record.id, record.revision, reason);
+      pendingArchive = null;
       await load();
     } catch (cause) { error = cause instanceof Error ? cause.message : String(cause); }
   }
@@ -287,7 +316,7 @@
 
 <section class="chemical-page" aria-labelledby="chemical-title">
   <header class="chemical-header">
-    <div><p class="eyebrow">Chemical Master Data</p><h1 id="chemical-title">{route.title}</h1><p>{route.summary}</p></div>
+    <div><p class="eyebrow">Chemicals</p><h1 id="chemical-title">{route.title}</h1><p>{route.summary}</p></div>
     {#if route.mode === "list"}<a class="primary-action" href={`${basePath}/new`}>Create {entity === "chemical-substances" ? "Substance" : entity === "chemical-products" ? "Product" : entity === "chemical-inventory" ? "Inventory Record" : "Chemical Use"}</a>{/if}
   </header>
   <div class="state-line" role="status">{stateMessage}</div>
@@ -324,14 +353,13 @@
         <label class="checkbox"><input type="checkbox" bind:checked={productForm.manufacturerUnknown} /> Manufacturer explicitly unknown</label><label>Product code <input bind:value={productForm.productCode} /></label>
         <label>Formulation <select bind:value={productForm.formulationType}>{#each PRODUCT_FORMULATION_TYPES as value}<option>{value}</option>{/each}</select></label><label>Physical state <select bind:value={productForm.physicalState}>{#each PRODUCT_PHYSICAL_STATES as value}<option>{value}</option>{/each}</select></label><label class="wide">Description <textarea bind:value={productForm.description}></textarea></label>
       {:else if entity === "chemical-inventory"}
-        <label>Product <select required bind:value={inventoryForm.productId}><option value="">Select Product</option>{#each products.filter((r) => r.lifecycleStatus === "active") as record}<option value={record.id}>{record.productName}</option>{/each}</select></label>
-        <label>Site <select required bind:value={inventoryForm.siteId} onchange={clearInventoryRelationships}><option value="">Select Site</option>{#each sites as site}<option value={site.id}>{site.name}</option>{/each}</select></label>
-        <label>Storage Location <select required bind:value={inventoryForm.storageLocationId}><option value="">Select Location</option>{#each storageOptions as location}<option value={location.id}>{location.name}</option>{/each}</select></label>
-        <label>Observed quantity <input type="number" min="0" step="any" bind:value={inventoryForm.observedQuantity} /></label><label>Quantity unit <select bind:value={inventoryForm.quantityUnit}>{#each QUANTITY_UNITS as value}<option>{value}</option>{/each}</select></label>
-        <label>Maximum inventory <input type="number" min="0" step="any" bind:value={inventoryForm.maximumInventory} /></label><label>Maximum unit <select bind:value={inventoryForm.maximumInventoryUnit}>{#each QUANTITY_UNITS as value}<option>{value}</option>{/each}</select></label>
-        <label>Container type <select bind:value={inventoryForm.containerType}>{#each CONTAINER_TYPES as value}<option>{value}</option>{/each}</select></label><label>Container count <input type="number" min="0" bind:value={inventoryForm.containerCount} /></label>
-        <label>Inventory status <select bind:value={inventoryForm.inventoryStatus}>{#each INVENTORY_STATUSES as value}<option>{value}</option>{/each}</select></label><label>Observation date <input type="date" bind:value={inventoryForm.observationDate} /></label>
-        <label>Information source <select bind:value={inventoryForm.informationSource}>{#each INVENTORY_INFORMATION_SOURCES as value}<option>{value}</option>{/each}</select></label><label>Verifier <select bind:value={inventoryForm.verifiedByPersonId}><option value="">Not verified</option>{#each people as person}<option value={person.id}>{label(person)}</option>{/each}</select></label>
+        <div class="wide guided-inventory"><GuidedForm title={route.mode === "edit" ? "Update Site Inventory" : "Record Site Inventory"} steps={inventorySteps} activeIndex={inventoryStep} onStepSelect={(index) => (inventoryStep = index)}>
+          {#if inventoryStep === 0}<FormStep title="What Product is present, and where?" prompt="Inventory documents presence at a specific storage Location. It does not imply use or exposure."><label>Product <select required bind:value={inventoryForm.productId}><option value="">Select Product</option>{#each products.filter((r) => r.lifecycleStatus === "active") as record}<option value={record.id}>{record.productName}</option>{/each}</select></label><label>Site <select required bind:value={inventoryForm.siteId} onchange={clearInventoryRelationships}><option value="">Select Site</option>{#each sites as site}<option value={site.id}>{site.name}</option>{/each}</select></label><label>Storage Location <select required bind:value={inventoryForm.storageLocationId}><option value="">Select Location</option>{#each storageOptions as location}<option value={location.id}>{location.name}</option>{/each}</select></label></FormStep>
+          {:else if inventoryStep === 1}<FormStep title="What quantity and container were observed?" prompt="Use the best available information; unknown values can remain explicit."><div class="inventory-fields"><label>Observed quantity <input type="number" min="0" step="any" bind:value={inventoryForm.observedQuantity} /></label><label>Quantity unit <select bind:value={inventoryForm.quantityUnit}>{#each QUANTITY_UNITS as value}<option>{value}</option>{/each}</select></label><label>Maximum inventory <input type="number" min="0" step="any" bind:value={inventoryForm.maximumInventory} /></label><label>Maximum unit <select bind:value={inventoryForm.maximumInventoryUnit}>{#each QUANTITY_UNITS as value}<option>{value}</option>{/each}</select></label><label>Container type <select bind:value={inventoryForm.containerType}>{#each CONTAINER_TYPES as value}<option>{value}</option>{/each}</select></label><label>Container count <input type="number" min="0" bind:value={inventoryForm.containerCount} /></label></div></FormStep>
+          {:else if inventoryStep === 2}<FormStep title="How was this inventory verified?" prompt="Document when the observation was made and the source used."><div class="inventory-fields"><label>Inventory status <select bind:value={inventoryForm.inventoryStatus}>{#each INVENTORY_STATUSES as value}<option>{value}</option>{/each}</select></label><label>Observation date <input type="date" bind:value={inventoryForm.observationDate} /></label><label>Information source <select bind:value={inventoryForm.informationSource}>{#each INVENTORY_INFORMATION_SOURCES as value}<option>{value}</option>{/each}</select></label><label>Verifier <select bind:value={inventoryForm.verifiedByPersonId}><option value="">Not verified</option>{#each people as person}<option value={person.id}>{label(person)}</option>{/each}</select></label></div></FormStep>
+          {:else}<FormStep title="Review the inventory observation" prompt="Confirm the relationship before saving."><div class="inventory-review"><strong>{productName(inventoryForm.productId)}</strong><span>is present at {locationName(inventoryForm.storageLocationId)}, within {locationName(inventoryForm.siteId)}.</span><span>Observed: {inventoryForm.observedQuantity || "Unknown"} {inventoryForm.observedQuantity ? inventoryForm.quantityUnit : "quantity"} · {inventoryForm.containerCount || "Unknown"} {inventoryForm.containerType} containers</span><span>Status: {inventoryForm.inventoryStatus} · Source: {inventoryForm.informationSource}</span></div></FormStep>{/if}
+          <div class="guided-actions"><a class="secondary-action" href={basePath}>Cancel</a>{#if inventoryStep > 0}<button type="button" class="secondary-action" onclick={() => (inventoryStep -= 1)}>Back</button>{/if}{#if inventoryStep < inventorySteps.length - 1}<button type="button" class="primary-action" disabled={inventoryStep === 0 && !(inventoryForm.productId && inventoryForm.siteId && inventoryForm.storageLocationId)} onclick={() => (inventoryStep += 1)}>Continue</button>{:else}<button class="primary-action" disabled={saving}>{saving ? "Saving…" : "Save inventory"}</button>{/if}</div>
+        </GuidedForm></div>
       {:else if entity === "chemical-uses"}
         <label>Product <select required bind:value={useForm.productId}><option value="">Select Product</option>{#each products.filter((r) => r.lifecycleStatus === "active") as record}<option value={record.id}>{record.productName}</option>{/each}</select></label>
         <label>Site <select required bind:value={useForm.siteId} onchange={clearUseSiteRelationships}><option value="">Select Site</option>{#each sites as site}<option value={site.id}>{site.name}</option>{/each}</select></label>
@@ -349,7 +377,7 @@
         <label>Reviewer <select bind:value={sdsForm.reviewedByPersonId}><option value="">Not assigned</option>{#each people as person}<option value={person.id}>{label(person)}</option>{/each}</select></label><label>Reviewed date <input type="date" bind:value={sdsForm.reviewedAt} /></label>
         <fieldset class="wide"><legend>External SDS document reference (optional)</legend><label>Document title <input bind:value={sdsForm.documentTitle} /></label><label>External path <input bind:value={sdsForm.externalPath} /></label></fieldset>
       {/if}
-      <div class="form-actions wide"><a class="secondary-action" href={route.mode.startsWith("sds") ? `/master/products/${currentProduct?.id}` : basePath}>Cancel</a><button class="primary-action" disabled={saving}>{saving ? "Saving…" : "Save"}</button></div>
+      {#if entity !== "chemical-inventory"}<div class="form-actions wide"><a class="secondary-action" href={route.mode.startsWith("sds") ? `/master/products/${currentProduct?.id}` : basePath}>Cancel</a><button class="primary-action" disabled={saving}>{saving ? "Saving…" : "Save"}</button></div>{/if}
     </form>
   {:else if entity === "chemical-substances" && currentSubstance}
     <div class="detail-grid"><section class="panel"><h2>{currentSubstance.canonicalName}</h2><dl><div><dt>CAS Number</dt><dd>{currentSubstance.casNumber ?? "Missing"}</dd></div><div><dt>Business ID</dt><dd>{currentSubstance.businessId}</dd></div><div><dt>Synonyms</dt><dd>{currentSubstance.synonyms.join(", ") || "None"}</dd></div><div><dt>Classifications</dt><dd>{currentSubstance.substanceClassifications.join(", ")}</dd></div><div><dt>Status</dt><dd>{currentSubstance.lifecycleStatus}</dd></div><div><dt>Actor / Origin installation</dt><dd>{currentSubstance.updatedBy} / {currentSubstance.originInstallationId}</dd></div></dl><div class="form-actions"><a class="secondary-action" href={`${basePath}/${currentSubstance.id}/edit`}>Edit</a><button class="secondary-action" onclick={() => archiveOrRestore(currentSubstance, "substance")}>{currentSubstance.lifecycleStatus === "archived" ? "Restore" : "Archive"}</button></div></section><section class="panel"><h2>Linked Products</h2>{#each compositions.filter((item) => item.substanceId === currentSubstance.id) as item}<a href={`/master/products/${item.productId}`}>{productName(item.productId)} — {item.componentRole}</a>{:else}<p>No linked Products.</p>{/each}<h2>Exposure Agents</h2><p>Typed boundary reserved for the next campaign. No exposure limit is stored here.</p><h2>Record History</h2>{#each history("ChemicalSubstance", currentSubstance.id) as item}<p class="history">Revision {item.revision} · {item.operation} · actor {item.changedBy} · installation {item.changedInstallationId ?? "legacy unknown"}</p>{/each}</section></div>
@@ -369,6 +397,19 @@
   {/if}
 </section>
 
+{#if pendingArchive}
+  <ConfirmationDialog
+    title="Archive this record?"
+    consequence="The record will leave active workspaces. Existing relationships and revision history remain available."
+    dependencyWarning="Review connected records before archiving; they are retained and may still require attention."
+    confirmLabel="Archive record"
+    reasonRequired
+    destructive
+    onConfirm={confirmArchive}
+    onCancel={() => (pendingArchive = null)}
+  />
+{/if}
+
 <style>
   .chemical-page { display: grid; gap: 16px; padding: 26px; }
   .chemical-header, .section-heading, .detail-title, .form-actions, .related-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
@@ -376,12 +417,13 @@
   .eyebrow { color: var(--color-accent-strong) !important; font-size: .72rem; font-weight: 780; letter-spacing: .08em; text-transform: uppercase; }
   .state-line { color: var(--color-muted); font-size: .78rem; }
   .filters { display: flex; gap: 12px; flex-wrap: wrap; align-items: end; } .filters label { min-width: 190px; }
-  .panel { display: grid; gap: 16px; min-width: 0; border: 1px solid var(--glass-border-subtle); border-radius: var(--radius-surface); background: rgba(15, 25, 27, .88); padding: 20px; }
+  .panel { display: grid; gap: 16px; min-width: 0; border: 1px solid var(--color-border); border-radius: var(--radius-surface); background: var(--color-surface); padding: 20px; }
   .table-wrap { overflow-x: auto; } table { width: 100%; border-collapse: collapse; } th, td { border-bottom: 1px solid var(--glass-border-subtle); padding: 12px 10px; text-align: left; font-size: .84rem; white-space: nowrap; } th { color: var(--color-muted); font-size: .72rem; text-transform: uppercase; }
   a { color: var(--color-accent-strong); } .primary-action, .secondary-action { display: inline-flex; align-items: center; justify-content: center; border-radius: var(--radius-control); padding: 9px 13px; font-size: .82rem; font-weight: 760; text-decoration: none; cursor: pointer; }
-  .primary-action { border: 0; background: var(--color-accent); color: #071312; } .secondary-action { border: 1px solid var(--color-border); background: rgba(255,255,255,.035); color: var(--color-text); }
+  .primary-action { border: 0; background: var(--color-action); color: #fff; } .secondary-action { border: 1px solid var(--color-border); background: var(--color-surface); color: var(--color-text); }
   .form { grid-template-columns: repeat(2, minmax(0, 1fr)); max-width: 980px; } label, fieldset { display: grid; gap: 7px; color: var(--color-muted); font-size: .8rem; font-weight: 720; } .wide { grid-column: 1 / -1; }
-  input, select, textarea { min-height: 40px; border: 1px solid var(--color-border); border-radius: var(--radius-control); background: rgba(5, 12, 14, .74); color: var(--color-text); padding: 8px 10px; } textarea { min-height: 84px; resize: vertical; }
+  .guided-inventory { min-width: 0; } .inventory-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; } .inventory-review { display: grid; gap: 8px; border: 1px solid var(--color-border); border-radius: var(--radius-surface); background: var(--color-surface-subtle); padding: 16px; } .inventory-review span { color: var(--color-muted); font-size: .84rem; } .guided-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 22px; border-top: 1px solid var(--color-border); padding-top: 14px; }
+  input, select, textarea { min-height: 40px; border: 1px solid var(--color-field-border); border-radius: var(--radius-control); background: var(--color-field-bg); color: var(--color-text); padding: 8px 10px; } textarea { min-height: 84px; resize: vertical; }
   .checkbox { display: flex; align-items: center; align-self: end; min-height: 40px; } .checkbox input { min-height: 0; }
   fieldset { grid-template-columns: 1fr 1fr; border: 1px solid var(--glass-border-subtle); border-radius: var(--radius-control); padding: 14px; } legend { padding: 0 6px; }
   .alert { border: 1px solid var(--color-danger-border); border-radius: var(--radius-control); background: var(--color-danger-soft); color: var(--color-danger-text); padding: 12px 14px; }
@@ -390,5 +432,5 @@
   .pill { border: 1px solid var(--color-border); border-radius: 999px; color: var(--color-muted); padding: 6px 10px; font-size: .74rem; } .inline-form { display: grid; grid-template-columns: 1.2fr 1fr 1fr auto; gap: 8px; }
   .related-row { border-top: 1px solid var(--glass-border-subtle); padding-top: 12px; } .related-row span, .boundary, .context { color: var(--color-muted); font-size: .83rem; } .text-action { border: 0; background: none; color: var(--color-accent-strong); cursor: pointer; }
   .history { margin: 0; border-top: 1px solid var(--glass-border-subtle); color: var(--color-muted); font-size: .8rem; padding-top: 9px; }
-  @media (max-width: 760px) { .form, .detail-grid { grid-template-columns: 1fr; } .wide, .wide-panel { grid-column: auto; } .inline-form, fieldset { grid-template-columns: 1fr; } }
+  @media (max-width: 760px) { .form, .detail-grid { grid-template-columns: 1fr; } .wide, .wide-panel { grid-column: auto; } .inline-form, fieldset, .inventory-fields { grid-template-columns: 1fr; } }
 </style>

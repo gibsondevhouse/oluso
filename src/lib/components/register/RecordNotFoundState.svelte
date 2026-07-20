@@ -3,17 +3,16 @@
 
   interface Props {
     registerName: string;
-    recordId: string;
     listPath: string;
     createPath?: string;
   }
 
-  let { registerName, recordId, listPath, createPath }: Props = $props();
+  let { registerName, listPath, createPath }: Props = $props();
 </script>
 
 <section class="empty-state">
   <h2>{registerName} record was not found</h2>
-  <p>Attempted record ID: {recordId}</p>
+  <p>The record may have been archived, removed, or is not available in this workspace.</p>
   <div class="action-row">
     <a class="button-link" href={listPath}>
       <ArrowLeft size={16} aria-hidden="true" />

@@ -140,8 +140,8 @@
 
 <style>
   .glass-card {
-    --glass-card-accent: rgba(68, 215, 182, 0.72);
-    --glass-card-accent-soft: rgba(68, 215, 182, 0.12);
+    --glass-card-accent: var(--color-action);
+    --glass-card-accent-soft: var(--color-accent-soft);
     display: flex;
     position: relative;
     flex: 1;
@@ -151,12 +151,9 @@
     justify-content: space-between;
     gap: 12px;
     overflow: hidden;
-    border: 1px solid var(--glass-border-subtle);
+    border: 1px solid var(--color-border);
     border-radius: var(--bento-card-radius);
-    background:
-      linear-gradient(145deg, rgba(255, 255, 255, 0.11), transparent 42%),
-      var(--glass-bg);
-    box-shadow: var(--elevation-z1);
+    background: var(--color-surface);
     color: var(--color-text);
     padding: 15px;
     text-decoration: none;
@@ -165,18 +162,14 @@
       border-color var(--motion-duration-standard) var(--motion-ease-standard),
       background var(--motion-duration-standard) var(--motion-ease-standard),
       box-shadow var(--motion-duration-standard) var(--motion-ease-standard),
-      backdrop-filter var(--motion-duration-standard) var(--motion-ease-standard);
-    backdrop-filter: blur(var(--glass-blur-md)) saturate(var(--glass-saturate));
-    will-change: transform;
+      color var(--motion-duration-standard) var(--motion-ease-standard);
   }
 
   .glass-card::before {
     position: absolute;
     inset: 0;
     border-radius: inherit;
-    background:
-      linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.08), transparent),
-      linear-gradient(180deg, var(--glass-card-accent-soft), transparent 34%);
+    background: transparent;
     content: "";
     opacity: calc(0.25 + (var(--glass-card-depth) * 0.5));
     pointer-events: none;
@@ -187,7 +180,7 @@
     position: absolute;
     inset: 0;
     border-radius: inherit;
-    border-top: 1px solid rgba(255, 255, 255, 0.24);
+    border-top: 3px solid var(--glass-card-accent);
     content: "";
     pointer-events: none;
   }
@@ -199,12 +192,9 @@
   .glass-card--interactive:hover,
   .glass-card--interactive:focus-visible,
   .glass-card--interactive:focus-within {
-    border-color: var(--glass-border-strong);
-    background:
-      linear-gradient(145deg, rgba(255, 255, 255, 0.14), transparent 42%),
-      var(--glass-bg-strong);
-    box-shadow: var(--elevation-z3);
-    backdrop-filter: blur(var(--glass-blur-lg)) saturate(165%);
+    border-color: var(--color-action);
+    background: var(--color-surface-subtle);
+    box-shadow: var(--elevation-z1);
   }
 
   .glass-card:focus-visible {
