@@ -1,11 +1,12 @@
 <script lang="ts">
   import type { Snippet } from "svelte";
   import { tick } from "svelte";
-  import { Search } from "lucide-svelte";
   import { persistenceDiagnostics } from "$lib/persistence/local-persistence";
   import CommandPalette from "$lib/components/navigation/CommandPalette.svelte";
   import SaveState, { type SaveStateKind } from "$lib/components/feedback/SaveState.svelte";
   import ScopeBar from "$lib/components/workspace/ScopeBar.svelte";
+  import { findRoute } from "$lib/navigation/route-registry";
+  import { rememberRecentNavigation } from "$lib/navigation/recent-navigation";
   import { iconMap } from "./SidePanel/icons";
   import SidePanel from "./SidePanel/SidePanel.svelte";
 
@@ -14,12 +15,16 @@
     children?: Snippet;
   }
 
+  const NAV_COLLAPSED_KEY = "oluso.navigation.collapsed";
+
   let { currentPath, children }: Props = $props();
-  let collapsed = $state(false);
-  let statusMessage = $state("Navigation expanded");
+  let collapsed = $state(readNavigationCollapsedPreference());
   let commandPaletteOpen = $state(false);
+  let commandButton = $state<HTMLButtonElement | null>(null);
+  let statusMessage = $state("Navigation expanded");
 
   const ToggleIcon = $derived(collapsed ? iconMap.PanelLeftOpen : iconMap.PanelLeftClose);
+  const SearchIcon = iconMap.Search;
   const toggleLabel = $derived(collapsed ? "Expand navigation" : "Collapse navigation");
   const saveState = $derived(({
     not_configured: "offline",
@@ -30,21 +35,86 @@
 
   async function toggleNavigation() {
     collapsed = !collapsed;
+    writeNavigationCollapsedPreference(collapsed);
     statusMessage = collapsed ? "Navigation collapsed" : "Navigation expanded";
     await tick();
   }
 
+  function readNavigationCollapsedPreference() {
+    if (typeof localStorage === "undefined") return false;
+
+    try {
+      return localStorage.getItem(NAV_COLLAPSED_KEY) === "true";
+    } catch {
+      return false;
+    }
+  }
+
+  function writeNavigationCollapsedPreference(value: boolean) {
+    if (typeof localStorage === "undefined") return;
+
+    try {
+      localStorage.setItem(NAV_COLLAPSED_KEY, String(value));
+    } catch {
+      // Navigation collapse is a noncritical UI preference.
+    }
+  }
+
+  function isEditableTarget(target: EventTarget | null) {
+    if (!(target instanceof HTMLElement)) return false;
+
+    return Boolean(
+      target.closest("input, textarea, select, [contenteditable='true'], [contenteditable='']"),
+    );
+  }
+
+  function openCommandPalette() {
+    commandPaletteOpen = true;
+    statusMessage = "Command palette opened";
+  }
+
+  function closeCommandPalette() {
+    commandPaletteOpen = false;
+    statusMessage = "Command palette closed";
+    void tick().then(() => commandButton?.focus());
+  }
+
   function handleKeydown(event: KeyboardEvent) {
-    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
+    const key = event.key.toLowerCase();
+
+    if ((event.ctrlKey || event.metaKey) && key === "k") {
       event.preventDefault();
-      commandPaletteOpen = !commandPaletteOpen;
+      if (commandPaletteOpen) {
+        closeCommandPalette();
+      } else {
+        openCommandPalette();
+      }
       return;
     }
     if ((event.ctrlKey || event.metaKey) && event.key === "\\") {
       event.preventDefault();
-      toggleNavigation();
+      void toggleNavigation();
+      return;
+    }
+
+    if (
+      event.key === "/" &&
+      !event.ctrlKey &&
+      !event.metaKey &&
+      !event.altKey &&
+      !isEditableTarget(event.target)
+    ) {
+      event.preventDefault();
+      openCommandPalette();
     }
   }
+
+  $effect(() => {
+    const route = findRoute(currentPath);
+    if (route) {
+      rememberRecentNavigation(route);
+    }
+  });
 </script>
 
 <svelte:window onkeydown={handleKeydown} />
@@ -64,11 +134,22 @@
       >
         <ToggleIcon size={18} />
       </button>
+      <button
+        bind:this={commandButton}
+        type="button"
+        class="command-button"
+        onclick={openCommandPalette}
+        aria-label="Open command palette"
+        title="Open command palette"
+      >
+        <SearchIcon size={16} aria-hidden="true" />
+        <span>Search or jump to…</span>
+        <kbd aria-hidden="true">⌘ K</kbd>
+      </button>
       <div class="workspace-title">
         <span class="workspace-kicker">ADAMA HSE</span>
         <span class="workspace-name">Operational workspace</span>
       </div>
-      <button class="command-button" type="button" onclick={() => (commandPaletteOpen = true)} aria-label="Open command palette"><Search size={16} /><span>Search or jump to…</span><kbd>⌘ K</kbd></button>
       <div aria-label="Save status"><SaveState state={saveState} /></div>
     </header>
 
@@ -84,7 +165,7 @@
   </div>
 </div>
 
-<CommandPalette open={commandPaletteOpen} onClose={() => (commandPaletteOpen = false)} />
+<CommandPalette open={commandPaletteOpen} onClose={closeCommandPalette} />
 
 <style>
   .app-shell {
@@ -163,7 +244,9 @@
     line-height: 1.2;
   }
 
-  .command-button { display: flex; align-items: center; gap: 8px; width: min(270px, 26vw); min-height: 34px; border: 1px solid var(--color-border); border-radius: var(--radius-control); background: var(--color-surface-subtle); color: var(--color-muted); font-size: .75rem; padding: 0 8px; text-align: left; }
+  .command-button { display: inline-flex; align-items: center; gap: 8px; width: min(270px, 26vw); min-height: 34px; border: 1px solid var(--color-border); border-radius: var(--radius-control); background: var(--color-surface-subtle); color: var(--color-muted); cursor: pointer; font-size: .75rem; font-weight: 720; padding: 0 8px; text-align: left; }
+  .command-button:hover { border-color: var(--color-border-strong); color: var(--color-text); }
+  .command-button:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
   .command-button span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .command-button kbd { border: 1px solid var(--color-border); border-radius: 4px; background: var(--color-surface); color: var(--color-muted); padding: 1px 5px; }
 

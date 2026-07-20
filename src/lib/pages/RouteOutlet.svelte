@@ -1,9 +1,10 @@
 <script lang="ts">
   import type { AppRoute } from "$lib/navigation/route-registry";
   import { isFoundationRouteKind, isRegisterRouteKind } from "$lib/navigation/route-registry";
-  import DashboardPage from "./DashboardPage.svelte";
   import ErrorPage from "./ErrorPage.svelte";
+  import ActivityPage from "./ActivityPage.svelte";
   import GlobalSearchPage from "./GlobalSearchPage.svelte";
+  import HomePage from "./HomePage.svelte";
   import FoundationCrudPage from "./FoundationCrudPage.svelte";
   import NotFoundPage from "./NotFoundPage.svelte";
   import RegisterCrudPage from "./RegisterCrudPage.svelte";
@@ -28,10 +29,12 @@
   let { route }: Props = $props();
 </script>
 
-{#if route.kind === "dashboard"}
-  <DashboardPage />
+{#if route.kind === "home"}
+  <HomePage />
 {:else if route.kind === "global-search"}
   <GlobalSearchPage />
+{:else if route.kind === "activity"}
+  <ActivityPage />
 {:else if route.kind === "enterprise-navigator"}
   <EnterpriseNavigatorPage />
 {:else if route.kind === "function-workspace"}

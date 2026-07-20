@@ -81,9 +81,10 @@
       0,
     ),
   );
+  const reviewLabel = $derived(String(recordValues.reviewState ?? recordValues.reviewStatus ?? statusLabel ?? "Draft"));
   const recordStates = $derived([
-    { label: "Lifecycle", value: isArchived ? "Archived" : statusLabel, tone: isArchived ? "neutral" as const : "positive" as const },
-    { label: "Review", value: String(recordValues.reviewState ?? recordValues.reviewStatus ?? "Draft"), tone: recordValues.reviewState === "Approved" || recordValues.reviewStatus === "Accepted" ? "positive" as const : "warning" as const },
+    { label: "Lifecycle", value: isArchived ? "Archived" : "Active", tone: isArchived ? "neutral" as const : "positive" as const },
+    { label: "Review", value: reviewLabel, tone: reviewLabel === "Approved" || reviewLabel === "Accepted" || reviewLabel === "Active" ? "positive" as const : "warning" as const },
     { label: "Data quality", value: relationshipIssueCount ? "Needs verification" : "Verified", tone: relationshipIssueCount ? "warning" as const : "positive" as const },
     { label: "Sync / exchange", value: recordValues.lastExchangePackageId ? "Exchanged" : "Local changes", tone: "information" as const },
   ]);
@@ -95,6 +96,18 @@
           state: section.items.some((item) => item.missing || item.archived) ? "Some records need review" : undefined,
         }))
       : [{ label: "Linked records", value: 0, state: "No connected records yet" }],
+  );
+  const revisionLabel = $derived(
+    typeof (record as unknown as { revision?: unknown }).revision === "number"
+      ? `Immutable revision ${(record as unknown as { revision: number }).revision}`
+      : "Limited metadata history",
+  );
+  const nextAction = $derived(
+    isArchived
+      ? "Restore from the full workspace before returning this record to active work."
+      : relationshipIssueCount
+        ? "Review missing or archived relationships before relying on this context."
+        : "Review linked context, edit governed fields, or continue from the source record.",
   );
 </script>
 
@@ -121,6 +134,21 @@
       <strong>{linkedCount} linked{relationshipIssueCount ? ` / ${relationshipIssueCount} need review` : ""}</strong>
     </div>
     <div><span>Evidence</span><StatusPill label={evidence.label} tone={evidence.tone} context="evidence" compact /></div>
+  </section>
+
+  <section class="workspace-contract-strip" aria-label="Connected workspace summary">
+    <div>
+      <span>Workspace</span>
+      <strong>{summary}</strong>
+    </div>
+    <div>
+      <span>Next action</span>
+      <strong>{nextAction}</strong>
+    </div>
+    <div>
+      <span>History source</span>
+      <strong>{revisionLabel}</strong>
+    </div>
   </section>
 
   <div class="detail-layout">
@@ -166,6 +194,10 @@
 
     <section class="detail-panel" aria-labelledby="record-activity-title">
       <div class="detail-header"><h2 id="record-activity-title">Activity</h2></div>
+      <p class="activity-source-note">
+        Limited history: this activity is derived from retained record metadata until governed
+        revisions cover this record family.
+      </p>
       <ol class="activity-list">
         {#each activity as item (`${item.label}-${item.timestamp}`)}
           <li>
@@ -222,6 +254,40 @@
 
   .traceability-strip strong {
     font-size: 0.8125rem;
+    overflow-wrap: anywhere;
+  }
+
+  .workspace-contract-strip {
+    display: grid;
+    grid-template-columns: 1.1fr 1.4fr 0.8fr;
+    gap: 1px;
+    max-width: 1180px;
+    margin-bottom: 16px;
+    overflow: hidden;
+    border: 1px solid var(--glass-border-subtle);
+    border-radius: var(--radius-surface);
+    background: var(--glass-border-subtle);
+  }
+
+  .workspace-contract-strip > div {
+    display: grid;
+    gap: 5px;
+    min-width: 0;
+    background: rgba(9, 16, 18, 0.76);
+    padding: 12px;
+  }
+
+  .workspace-contract-strip span {
+    color: var(--color-accent-strong);
+    font-size: 0.6875rem;
+    font-weight: 780;
+    text-transform: uppercase;
+  }
+
+  .workspace-contract-strip strong {
+    color: var(--color-text);
+    font-size: 0.8125rem;
+    line-height: 1.4;
     overflow-wrap: anywhere;
   }
 
@@ -291,6 +357,15 @@
     list-style: none;
   }
 
+  .activity-source-note {
+    margin: 0;
+    border-top: 1px solid var(--glass-border-subtle);
+    color: var(--color-muted);
+    font-size: 0.8125rem;
+    line-height: 1.45;
+    padding-top: 10px;
+  }
+
   .activity-list li {
     border-top: 1px solid var(--glass-border-subtle);
     padding: 11px 0;
@@ -313,7 +388,15 @@
   }
 
   @media (max-width: 720px) {
-    .traceability-strip { grid-template-columns: 1fr 1fr; }
+    .traceability-strip,
+    .workspace-contract-strip {
+      grid-template-columns: 1fr 1fr;
+    }
+
+    .workspace-contract-strip > div:first-child {
+      grid-column: 1 / -1;
+    }
+
     .detail-list div {
       grid-template-columns: 1fr;
       gap: 4px;

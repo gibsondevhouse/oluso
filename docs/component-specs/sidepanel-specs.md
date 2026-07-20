@@ -1,24 +1,22 @@
 # Side panel specification
 
 Status: Governing target
-Last updated: 2026-07-18
+Last updated: 2026-07-20
 
 ## Purpose
 
-Provide stable laptop-oriented navigation for the baseline, industrial-hygiene, assurance, exchange, reporting, and system workflows.
+Provide stable laptop-oriented navigation for Home, current operations work, plant context, exposure work, reports, administration, and deferred Future Modules.
 
 ## Sections
 
 ```text
-Dashboard
-Baseline
-Master Data
-Industrial Hygiene
-Assurance
-Review Exchange
+Home
+Operations
+The Plant
+Exposure
 Reports
+Administration
 Future Modules
-Settings
 ```
 
 Child items are defined in [03-sidebar-navigation.md](../03-sidebar-navigation.md).
@@ -26,6 +24,7 @@ Child items are defined in [03-sidebar-navigation.md](../03-sidebar-navigation.m
 ## Behavior
 
 - Expanded/collapsed state may persist as a lightweight preference.
+- The legacy `/dashboard` path resolves to the Home item during route migration.
 - Current route and ancestor section are visually and semantically identified.
 - Counts show actionable gaps, reviews, conflicts, or due work only.
 - Future Modules is collapsed by default and labeled deferred/legacy.

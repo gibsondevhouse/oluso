@@ -34,6 +34,7 @@ import {
   BadgeAlert,
   FileInput,
   PackageOpen,
+  History,
 } from "lucide-svelte";
 
 export const iconMap: Record<string, any> = {
@@ -72,4 +73,5 @@ export const iconMap: Record<string, any> = {
   BadgeAlert,
   FileInput,
   PackageOpen,
+  History,
 };

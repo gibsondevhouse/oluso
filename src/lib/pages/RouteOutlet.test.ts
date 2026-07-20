@@ -92,8 +92,8 @@ describe("RouteOutlet", () => {
     });
 
     expect(screen.getByRole("heading", { level: 1, name: "Locations" })).toBeInTheDocument();
-    expect(screen.getByLabelText("Location browsing mode")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Explore hierarchy/ })).toHaveAttribute("aria-pressed", "true");
+    expect(await screen.findByRole("group", { name: "Location browsing mode" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: /Explore hierarchy/ })).toHaveAttribute("aria-pressed", "true");
   });
 
   it("renders the Controls workflow route", async () => {
@@ -134,6 +134,13 @@ describe("RouteOutlet", () => {
     expect(screen.getByRole("heading", { level: 1, name: "Reports & Exports" })).toBeInTheDocument();
     expect(await screen.findByRole("heading", { level: 2, name: "Generate Export" })).toBeInTheDocument();
     expect(screen.queryByText("No records to show")).not.toBeInTheDocument();
+  });
+
+  it("renders the traceable Activity portal route", async () => {
+    renderRoute("/activity");
+
+    expect(screen.getByRole("heading", { level: 1, name: "Activity" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 2, name: "Traceable Feed" })).toBeInTheDocument();
   });
 
   it.each([
@@ -226,6 +233,14 @@ describe("RouteOutlet", () => {
       "href",
       "/operations/locations/loc-demo-main-facility",
     );
+
+    await fireEvent.click(within(relatedLocation).getByRole("button", { name: "Inspect" }));
+    expect(
+      screen.getByRole("complementary", { name: /Main Facility/ }),
+    ).toHaveTextContent("Open full workspace");
+    expect(window.location.search).toContain("context=loc-demo-main-facility");
+    await fireEvent.click(screen.getByRole("button", { name: "Close context panel" }));
+    expect(screen.queryByRole("complementary", { name: /Main Facility/ })).not.toBeInTheDocument();
   });
 
   it("renders the canonical Chemical Substance workflow instead of the legacy combined register", () => {
@@ -293,9 +308,9 @@ describe("RouteOutlet", () => {
     });
 
     expect(screen.getByRole("heading", { level: 1, name: "Page Not Found" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Go to Dashboard" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Go to Home" })).toHaveAttribute(
       "href",
-      "/dashboard",
+      "/home",
     );
   });
 });

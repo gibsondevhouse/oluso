@@ -24,8 +24,7 @@
     <div class="breadcrumbs">Error</div>
     <h1 class="page-title" id="error-title">Something Went Wrong</h1>
     <p class="page-summary">
-      The application encountered an unexpected error. You can reload the app or return to the
-      dashboard.
+      The application encountered an unexpected error. You can reload the app or return to Home.
     </p>
   </header>
 
@@ -34,9 +33,9 @@
       <RefreshCw size={16} aria-hidden="true" />
       Reload App
     </button>
-    <a class="secondary-button" href="/dashboard">
+    <a class="secondary-button" href="/home">
       <LayoutDashboard size={16} aria-hidden="true" />
-      Go to Dashboard
+      Go to Home
     </a>
   </div>
 

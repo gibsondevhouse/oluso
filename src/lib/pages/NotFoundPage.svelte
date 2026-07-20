@@ -16,9 +16,9 @@
   </header>
 
   <div class="action-row">
-    <a class="button-link" href="/dashboard">
+    <a class="button-link" href="/home">
       <LayoutDashboard size={16} aria-hidden="true" />
-      Go to Dashboard
+      Go to Home
     </a>
     <button class="secondary-button" type="button" onclick={goBack}>
       <ArrowLeft size={16} aria-hidden="true" />

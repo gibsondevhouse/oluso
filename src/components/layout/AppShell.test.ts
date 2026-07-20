@@ -4,7 +4,10 @@ import { resetPersistenceStoresForTest } from "$lib/persistence/local-persistenc
 import AppShell from "./AppShell.svelte";
 
 describe("AppShell", () => {
-  beforeEach(() => { localStorage.clear(); resetPersistenceStoresForTest(); });
+  beforeEach(() => {
+    localStorage.clear();
+    resetPersistenceStoresForTest();
+  });
 
   it("renders the operational shell, persistent scope, and accessible shortcuts", () => {
     render(AppShell, { props: { currentPath: "/dashboard" } });

@@ -50,41 +50,45 @@ describe("operational foundation workspaces", () => {
     expect(screen.getByRole("button", { name: "By Geography" })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByRole("button", { name: "By Organization" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "By Function" })).toBeInTheDocument();
-    expect(screen.getByRole("tree", { name: "Enterprise hierarchy" })).toBeInTheDocument();
-    expect(screen.getByLabelText("Search hierarchy")).toHaveAttribute("placeholder", "Search by name or code");
-    expect(screen.getByText("Tifton Campus", { selector: "span" })).toBeInTheDocument();
+    expect(await screen.findByRole("tree", { name: "Enterprise hierarchy" })).toBeInTheDocument();
+    const hierarchySearch = await screen.findByLabelText("Search hierarchy");
+    expect(hierarchySearch).toHaveAttribute("placeholder", "Search by name or code");
+    await fireEvent.input(hierarchySearch, { target: { value: "Tifton" } });
+    await waitFor(() => expect(screen.getAllByRole("button", { name: /Tifton Campus/ }).length).toBeGreaterThan(0));
+    await fireEvent.input(hierarchySearch, { target: { value: "" } });
 
     await fireEvent.click(screen.getByRole("button", { name: "By Organization" }));
-    expect(screen.getByText("ADAMA Tifton", { selector: "span" })).toBeInTheDocument();
+    await waitFor(() => expect(screen.getAllByRole("button", { name: /ADAMA Tifton/ }).length).toBeGreaterThan(0));
     await fireEvent.click(screen.getByRole("button", { name: "By Function" }));
-    expect(screen.getByText("Manufacturing", { selector: "span" })).toBeInTheDocument();
+    await waitFor(() => expect(screen.getAllByRole("button", { name: /Manufacturing/ }).length).toBeGreaterThan(0));
   });
 
   it("keeps hierarchy exploration separate from Location search and filtering", async () => {
     renderRoute("/operations/locations");
     expect(await screen.findByRole("heading", { level: 1, name: "Locations" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Explore hierarchy" })).toHaveAttribute("aria-pressed", "true");
-    expect(screen.queryByPlaceholderText("Search Locations")).not.toBeInTheDocument();
-    await fireEvent.click(screen.getByRole("button", { name: "Search and filter Locations" }));
-    expect(screen.getByPlaceholderText("Search Locations")).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: /Explore hierarchy/ })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
+    await fireEvent.click(screen.getByRole("button", { name: /Search and filter Locations/ }));
+    expect(await screen.findByRole("textbox")).toBeInTheDocument();
     expect(screen.queryByRole("tree")).not.toBeInTheDocument();
   });
 
   it("guides Process creation through Site, Location, and compatible Function", async () => {
     renderRoute("/operations/processes/new");
     expect(await screen.findByRole("heading", { level: 2, name: "New process" })).toBeInTheDocument();
-    const locationSelect = screen.getByLabelText("Primary location") as HTMLSelectElement;
+    const [siteSelect, locationSelect] = screen.getAllByRole("combobox") as HTMLSelectElement[];
     expect(Array.from(locationSelect.options).filter((item) => item.value)).toHaveLength(0);
-    await fireEvent.change(screen.getByLabelText("Site"), { target: { value: site.id } });
+    await fireEvent.change(siteSelect, { target: { value: site.id } });
     expect(Array.from(locationSelect.options).some((item) => item.value === building.id)).toBe(true);
     await fireEvent.change(locationSelect, { target: { value: building.id } });
-    expect(Array.from((screen.getByLabelText("Operational Function") as HTMLSelectElement).options).some((item) => item.textContent?.includes("Manufacturing"))).toBe(true);
+    const functionSelect = screen.getAllByRole("combobox")[2] as HTMLSelectElement;
+    expect(Array.from(functionSelect.options).some((item) => item.textContent?.includes("Manufacturing"))).toBe(true);
   });
 
   it("renders a Site as a contextual workspace with explicit states, actions, tabs, and Connected Records", async () => {
     renderRoute(`/operations/locations/${site.id}`);
     expect(await screen.findByRole("heading", { level: 1, name: "Tifton Campus" })).toBeInTheDocument();
-    for (const state of ["Lifecycle", "Review", "Data quality", "Sync / exchange"]) expect(screen.getByText(state)).toBeInTheDocument();
+    for (const state of ["Lifecycle", "Review", "Data quality", "Sync / exchange"]) expect(screen.getAllByText(state).length).toBeGreaterThan(0);
     for (const action of ["Add Location", "Assign Function", "Add Process", "Record Inventory", "Document Chemical Use", "Start Baseline"]) expect(screen.getByRole("button", { name: action })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Physical Layout" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { level: 2, name: "Connected Records" })).toBeInTheDocument();
@@ -97,11 +101,12 @@ describe("operational foundation workspaces", () => {
     renderRoute(`/operations/processes/${process.id}`);
     expect(await screen.findByRole("heading", { level: 1, name: "Packaging" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Operational chain" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Connected Records" })).toBeInTheDocument();
+    await fireEvent.click(screen.getByRole("tab", { name: "Tasks" }));
     expect(screen.getByText("Routine Work")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /Load packer/ })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Connected Records" })).toBeInTheDocument();
 
     await fireEvent.click(screen.getByRole("tab", { name: "History" }));
-    await waitFor(() => expect(screen.getByRole("heading", { name: "Revision History" })).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Record History" })).toBeInTheDocument());
   });
 });

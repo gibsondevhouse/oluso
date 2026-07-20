@@ -1,7 +1,7 @@
 # 02 — Information architecture
 
 Status: Governing
-Last updated: 2026-07-18
+Last updated: 2026-07-20
 
 ## Organizing principle
 
@@ -22,15 +22,15 @@ Registers remain valuable as searchable indexes, but they are secondary to the g
 
 ## Primary product areas
 
-### Dashboard
+### Home
 
-Site/unit baseline completeness, overdue workflow steps, review packages requiring attention, conflicts, data-quality findings, control verification, and reassessment due.
+Current Site/Location context where available, continue-work items, attention queues, plain-language plant status, quick actions, limited recent activity, responsibility summaries, and local data health. Home is a portal entry point, not a compliance or exposure determination.
 
 ### Baseline
 
 Locations, processes, tasks, equipment, chemical uses, people/SEG context, controls, notes, and evidence captured through a unit-oriented workflow.
 
-### Master data
+### The Plant
 
 Organizations, people, canonical locations, equipment, chemical substances/products, SDS revisions, exposure agents/limits, controls, and document references.
 
@@ -104,6 +104,6 @@ The interface must distinguish:
 - The workflow owns top-level navigation; individual supporting tables do not automatically receive sidebar items.
 - Durable records have stable detail routes and visible history.
 - Context should carry forward through the baseline and assessment workflow.
-- A user should be able to reach source records from any derived dashboard, report, or comparison.
+- A user should be able to reach source records from Home, search, any derived report, or any comparison.
 - Archived dependencies remain resolvable and visibly inactive.
-- Future modules do not contribute primary dashboard counts or navigation clutter.
+- Future modules do not contribute Home readiness, attention counts, or navigation clutter.

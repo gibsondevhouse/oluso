@@ -31,7 +31,7 @@ Error details may be passed to this page via navigation state or a global error 
 
 1. **Title** — “Something Went Wrong”.
 2. **Message** — a friendly explanation that the application encountered an error.  In development builds, show technical details; in production, hide sensitive information.
-3. **Actions** — buttons: “Reload App” (refreshes the page), “Go to Dashboard” (navigates to `/dashboard`), and optionally “Report Issue” (opens feedback mechanism).
+3. **Actions** — buttons: “Reload App” (refreshes the page), “Go to Home” (navigates to `/home`), and optionally “Report Issue” (opens feedback mechanism).
 4. **Error Details** — in development mode only, display the error message and stack trace in a collapsible section.
 
 ## States
@@ -46,6 +46,6 @@ Static.  The error page may display a loading spinner if it attempts to reload a
 ## Acceptance Criteria
 
 * The error page appears when the app cannot recover from an exception.  It does not break the overall layout.
-* The page allows users to reload the app or return to the dashboard.
+* The page allows users to reload the app or return to Home.
 * Technical error details are shown only in development builds.
 * The page is accessible via keyboard and screen reader.

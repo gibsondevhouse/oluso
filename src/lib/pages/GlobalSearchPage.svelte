@@ -1,6 +1,8 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { Archive, RefreshCw, Search, SlidersHorizontal } from "lucide-svelte";
+  import { getBrowserDatabase } from "$lib/data/database";
+  import { ChemicalApplication } from "$lib/application/chemical";
   import RegisterState from "$lib/components/register/RegisterState.svelte";
   import { REGISTER_CONFIGS } from "$lib/components/register/register-config";
   import StatusPill from "$lib/components/ui/StatusPill.svelte";
@@ -13,6 +15,7 @@
     TYPED_ENTERPRISE_SEARCH_OPTIONS,
     searchAllRegisters,
     searchTypedEnterpriseRecords,
+    sortGlobalSearchResults,
     type GlobalSearchResultKind,
     type GlobalSearchResult,
     type TypedEnterpriseSearchContext,
@@ -29,6 +32,7 @@
   let results = $state<GlobalSearchResult[]>([]);
   let typedContext = $state<TypedEnterpriseSearchContext>({
     organizations: [], people: [], locations: [], operationalFunctions: [], processes: [], tasks: [],
+    chemicalSubstances: [], chemicalProducts: [], siteChemicalInventory: [], chemicalUses: [], sdsRevisions: [],
   });
   let refreshNonce = $state(0);
 
@@ -66,8 +70,8 @@
       ].filter(resultMatchesWorkspaceScope);
       results =
         registerFilter === "all"
-          ? nextResults
-          : nextResults.filter((result) => result.kind === registerFilter);
+          ? sortGlobalSearchResults(nextResults)
+          : sortGlobalSearchResults(nextResults.filter((result) => result.kind === registerFilter));
       searchError = null;
     } catch (error) {
       results = [];
@@ -86,12 +90,43 @@
 
     try {
       await olusoApplication.initialize();
+      const adapter = await getBrowserDatabase();
+      const chemicalApplication = new ChemicalApplication(adapter.database);
       const services = await foundationApplication.services();
-      const [organizations, people, locations, operationalFunctions, processes, tasks] = await Promise.all([
+      const [
+        organizations,
+        people,
+        locations,
+        operationalFunctions,
+        processes,
+        tasks,
+        chemicalSubstances,
+        chemicalProducts,
+        siteChemicalInventory,
+        chemicalUses,
+        sdsRevisions,
+      ] = await Promise.all([
         services.organizations.list(true), services.people.list(true), services.locations.list(true),
         services.operationalFunctions.list(true), services.processes.list(true), services.tasks.list(true),
+        chemicalApplication.repositories.substances.list({ includeArchived: true }),
+        chemicalApplication.repositories.products.list({ includeArchived: true }),
+        chemicalApplication.repositories.inventory.list({ includeArchived: true }),
+        chemicalApplication.repositories.uses.list({ includeArchived: true }),
+        chemicalApplication.repositories.sds.list({ includeArchived: true }),
       ]);
-      typedContext = { organizations, people, locations, operationalFunctions, processes, tasks };
+      typedContext = {
+        organizations,
+        people,
+        locations,
+        operationalFunctions,
+        processes,
+        tasks,
+        chemicalSubstances,
+        chemicalProducts,
+        siteChemicalInventory,
+        chemicalUses,
+        sdsRevisions,
+      };
       refreshNonce += 1;
     } catch (error) {
       errorMessage = serializeError(error);
@@ -168,13 +203,13 @@
     <div class="breadcrumbs">Workspace</div>
     <h1 class="page-title" id="global-search-title">Search workspace</h1>
     <p class="page-summary">
-      Find active records in the current work scope, with an option to include archived records.
+      Search current typed records and retained legacy registers from one place, with optional archived-record review.
     </p>
   </header>
 
   <section class="search-panel" aria-labelledby="global-search-controls-title">
     <div class="search-panel-header">
-      <h2 id="global-search-controls-title">Find records</h2>
+      <h2 id="global-search-controls-title">Search records</h2>
       <button class="secondary-button" type="button" onclick={initializeSearch} disabled={loading}>
         <RefreshCw size={16} aria-hidden="true" />
         {loading ? "Refreshing..." : "Refresh"}
@@ -186,16 +221,16 @@
         <span><Search size={14} aria-hidden="true" /> Search</span>
         <input
           class="toolbar-input"
-          placeholder="Search all registers"
+          placeholder="Search all records"
           bind:value={searchQuery}
           disabled={loading}
         />
       </label>
 
       <label class="toolbar-control">
-        <span><SlidersHorizontal size={14} aria-hidden="true" /> Register</span>
+        <span><SlidersHorizontal size={14} aria-hidden="true" /> Type</span>
         <select class="toolbar-input" bind:value={registerFilter} disabled={loading}>
-          <option value="all">All registers</option>
+          <option value="all">All records</option>
           {#each registerOptions as option}
             <option value={option.kind}>{option.label}</option>
           {/each}
@@ -227,8 +262,8 @@
     />
   {:else if !hasQuery}
     <RegisterState
-      title="Search all registers"
-      message="Enter a search term to find matching records across the workspace."
+      title="Search all records"
+      message="Enter a search term to find current typed records and retained legacy/reference records."
     />
   {:else if results.length === 0}
     <RegisterState
@@ -251,10 +286,11 @@
           <li class="search-result">
             <div class="result-main">
               <a class="result-title" href={result.href}>{result.recordTitle}</a>
-              <p>{result.matchedText}</p>
+              <p>{result.matchedField}: {result.matchedText}</p>
             </div>
             <div class="result-meta">
               <span>{result.registerTitle}</span>
+              <span class="source-chip source-{result.sourceState}">{result.sourceLabel}</span>
               <StatusPill
                 label={result.statusLabel}
                 tone={result.statusTone}
@@ -412,6 +448,31 @@
     gap: 8px;
     color: var(--color-muted);
     font-size: 0.8125rem;
+  }
+
+  .source-chip {
+    display: inline-flex;
+    align-items: center;
+    min-height: 22px;
+    border: 1px solid var(--glass-border-subtle);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.035);
+    color: var(--color-muted);
+    font-size: 0.75rem;
+    font-weight: 720;
+    padding: 2px 8px;
+  }
+
+  .source-chip.source-current {
+    border-color: var(--color-success-border);
+    background: var(--color-success-soft);
+    color: var(--color-success-text);
+  }
+
+  .source-chip.source-legacy {
+    border-color: var(--color-warning-border);
+    background: var(--color-warning-soft);
+    color: var(--color-warning-text);
   }
 
   @media (max-width: 720px) {

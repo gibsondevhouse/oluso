@@ -25,14 +25,14 @@ None.  No data is loaded for this page.
 ## Primary User Tasks
 
 * Understand that the page they attempted to access does not exist.
-* Navigate back to the dashboard or previous page.
+* Navigate back to Home or the previous page.
 
 ## Page Regions
 
 1. **Illustration/Icon** — large icon or illustration indicating a missing page.
 2. **Title** — “Page Not Found” or similar.
 3. **Message** — explanatory text suggesting possible reasons (typo, moved page).
-4. **Actions** — buttons: “Go to Dashboard” (navigates to `/dashboard`) and “Go Back” (navigates to previous page).
+4. **Actions** — buttons: “Go to Home” (navigates to `/home`) and “Go Back” (navigates to previous page).
 
 ## States
 

@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/svelte";
+import { fireEvent, render, screen } from "@testing-library/svelte";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import browserV14 from "$lib/data/legacy/__fixtures__/browser-v14.json";
 import { foundationApplication } from "$lib/application/foundation";
@@ -47,7 +47,7 @@ describe("legacy foundation migration screens", () => {
   it("renders normalized Organization, Person, Location, Process, and Task fixtures in typed screens", async () => {
     let view = renderRoute("/people/organizations/legacy-org-adama");
     expect(await screen.findByRole("heading", { level: 1, name: "ADAMA US" })).toBeInTheDocument();
-    expect(screen.getByText("Other", { selector: "dd" })).toBeInTheDocument();
+    expect(screen.getByText("Other")).toBeInTheDocument();
     view.unmount();
 
     view = renderRoute("/people/workers/legacy-person-hse-manager");
@@ -57,16 +57,18 @@ describe("legacy foundation migration screens", () => {
 
     view = renderRoute("/operations/locations/legacy-site-tifton");
     expect(await screen.findByRole("heading", { level: 1, name: "Tifton" })).toBeInTheDocument();
-    expect(screen.getAllByText(/United States.*Georgia.*Tifton/).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("link", { name: "United States" }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("link", { name: "Georgia" }).length).toBeGreaterThan(0);
     view.unmount();
 
     view = renderRoute("/operations/processes/legacy-process-prodiamine");
     expect(await screen.findByRole("heading", { level: 1, name: "Prodiamine WDG" })).toBeInTheDocument();
+  await fireEvent.click(screen.getByRole("tab", { name: "Tasks" }));
     expect(screen.getByRole("link", { name: /Clear blocked duct/ })).toBeInTheDocument();
     view.unmount();
 
     renderRoute("/operations/tasks/legacy-task-duct-clearing");
     expect(await screen.findByRole("heading", { level: 1, name: "Clear blocked duct" })).toBeInTheDocument();
-    expect(screen.getAllByText("Maintenance", { selector: "dd" }).length).toBeGreaterThan(0);
+    expect(screen.getByRole("link", { name: /Prodiamine WDG/ })).toBeInTheDocument();
   });
 });

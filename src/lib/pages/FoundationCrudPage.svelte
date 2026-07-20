@@ -308,7 +308,7 @@
     />
 
     {#if config.kind === "locations" && !isLoading && !operationError}
-      <div class="location-mode-switcher" aria-label="Location browsing mode"><button type="button" class:active={locationListMode === "explore"} aria-pressed={locationListMode === "explore"} onclick={() => (locationListMode = "explore")}><strong>Explore hierarchy</strong><span>Browse geography and physical layout</span></button><button type="button" class:active={locationListMode === "search"} aria-pressed={locationListMode === "search"} onclick={() => (locationListMode = "search")}><strong>Search and filter Locations</strong><span>Find a specific Location or group</span></button></div>
+      <div class="location-mode-switcher" role="group" aria-label="Location browsing mode"><button type="button" class:active={locationListMode === "explore"} aria-pressed={locationListMode === "explore"} onclick={() => (locationListMode = "explore")}><strong>Explore hierarchy</strong><span>Browse geography and physical layout</span></button><button type="button" class:active={locationListMode === "search"} aria-pressed={locationListMode === "search"} onclick={() => (locationListMode = "search")}><strong>Search and filter Locations</strong><span>Find a specific Location or group</span></button></div>
       {#if locationListMode === "explore"}
         <LocationHierarchyTree
           locations={exploreLocations}

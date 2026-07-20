@@ -1,7 +1,7 @@
 # 09 — Routing
 
 Status: Target contract; migrate incrementally
-Last updated: 2026-07-18
+Last updated: 2026-07-20
 
 ## Rules
 
@@ -15,8 +15,11 @@ Last updated: 2026-07-18
 
 | Route | Purpose |
 | --- | --- |
-| `/` | Redirect to `/dashboard`. |
-| `/dashboard` | Site/unit completeness, reviews, conflicts, due work, and data quality. |
+| `/` | Redirect to `/home`, preserving query state where valid. |
+| `/home` | Canonical HSE Operations Portal landing route. |
+| `/dashboard` | Legacy migration alias that redirects to `/home`. |
+| `/search` | Canonical global search for current typed records and retained legacy/reference records. |
+| `/activity` | Traceable activity feed sourced from immutable revisions, with limited legacy metadata clearly labeled. |
 | `/baseline` | Baseline workspaces by site/unit. |
 | `/baseline/[locationId]` | Guided unit/site baseline capture. |
 | `/baseline/[locationId]/packet` | Review-ready baseline packet. |
@@ -114,7 +117,18 @@ Package files are untrusted input. A selected file does not become a route param
 - Selected entity identity uses path parameters.
 - Unsaved forms, package contents, credentials, and sensitive notes never enter URLs.
 - Site/unit context may use a query parameter only when it is a view filter; canonical record context remains in the data relationship.
+- Read-first context panels may use `?context=[recordId]` as secondary view state. The full record route remains canonical, and closing the panel removes the query state without mutating the record.
 
 ## Migration aliases
 
 Old routes may redirect to a canonical target when identity mapping is unambiguous. A redirect must not silently reinterpret a legacy generic record as a valid typed record. Records requiring migration review land on a data-quality/migration resolution view.
+
+Implemented aliases:
+
+```text
+/ -> /home
+/dashboard -> /home
+/hse/chemicals -> /master/products
+```
+
+The legacy chemical alias does not map a legacy chemical ID into a typed Product ID. Legacy chemical gaps should direct users to migration review or the canonical Product/SDS routes.

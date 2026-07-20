@@ -1,7 +1,7 @@
 # 10 — UI architecture
 
 Status: Governing target
-Last updated: 2026-07-18
+Last updated: 2026-07-20
 
 ## Shell
 
@@ -16,6 +16,10 @@ ADAMA HSE uses a SvelteKit SPA/PWA shell with:
 The shell runs in a normal supported browser and an installed PWA. It does not depend on Tauri APIs.
 
 ## Page archetypes
+
+### Home operations portal
+
+Shows current working context, continue-work items, attention queues, plain-language plant status, quick actions, limited recent activity, responsibility summaries, and local data health. Every attention item links to a source record or a migration/remediation route. Counts are allowed only when their population and rule are explicit. The Recent Activity summary links to `/activity` for full source attribution.
 
 ### Completeness dashboard
 
@@ -41,6 +45,14 @@ Uses domain-specific steps and validation for hierarchies, chemical models, SEG 
 
 Shows immutable revisions with actor, time, source, reason, package attribution, and field-level before/after differences.
 
+### Activity feed
+
+Shows a cross-record projection of immutable `record_revisions` with actor, timestamp, record type, source revision/event ID, package attribution, scope where resolvable, and stable destination. Retained legacy register rows may appear only as limited-history metadata rows and must state that they are not field-level audit history.
+
+### Context panel
+
+Shows read-first inspection for a related record without leaving the current workspace. It provides identity, relationship summary, missing/archived state, and an “Open full workspace” route. Version 1 panels do not contain edit forms or destructive actions.
+
 ### Exchange preview and conflict resolver
 
 Shows package metadata/integrity, classification summary, dependency/schema failures, and base/local/external values. Applying remains disabled until blocking issues are resolved.
@@ -59,9 +71,18 @@ Reusable components may own presentation and interaction for:
 - Dirty-state and confirmation dialogs.
 - Storage/offline/backup diagnostics.
 - Completeness summaries.
+- Portal query/read models.
+- Command palette intents for navigation, search, and eligible create/start routes.
+- Activity feed and read-first context panel presentation.
 - Diff fields and conflict-resolution controls.
 
 Domain services own validation and mutation. Components never write directly to IndexedDB, generate revisions independently, or apply package records.
+
+## Command palette
+
+The command palette is a shell-level accelerator. It opens from a visible Search button, `Ctrl+K`/`Cmd+K`, or `/` when focus is not inside an editable field. Commands are generated from `src/lib/navigation/command-intents.ts`; deferred Future Module routes are excluded from primary command results. Record results are read-only and link to existing stable detail routes.
+
+Recent command entries are non-authoritative local UI preferences. They are not audit activity and are not mixed into `/activity`.
 
 ## Record-header standard
 

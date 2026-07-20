@@ -64,6 +64,13 @@
     { id: "review", label: "Review", description: "Confirm the inventory observation" },
   ];
 
+  interface ChemicalWorkspaceSummary {
+    question: string;
+    answer: string;
+    nextAction: string;
+    history: string;
+  }
+
   const entity = $derived(route.kind);
   const basePath = $derived(route.basePath ?? "/master/products");
   const currentSubstance = $derived(substances.find((record) => record.id === route.recordId));
@@ -104,6 +111,7 @@
     (secondaryFilter === "all" || record.operatingCondition === secondaryFilter) &&
     (!normalizedQuery || `${productName(record.productId)} ${processName(record.processId)} ${taskName(record.taskId)}`.toLocaleLowerCase().includes(normalizedQuery))
   ));
+  const workspaceSummary = $derived(chemicalWorkspaceSummary());
 
   function label(record: NamedRecord | undefined) { return record?.name ?? record?.title ?? record?.displayName ?? record?.productName ?? "Unknown"; }
   function productName(id: string) { return products.find((record) => record.id === id)?.productName ?? "Missing Product"; }
@@ -312,6 +320,59 @@
   function clearInventoryRelationships() { inventoryForm.storageLocationId = ""; }
   function clearUseSiteRelationships() { useForm.locationId = ""; useForm.processId = ""; useForm.taskId = ""; }
   function clearUseTask() { useForm.taskId = ""; }
+
+  function chemicalWorkspaceSummary(): ChemicalWorkspaceSummary | null {
+    if (entity === "chemical-substances" && currentSubstance) {
+      const linkedProducts = compositions.filter((item) => item.substanceId === currentSubstance.id).length;
+      return {
+        question: "Which Products use this Substance, and what identity gaps remain?",
+        answer: `${currentSubstance.substanceClassifications.join(", ") || "Unclassified"}; ${linkedProducts} linked Product${linkedProducts === 1 ? "" : "s"}.`,
+        nextAction: currentSubstance.casNumber ? "Review linked Products or update typed identity fields." : "Add or confirm CAS identity before relying on downstream Product relationships.",
+        history: `Revision ${currentSubstance.revision}; actor ${currentSubstance.updatedBy}.`,
+      };
+    }
+
+    if (entity === "chemical-products" && currentProduct && route.mode === "detail") {
+      const currentSds = sdsRevisions.find((item) => item.productId === currentProduct.id && item.currentStatus === "Current");
+      const inventoryCount = inventory.filter((item) => item.productId === currentProduct.id).length;
+      const useCount = uses.filter((item) => item.productId === currentProduct.id).length;
+      return {
+        question: "Where and how is this Product used, and which SDS supports it?",
+        answer: `${currentSds ? "Current SDS available" : "Missing current SDS"}; ${inventoryCount} inventory record${inventoryCount === 1 ? "" : "s"}; ${useCount} documented use${useCount === 1 ? "" : "s"}.`,
+        nextAction: currentSds ? "Review composition, uses, and Site inventory context." : "Add or mark the current SDS before treating this Product as review-ready.",
+        history: `Revision ${currentProduct.revision}; actor ${currentProduct.updatedBy}.`,
+      };
+    }
+
+    if (route.mode === "sds-detail" && currentSds && currentProduct) {
+      return {
+        question: "Which Product and review state does this SDS revision support?",
+        answer: `${currentProduct.productName}; ${currentSds.currentStatus}; ${currentSds.reviewStatus}.`,
+        nextAction: currentSds.currentStatus === "Current" ? "Review Product use and inventory links." : "Mark current only after review confirms this SDS revision is the governing document.",
+        history: `Revision ${currentSds.revision}; actor ${currentSds.updatedBy}.`,
+      };
+    }
+
+    if (entity === "chemical-inventory" && currentInventory) {
+      return {
+        question: "Where is this Product present, and what was observed?",
+        answer: `${productName(currentInventory.productId)} at ${locationName(currentInventory.siteId)}; ${currentInventory.inventoryStatus}.`,
+        nextAction: "Use inventory as Product presence only; open Chemical Use to document operational use.",
+        history: `Revision ${currentInventory.revision}; actor ${currentInventory.updatedBy}.`,
+      };
+    }
+
+    if (entity === "chemical-uses" && currentUse) {
+      return {
+        question: "Where and how is this Product used, and what exposure context is still outside this record?",
+        answer: `${productName(currentUse.productId)} in ${processName(currentUse.processId)}; ${currentUse.operatingCondition}; ${currentUse.frequency}.`,
+        nextAction: "Review Site, Location, Process, Task, SDS, controls, and later exposure-scenario links.",
+        history: `Revision ${currentUse.revision}; actor ${currentUse.updatedBy}.`,
+      };
+    }
+
+    return null;
+  }
 </script>
 
 <section class="chemical-page" aria-labelledby="chemical-title">
@@ -321,6 +382,15 @@
   </header>
   <div class="state-line" role="status">{stateMessage}</div>
   {#if error}<div class="alert" role="alert">{error}</div>{/if}
+
+  {#if !loading && workspaceSummary}
+    <section class="chemical-workspace-summary" aria-label="Connected chemical workspace summary">
+      <div><span>First question</span><strong>{workspaceSummary.question}</strong></div>
+      <div><span>Answer</span><strong>{workspaceSummary.answer}</strong></div>
+      <div><span>Next action</span><strong>{workspaceSummary.nextAction}</strong></div>
+      <div><span>History source</span><strong>{workspaceSummary.history}</strong></div>
+    </section>
+  {/if}
 
   {#if loading}
     <div class="panel empty">Loading…</div>
@@ -416,6 +486,10 @@
   .chemical-header h1, .chemical-header p, h2 { margin: 0; } .chemical-header > div > p:last-child { margin-top: 6px; color: var(--color-muted); }
   .eyebrow { color: var(--color-accent-strong) !important; font-size: .72rem; font-weight: 780; letter-spacing: .08em; text-transform: uppercase; }
   .state-line { color: var(--color-muted); font-size: .78rem; }
+  .chemical-workspace-summary { display: grid; grid-template-columns: 1.2fr 1.2fr 1.4fr .9fr; gap: 1px; overflow: hidden; border: 1px solid var(--glass-border-subtle); border-radius: var(--radius-surface); background: var(--glass-border-subtle); }
+  .chemical-workspace-summary div { display: grid; gap: 5px; min-width: 0; background: rgba(9,16,18,.76); padding: 12px; }
+  .chemical-workspace-summary span { color: var(--color-accent-strong); font-size: .68rem; font-weight: 780; text-transform: uppercase; }
+  .chemical-workspace-summary strong { color: var(--color-text); font-size: .82rem; line-height: 1.4; overflow-wrap: anywhere; }
   .filters { display: flex; gap: 12px; flex-wrap: wrap; align-items: end; } .filters label { min-width: 190px; }
   .panel { display: grid; gap: 16px; min-width: 0; border: 1px solid var(--color-border); border-radius: var(--radius-surface); background: var(--color-surface); padding: 20px; }
   .table-wrap { overflow-x: auto; } table { width: 100%; border-collapse: collapse; } th, td { border-bottom: 1px solid var(--glass-border-subtle); padding: 12px 10px; text-align: left; font-size: .84rem; white-space: nowrap; } th { color: var(--color-muted); font-size: .72rem; text-transform: uppercase; }
@@ -432,5 +506,6 @@
   .pill { border: 1px solid var(--color-border); border-radius: 999px; color: var(--color-muted); padding: 6px 10px; font-size: .74rem; } .inline-form { display: grid; grid-template-columns: 1.2fr 1fr 1fr auto; gap: 8px; }
   .related-row { border-top: 1px solid var(--glass-border-subtle); padding-top: 12px; } .related-row span, .boundary, .context { color: var(--color-muted); font-size: .83rem; } .text-action { border: 0; background: none; color: var(--color-accent-strong); cursor: pointer; }
   .history { margin: 0; border-top: 1px solid var(--glass-border-subtle); color: var(--color-muted); font-size: .8rem; padding-top: 9px; }
-  @media (max-width: 760px) { .form, .detail-grid { grid-template-columns: 1fr; } .wide, .wide-panel { grid-column: auto; } .inline-form, fieldset, .inventory-fields { grid-template-columns: 1fr; } }
+  @media (max-width: 960px) { .chemical-workspace-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 760px) { .form, .detail-grid, .chemical-workspace-summary { grid-template-columns: 1fr; } .wide, .wide-panel { grid-column: auto; } .inline-form, fieldset, .inventory-fields { grid-template-columns: 1fr; } }
 </style>

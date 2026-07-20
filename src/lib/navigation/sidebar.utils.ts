@@ -7,7 +7,7 @@ export function getActiveSidebarItemId(
   const cleanPathname = pathname.replace(/\/$/, "");
   
   if (cleanPathname === "" || cleanPathname === "/" || cleanPathname === "/dashboard") {
-    return "dashboard-home";
+    return "home";
   }
 
   let bestMatchItem: { id: string; route: string } | null = null;

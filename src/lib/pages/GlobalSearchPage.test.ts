@@ -15,7 +15,7 @@ describe("GlobalSearchPage", () => {
   it("finds records across registers and links to their detail routes", async () => {
     render(GlobalSearchPage);
 
-    const input = await screen.findByPlaceholderText("Search all registers");
+    const input = await screen.findByPlaceholderText("Search all records");
     await fireEvent.input(input, { target: { value: "egress" } });
 
     const result = await screen.findByRole("link", { name: "Blocked emergency egress path" });
@@ -26,6 +26,7 @@ describe("GlobalSearchPage", () => {
     }
 
     expect(within(resultItem).getByText("Findings")).toBeInTheDocument();
+    expect(within(resultItem).getByText("Retained legacy register")).toBeInTheDocument();
     expect(screen.getByText("3 records found")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Emergency Egress Walkthrough" })).toHaveAttribute(
       "href",
@@ -36,11 +37,11 @@ describe("GlobalSearchPage", () => {
   it("filters global results by register", async () => {
     render(GlobalSearchPage);
 
-    const input = await screen.findByPlaceholderText("Search all registers");
+    const input = await screen.findByPlaceholderText("Search all records");
     await fireEvent.input(input, { target: { value: "egress" } });
     expect(await screen.findByRole("link", { name: "Emergency Egress Walkthrough" })).toBeInTheDocument();
 
-    await fireEvent.change(screen.getByLabelText("Register"), {
+    await fireEvent.change(screen.getByLabelText("Type"), {
       target: { value: "findings" },
     });
 
@@ -60,7 +61,7 @@ describe("GlobalSearchPage", () => {
 
     render(GlobalSearchPage);
 
-    const input = await screen.findByPlaceholderText("Search all registers");
+    const input = await screen.findByPlaceholderText("Search all records");
     await fireEvent.input(input, { target: { value: "workshop" } });
 
     expect(screen.queryByRole("link", { name: "Workshop" })).not.toBeInTheDocument();

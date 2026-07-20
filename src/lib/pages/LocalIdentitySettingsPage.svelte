@@ -57,7 +57,7 @@
       hasProfile = true;
       window.dispatchEvent(new CustomEvent("adama-identity-ready"));
       message = "Local profile saved. Future changes will use this durable actor identity.";
-      await goto("/dashboard");
+      await goto("/home");
     } catch (cause) {
       error = cause instanceof Error ? cause.message : String(cause);
     } finally {

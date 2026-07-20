@@ -1,7 +1,7 @@
 # Feature inventory for the architecture reset
 
 Status: Phase 0 inventory baseline
-Last updated: 2026-07-18
+Last updated: 2026-07-20
 
 This inventory classifies the current implementation for migration planning. It does not claim that retained code already satisfies the target contracts.
 
@@ -32,8 +32,8 @@ This inventory classifies the current implementation for migration planning. It 
 | Chemicals | chemical types/service/config | Split substance/product/SDS/inventory/use/agent/limit. |
 | SEGs | SEG types/service/config | Correct to Similar Exposure Group plus effective-dated membership. |
 | Exposure monitoring | monitoring types/service/config | Split plan/event/sample/result/comparison/interpretation/determination. |
-| Dashboard | dashboard page/components | Replace generic counts with baseline/workflow completeness and actionable queues. |
-| Route/sidebar configuration | route registry/sidebar config | Reorganize around Baseline, Master Data, IH, Assurance, Exchange, Future Modules. |
+| Home portal | `src/lib/pages/HomePage.svelte`, `src/lib/application/portal` | Continue replacing generic counts with source-linked attention, resume-work, plant status, activity, and responsibility views. |
+| Route/sidebar configuration | route registry/sidebar config | Reorganize around Home, Operations, The Plant, Exposure, Reports, Administration, and Future Modules. |
 
 ## Defer behind Future Modules
 
@@ -43,7 +43,7 @@ Their definitions may remain for history/migration, but they:
 
 - Are not target-ready merely because CRUD routes exist.
 - Do not receive new fields/pages/polish.
-- Do not influence dashboard readiness.
+- Do not influence Home readiness or attention queues.
 - Must reuse canonical master/governance models if later reactivated.
 
 ## Remove after verified migration

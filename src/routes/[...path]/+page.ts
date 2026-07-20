@@ -5,12 +5,12 @@ import type { PageLoad } from "./$types";
 export const load: PageLoad = ({ url }) => {
   const pathname = normalizePath(url.pathname);
   if (pathname === "/hse/chemicals" || pathname.startsWith("/hse/chemicals/")) {
-    throw redirect(307, "/master/products");
+    throw redirect(307, `/master/products${url.search}`);
   }
   const parentRedirect = findParentRedirect(pathname);
 
   if (parentRedirect) {
-    throw redirect(307, parentRedirect.redirectTo);
+    throw redirect(307, `${parentRedirect.redirectTo}${url.search}`);
   }
 
   const route = findRoute(pathname);

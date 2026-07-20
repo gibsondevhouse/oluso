@@ -1,10 +1,6 @@
 <script lang="ts">
-  import { findRoute } from "$lib/navigation/route-registry";
-  import RouteOutlet from "$lib/pages/RouteOutlet.svelte";
-
-  const route = findRoute("/dashboard");
 </script>
 
-{#if route}
-  <RouteOutlet {route} />
-{/if}
+<section class="page" aria-labelledby="dashboard-redirect-title">
+  <h1 class="page-title" id="dashboard-redirect-title">Opening Home</h1>
+</section>

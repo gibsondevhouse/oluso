@@ -1,7 +1,7 @@
 # 06 — Design principles
 
 Status: Governing
-Last updated: 2026-07-18
+Last updated: 2026-07-20
 
 ## Product character
 
@@ -12,6 +12,10 @@ ADAMA HSE should feel like a calm professional operations console: structured, d
 ### Workflow before register breadth
 
 Guide users through baseline and exposure work. Registers remain available for search and maintenance, but the user should not assemble the workflow mentally from many pages.
+
+### Home before schema
+
+The opening route is `/home`. It presents working context, continue-work items, attention, plant status, quick actions, limited recent activity, responsibility summaries, and local data health before exposing register structure.
 
 ### Context persistence
 
@@ -51,7 +55,11 @@ Do not use sync language for local writes or manual exchange. The absence of a n
 
 Optimize for managed corporate laptop displays, keyboard navigation, tables, split views, and printable packets. Maintain functional responsive behavior for narrower browser windows without turning the core workflow into a phone-first inspection app.
 
-### Actionable dashboards
+### Semantic visual tokens
+
+Campaign-owned surfaces use shared semantic tokens for surface, border, state, focus, radius, spacing, elevation, and motion. Do not introduce one-off colors when an app token exists. Print, forced-colors, and reduced-motion behavior are part of the token contract.
+
+### Actionable Home and derived views
 
 Prioritize missing workflow links, data gaps, reviews, conflicts, overdue actions, failed controls, and reassessment due. Avoid decorative counts and charts that do not lead to corrective work.
 
@@ -77,11 +85,12 @@ Exchange workflows additionally define file parsing, validation, dry-run, confli
 - Form errors identify the field and corrective action.
 - Conflict diffs remain understandable to screen readers.
 - Review packets print without interactive controls or hidden color meaning.
+- Read-first context panels provide focus entry, Escape close, and a stable route to the full record.
 
 ## Anti-patterns
 
 - Generic forms for safety-critical entities.
-- Dashboard vanity metrics.
+- Home or dashboard vanity metrics.
 - Silent save/import failure.
 - A single `result > limit` exposure status.
 - Free-text relationships where canonical records exist.

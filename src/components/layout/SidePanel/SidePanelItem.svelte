@@ -11,6 +11,10 @@
   let { item, active, collapsed }: Props = $props();
 
   const IconComponent = $derived(item.icon ? iconMap[item.icon] : null);
+  const statusLabel = $derived(item.status === "deferred" ? "Future" : null);
+  const itemTitle = $derived(
+    collapsed && item.description ? `${item.title} - ${item.description}` : item.title,
+  );
 </script>
 
 <a
@@ -18,8 +22,9 @@
   class="side-panel-item"
   class:active
   class:collapsed
+  class:deferred={item.status === "deferred"}
   aria-current={active ? "page" : undefined}
-  title={collapsed ? item.title : undefined}
+  title={collapsed ? itemTitle : item.description}
 >
   {#if IconComponent}
     <span class="icon">
@@ -29,6 +34,9 @@
 
   {#if !collapsed}
     <span class="title">{item.title}</span>
+    {#if statusLabel}
+      <span class="status-badge">{statusLabel}</span>
+    {/if}
     {#if item.badge !== undefined && item.badge > 0}
       <span class="badge">{item.badge}</span>
     {/if}
@@ -70,6 +78,10 @@
     font-weight: 720;
   }
 
+  .side-panel-item.deferred {
+    color: var(--color-muted);
+  }
+
   .side-panel-item.active::before {
     position: absolute;
     left: -8px;
@@ -104,12 +116,18 @@
     white-space: nowrap;
   }
 
-  .badge {
+  .badge,
+  .status-badge {
     background-color: var(--color-badge-bg);
     color: var(--color-badge-text);
     font-size: 0.75rem;
     padding: 1px 6px;
     border-radius: 999px;
     font-weight: 600;
+  }
+
+  .status-badge {
+    background: rgba(246, 199, 104, 0.11);
+    color: var(--color-warning-text);
   }
 </style>

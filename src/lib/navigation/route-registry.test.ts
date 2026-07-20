@@ -32,8 +32,9 @@ describe("route registry", () => {
   it("registers the documented MVP shell routes", () => {
     expect(getRegisteredRoutePaths()).toEqual(
       expect.arrayContaining([
-        "/dashboard",
+        "/home",
         "/search",
+        "/activity",
         "/operations/locations",
         "/operations/processes",
         "/operations/equipment",
@@ -65,7 +66,9 @@ describe("route registry", () => {
   });
 
   it("marks Locations and Settings as implemented MVP workflow routes", () => {
+    expect(findRoute("/home")?.kind).toBe("home");
     expect(findRoute("/search")?.kind).toBe("global-search");
+    expect(findRoute("/activity")?.kind).toBe("activity");
     expect(findRoute("/operations/locations")?.kind).toBe("locations");
     expect(findRoute("/field/findings")?.kind).toBe("findings");
     expect(findRoute("/system/settings")?.kind).toBe("settings");
@@ -139,7 +142,8 @@ describe("route registry", () => {
   });
 
   it("defines parent route redirects for MVP section paths", () => {
-    expect(findParentRedirect("/")?.redirectTo).toBe("/dashboard");
+    expect(findParentRedirect("/")?.redirectTo).toBe("/home");
+    expect(findParentRedirect("/dashboard")?.redirectTo).toBe("/home");
     expect(findParentRedirect("/operations")?.redirectTo).toBe("/operations/locations");
     expect(findParentRedirect("/hse")?.redirectTo).toBe("/master/products");
     expect(findParentRedirect("/risk")?.redirectTo).toBe("/risk/controls");

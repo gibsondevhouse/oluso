@@ -41,7 +41,7 @@
     {#if !collapsed}
       <div class="app-identity">
         <span class="app-title">{SIDEBAR_CONFIG.appTitle}</span>
-        <span class="app-subtitle">Connected HSE workspace</span>
+        <span class="app-subtitle">Operations Portal</span>
       </div>
     {/if}
   </div>
@@ -60,8 +60,8 @@
 
   {#if !collapsed}
     <footer class="side-panel-footer">
-      <span>Offline ready</span>
-      <strong>Backup available in Settings</strong>
+      <span>Local-first data layer</span>
+      <strong>Manual exchange only</strong>
     </footer>
   {/if}
 </aside>

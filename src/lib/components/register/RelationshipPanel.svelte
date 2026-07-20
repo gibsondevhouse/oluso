@@ -1,4 +1,8 @@
 <script lang="ts">
+  import { onMount, tick } from "svelte";
+  import RecordContextPanel, {
+    type ContextPanelRecord,
+  } from "$lib/components/context-panel/RecordContextPanel.svelte";
   import StatusPill from "$lib/components/ui/StatusPill.svelte";
 
   export interface RelationshipItem {
@@ -20,7 +24,75 @@
   }
 
   let { sections }: Props = $props();
+  let activeRecord = $state<ContextPanelRecord | null>(null);
+  let returnFocusId = $state("");
+
+  const contextItems = $derived(
+    sections.flatMap((section) =>
+      section.items.map((item) => ({ ...item, sectionTitle: section.title })),
+    ),
+  );
+
+  onMount(() => {
+    syncContextFromUrl();
+    window.addEventListener("popstate", syncContextFromUrl);
+
+    return () => window.removeEventListener("popstate", syncContextFromUrl);
+  });
+
+  $effect(() => {
+    sections;
+    syncContextFromUrl();
+  });
+
+  function syncContextFromUrl() {
+    if (typeof window === "undefined") return;
+
+    const contextId = new URL(window.location.href).searchParams.get("context");
+    if (!contextId) {
+      activeRecord = null;
+      return;
+    }
+
+    activeRecord = contextItems.find((item) => item.id === contextId) ?? null;
+  }
+
+  function inspectRecord(item: RelationshipItem, sectionTitle: string) {
+    activeRecord = { ...item, sectionTitle };
+    returnFocusId = item.id;
+
+    if (typeof window === "undefined") return;
+    const url = new URL(window.location.href);
+    if (url.searchParams.get("context") === item.id) return;
+    url.searchParams.set("context", item.id);
+    window.history.pushState({ olusoContextPanel: item.id }, "", url);
+  }
+
+  function closeContextPanel() {
+    const previousId = activeRecord?.id ?? returnFocusId;
+    activeRecord = null;
+
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      if (url.searchParams.get("context")) {
+        url.searchParams.delete("context");
+        window.history.replaceState({}, "", url);
+      }
+    }
+
+    void tick().then(() => {
+      document.querySelector<HTMLButtonElement>(`[data-context-trigger="${previousId}"]`)?.focus();
+    });
+  }
+
+  function handleKeydown(event: KeyboardEvent) {
+    if (!activeRecord || event.key !== "Escape") return;
+    event.preventDefault();
+    closeContextPanel();
+  }
 </script>
+
+<svelte:window onkeydown={handleKeydown} />
 
 {#each sections as section (section.title)}
   <section class="relationship-panel" aria-labelledby={`relationship-${section.title.replace(/\s+/g, "-").toLowerCase()}`}>
@@ -34,19 +106,35 @@
       <div class="relationship-list">
         {#each section.items as item (item.id)}
           {#if item.href && !item.missing}
-            <a class="relationship-card" href={item.href}>
-              <span class="relationship-title">{item.title}</span>
+            <div class="relationship-card">
+              <a class="relationship-title" href={item.href}>{item.title}</a>
               {#if item.meta}
                 <span class="relationship-meta">{item.meta}</span>
               {/if}
-              {#if item.archived}
-                <StatusPill label="Archived" tone="inactive" context="related record" compact />
-              {/if}
-            </a>
+              <div class="relationship-actions">
+                {#if item.archived}
+                  <StatusPill label="Archived" tone="inactive" context="related record" compact />
+                {/if}
+                <button
+                  type="button"
+                  data-context-trigger={item.id}
+                  onclick={() => inspectRecord(item, section.title)}
+                >
+                  Inspect
+                </button>
+              </div>
+            </div>
           {:else}
             <div class="relationship-card missing" role="note">
               <span class="relationship-title">{item.title}</span>
               <span class="relationship-meta">{item.meta ?? "Related record is missing."}</span>
+              <button
+                type="button"
+                data-context-trigger={item.id}
+                onclick={() => inspectRecord(item, section.title)}
+              >
+                Inspect
+              </button>
             </div>
           {/if}
         {/each}
@@ -54,6 +142,10 @@
     {/if}
   </section>
 {/each}
+
+{#if activeRecord}
+  <RecordContextPanel record={activeRecord} onClose={closeContextPanel} />
+{/if}
 
 <style>
   .relationship-panel {
@@ -118,5 +210,31 @@
     color: var(--color-text);
     font-weight: 700;
     line-height: 1.3;
+  }
+
+  a.relationship-title {
+    text-decoration: none;
+  }
+
+  a.relationship-title:hover {
+    color: var(--color-accent-strong);
+  }
+
+  .relationship-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .relationship-card button {
+    width: fit-content;
+    border: 1px solid var(--glass-border-subtle);
+    border-radius: var(--radius-control);
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--color-accent-strong);
+    font-size: 0.75rem;
+    font-weight: 760;
+    padding: 5px 8px;
   }
 </style>
